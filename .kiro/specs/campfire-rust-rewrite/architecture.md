@@ -44,33 +44,34 @@ Build the complete user interface and experience while disabling only the heavy 
 │  ├─── Complete CSS/Styling (25+ stylesheets)               │
 │  ├─── Sound Assets (Embedded Audio Files)                  │
 │  ├─── Graceful Degradation (Disabled Features)             │
+│  ├─── Optimistic UI with Client Message IDs                │
 │  └─── Service Worker (PWA, Push Notifications)             │
 ├─────────────────────────────────────────────────────────────┤
 │  Axum Web Server (HTTP + WebSocket)                        │
 │  ├─── REST API Handlers (Stubbed File Endpoints)          │
-│  ├─── WebSocket Connection Manager                         │
-│  ├─── Session-based Authentication                         │
+│  ├─── WebSocket Connection Manager with State Sync         │
+│  ├─── Session-based Authentication with WS Integration     │
 │  └─── Rate Limiting & Security Middleware                  │
 ├─────────────────────────────────────────────────────────────┤
-│  Complete Real-time Engine                                  │
-│  ├─── Room Actors (State Management)                       │
-│  ├─── Presence Tracking                                    │
-│  ├─── Message Broadcasting (Rich Text)                     │
-│  ├─── Typing Notifications                                 │
-│  └─── Sound Command Processing                             │
+│  Coordinated Real-time Engine                              │
+│  ├─── Message Coordinator (Optimistic UI + Persistence)    │
+│  ├─── Room State Manager (Distributed Actors)             │
+│  ├─── Presence Tracker with Connection Cleanup             │
+│  ├─── Event Bus (Message/Presence/Typing Coordination)     │
+│  └─── Feature Flag Broadcaster (Real-time Config Updates)  │
 ├─────────────────────────────────────────────────────────────┤
-│  Feature-Flagged Task Queue                                │
-│  ├─── Webhook Delivery (Text Responses)                   │
-│  ├─── Push Notification Sending                           │
-│  ├─── Background Cleanup                                   │
-│  └─── File Processing (Disabled/Stubbed)                  │
+│  Prioritized Task Queue                                     │
+│  ├─── High Priority: Message Processing                    │
+│  ├─── Medium Priority: Webhook Delivery                    │
+│  ├─── Low Priority: Presence Updates, Cleanup             │
+│  └─── Feature Processing (Disabled/Stubbed)               │
 ├─────────────────────────────────────────────────────────────┤
-│  Text-Only SQLite Database (10-300MB)                      │
-│  ├─── Connection Pool                                      │
-│  ├─── FTS5 Search Index                                   │
-│  ├─── Prepared Statements                                 │
-│  ├─── No Blob Storage (Feature Flagged)                   │
-│  └─── Migration System                                     │
+│  Optimized SQLite Database (10-300MB)                      │
+│  ├─── Write-Ahead Logging (WAL) with Checkpointing        │
+│  ├─── Dedicated Writer Task (DWT) Pattern                 │
+│  ├─── FTS5 Search Index with Async Updates                │
+│  ├─── Connection Pool with Priority Queuing               │
+│  └─── Migration System with Feature Flag Schema           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -82,6 +83,41 @@ Build the complete user interface and experience while disabling only the heavy 
 - **Task Queue**: Tokio tasks (feature-flagged file processing)
 - **Authentication**: Full session management
 - **Deployment**: Complete UI with minimal backend
+
+---
+
+## Critical Coordination Mechanisms
+
+### 1. Optimistic UI Message Flow
+```
+Client                    Server                     Database
+  │                        │                          │
+  ├─ Send Message ────────▶│                          │
+  │  (client_message_id)   │                          │
+  │                        │                          │
+  ├─ Optimistic UI ────────┤                          │
+  │  (show pending)        │                          │
+  │                        │                          │
+  │                        ├─ Validate & Store ─────▶│
+  │                        │                          │
+  │                        ├─ Broadcast Confirmed ───┤
+  │                        │  (with client_msg_id)    │
+  │                        │                          │
+  ├─ Replace Optimistic ◀──┤                          │
+  │  (match client_id)     │                          │
+```
+
+### 2. Real-time State Synchronization
+- **Event Bus Pattern**: Central coordination for all real-time events
+- **State Reconciliation**: WebSocket reconnection triggers state diff sync
+- **Atomic Operations**: Message creation + broadcast as single transaction
+- **Connection Cleanup**: Heartbeat-based zombie connection detection
+
+### 3. Feature Flag Propagation
+- **Server-Side Changes**: Broadcast feature flag updates via WebSocket
+- **Client-Side Caching**: Local feature flag cache with TTL
+- **Graceful Transitions**: UI components react to real-time flag changes
+- **Rollback Safety**: Feature flag changes can be reverted instantly
 
 ---
 
@@ -182,19 +218,25 @@ SENTRY_DSN=your-sentry-dsn
 ## Performance Targets
 
 ### MVP Phase 1 Targets
-- **Memory**: 10-30MB total (same as text-only)
-- **Connections**: 10,000+ concurrent WebSocket
-- **Startup**: <50ms cold start
-- **Throughput**: 15K+ req/sec
+- **Memory**: 15-40MB total (includes coordination overhead)
+- **Connections**: 1,000+ concurrent WebSocket (realistic for single instance)
+- **Startup**: <100ms cold start (includes state initialization)
+- **Throughput**: 5K+ req/sec (sustainable with coordination)
 - **Storage**: 12.5MB-314MB (text-only)
 - **Cost Reduction**: 90-95% vs Rails
 
 ### Response Time Targets
-- **API Calls**: <2ms
-- **Message Operations**: <5ms
+- **API Calls**: <10ms (includes coordination)
+- **Message Operations**: <50ms (optimistic UI masks latency)
 - **Static Assets**: <1ms
-- **WebSocket Messages**: <1ms routing
-- **Database Queries**: <2ms
+- **WebSocket Messages**: <5ms routing (includes state sync)
+- **Database Queries**: <5ms (includes write coordination)
+
+### Scalability Limits
+- **Single Room**: 200 concurrent users (actor bottleneck)
+- **Total Rooms**: 100 active rooms (memory constraints)
+- **Message Rate**: 100 messages/second system-wide
+- **Horizontal Scaling**: Not supported in MVP (single SQLite)
 
 ---
 
@@ -251,6 +293,19 @@ AppConfig {
 **Added**: Image/video processing, OpenGraph previews, complete Rails parity
 **Cost**: 75-80% reduction (still significant savings)
 **Memory**: 50-100MB total
+
+### Coordination Considerations for Evolution
+
+#### Phase Transition Coordination
+- **Database Schema Evolution**: Backward-compatible migrations with feature flags
+- **State Migration**: Existing optimistic messages preserved during feature rollout
+- **Connection Continuity**: WebSocket connections maintained during feature flag changes
+- **Rollback Safety**: Each phase can be rolled back without data loss
+
+#### Scaling Preparation
+- **Phase 2-3**: Monitor room actor performance, prepare sharding
+- **Phase 3-4**: Implement horizontal scaling preparation (connection distribution)
+- **Phase 4+**: Consider multi-instance deployment with shared state coordination
 
 ---
 
