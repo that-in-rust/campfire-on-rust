@@ -51,6 +51,9 @@ The MVP implementation includes these core components:
 10. WHEN code blocks are present THEN the system SHALL apply syntax highlighting using highlight.js for plain text code blocks with language detection and proper formatting
 11. WHEN @mentions are processed THEN the system SHALL use mention tags, trigger autocomplete with 300ms debounce, send notifications to mentioned users, and maintain complete mention UI
 12. WHEN optimistic UI updates occur THEN the system SHALL generate temporary client_message_id (UUID), create pending message UI, show complete interface feedback, and replace with confirmed message using same client_message_id
+13. WHEN message creation fails THEN the system SHALL retry with exponential backoff (1s, 2s, 4s, 8s, 16s), maintain optimistic UI during retries, and provide clear error messaging after max retries exceeded
+14. WHEN duplicate client_message_id is detected THEN the system SHALL return existing message instead of creating duplicate, preventing race condition duplicates from network issues or rapid clicking
+15. WHEN database transaction fails THEN the system SHALL rollback all changes atomically, preventing partial message creation or inconsistent room state
 
 ### Requirement 2: Room Types and Membership Management
 
@@ -108,6 +111,10 @@ The MVP implementation includes these core components:
 10. WHEN connection state changes THEN the system SHALL broadcast to user-specific channels using stream_for current_user for read rooms updates, unread room badge counts, and sidebar state synchronization across multiple browser tabs
 11. WHEN real-time updates are processed THEN the system SHALL maintain message order consistency, handle concurrent updates properly, implement conflict resolution for simultaneous edits, and ensure eventual consistency across all connected clients
 12. WHEN ActionCable channels are managed THEN the system SHALL implement RoomChannel for room-specific events, PresenceChannel for connection tracking, TypingNotificationsChannel for typing indicators, HeartbeatChannel for connection health, ReadRoomsChannel and UnreadRoomsChannel for read state management
+13. WHEN WebSocket connections are lost THEN the system SHALL detect disconnection within 60 seconds via heartbeat timeout, clean up connection state, update presence status, and prepare for reconnection
+14. WHEN WebSocket reconnection occurs THEN the system SHALL perform state reconciliation by sending missed events since last known state, prevent duplicate message delivery, and restore room subscriptions
+15. WHEN system is under high load THEN the system SHALL apply backpressure by queuing messages with priority (critical > important > background), reject new connections when at capacity, and provide "system busy" feedback to users
+16. WHEN database becomes unavailable THEN the system SHALL use fallback storage for critical operations (message creation), continue serving read requests from cache, and replay fallback operations when database recovers
 
 ### Requirement 5: Bot Integration and Webhook System
 
@@ -249,7 +256,24 @@ The MVP implementation includes these core components:
 7. WHEN account settings change THEN it SHALL broadcast updates via WebSocket, update cached account data, and reflect changes across all connected clients
 8. WHEN account branding is displayed THEN it SHALL show account name in interface, use default branding in notifications and PWA manifest, and apply custom styles globally
 
-### Requirement 13: MVP Feature Flag System and Graceful Degradation
+### Requirement 13: System Reliability and Fault Tolerance
+
+**User Story:** As a user and system operator, I want the system to handle failures gracefully and recover automatically, so that chat functionality remains available even during component failures or high load.
+
+#### Acceptance Criteria
+
+1. WHEN database connection fails THEN the system SHALL use circuit breaker pattern to prevent cascade failures, store critical operations in fallback storage, and retry with exponential backoff until recovery
+2. WHEN message processing fails THEN the system SHALL retry failed messages up to 5 times with exponential backoff (1s, 2s, 4s, 8s, 16s), maintain user's optimistic UI during retries, and notify user of permanent failures
+3. WHEN system reaches capacity limits THEN the system SHALL apply backpressure by slowing down message processing, rejecting new connections with clear messaging, and prioritizing existing user experience
+4. WHEN WebSocket connections become zombies THEN the system SHALL detect via heartbeat timeout (60 seconds), clean up connection state automatically, update presence status, and free resources
+5. WHEN concurrent operations create race conditions THEN the system SHALL use database transactions with proper locking, prevent duplicate message creation via client_message_id deduplication, and ensure atomic state updates
+6. WHEN first-time setup has concurrent access THEN the system SHALL use advisory locking to prevent multiple admin account creation, ensure only one setup process succeeds, and handle race conditions gracefully
+7. WHEN direct message room creation races THEN the system SHALL use ordered user ID locking to prevent duplicate rooms, return existing room if found, and maintain singleton pattern integrity
+8. WHEN component health degrades THEN the system SHALL monitor service health continuously, switch to degraded mode when critical services fail, and restore full functionality when services recover
+9. WHEN event ordering is critical THEN the system SHALL use global and per-room sequence numbers, ensure total ordering within rooms, and provide eventual consistency across rooms
+10. WHEN system recovery occurs THEN the system SHALL replay fallback operations in correct order, reconcile state differences, and ensure no data loss during recovery process
+
+### Requirement 14: MVP Feature Flag System and Graceful Degradation
 
 **User Story:** As a user and administrator, I want a professional interface that clearly communicates which features are available now versus coming in future versions, so that I have appropriate expectations and can plan for feature rollout.
 

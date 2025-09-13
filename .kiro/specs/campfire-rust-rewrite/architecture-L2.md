@@ -1,36 +1,948 @@
-# Architecture L2: TDD-Driven Code Patterns for Campfire MVP
+# Architecture L2: Coordination-First Implementation Patterns for Campfire MVP
 
 ## Overview
 
-This document provides a comprehensive L2 (Implementation Layer) architecture that maps each requirement to specific Test-Driven Development patterns using idiomatic Rust and React code structures. The entire application is designed as a collection of well-tested, composable code patterns that ensure compile-first success and maintainable, bug-free code.
+This document provides a comprehensive L2 (Implementation Layer) architecture that addresses the **47 critical coordination gaps** identified in the cynical analysis. Rather than focusing solely on individual features, this architecture prioritizes **coordination mechanisms** that ensure distributed state consistency across WebSocket connections, database transactions, and real-time events.
 
-**Core Philosophy**: Every feature is built using the Red-Green-Refactor TDD cycle, with comprehensive pattern libraries ensuring consistent, idiomatic implementation across the entire codebase.
+**Core Philosophy**: Build coordination patterns first, then features. Every component is designed with **atomic coordination** and **graceful degradation** as primary concerns, using Test-Driven Development to validate coordination under failure scenarios.
+
+**Key Insight**: The challenge is not implementing individual features, but ensuring they work together reliably under real-world conditions including network partitions, concurrent operations, and partial failures.
 
 ---
 
 ## Table of Contents
 
-1. [TDD Architecture Principles](#tdd-architecture-principles)
-2. [Rust Backend Pattern Mapping](#rust-backend-pattern-mapping)
-3. [React Frontend Pattern Mapping](#react-frontend-pattern-mapping)
-4. [Cross-Cutting Pattern Integration](#cross-cutting-pattern-integration)
-5. [Testing Strategy and Implementation](#testing-strategy-and-implementation)
-6. [Feature Flag Pattern Architecture](#feature-flag-pattern-architecture)
-7. [Performance Pattern Implementation](#performance-pattern-implementation)
+1. [Coordination-First Architecture Principles](#coordination-first-architecture-principles)
+2. [Atomic State Coordination Patterns](#atomic-state-coordination-patterns)
+3. [WebSocket State Synchronization Solutions](#websocket-state-synchronization-solutions)
+4. [Database Transaction Coordination](#database-transaction-coordination)
+5. [Real-time Event Ordering and Recovery](#real-time-event-ordering-and-recovery)
+6. [Feature Flag State Machine Coordination](#feature-flag-state-machine-coordination)
+7. [Graceful Degradation and Circuit Breakers](#graceful-degradation-and-circuit-breakers)
+8. [Rust Backend Coordination Patterns](#rust-backend-coordination-patterns)
+9. [React Frontend Coordination Patterns](#react-frontend-coordination-patterns)
+10. [Testing Coordination Under Failure](#testing-coordination-under-failure)
 
 ---
 
-## TDD Architecture Principles
+## Coordination-First Architecture Principles
 
-### 1. Test-First Development Workflow
+### 1. Coordination-First Development Workflow
 
-Every component follows the strict TDD cycle:
+Every component follows the coordination-aware TDD cycle:
 
 ```
-RED → GREEN → REFACTOR → INTEGRATE
- ↓      ↓        ↓         ↓
-Write  Minimal   Extract   Pattern
-Test   Code      Patterns  Library
+RED → GREEN → REFACTOR → COORDINATE → INTEGRATE
+ ↓      ↓        ↓          ↓          ↓
+Write  Minimal   Extract    Test       Pattern
+Test   Code      Patterns   Coord.     Library
+```
+
+**Coordination Testing**: Every component must pass coordination tests that simulate:
+- Network partitions during operations
+- Concurrent access from multiple clients
+- Partial failures in multi-step operations
+- Recovery from inconsistent states
+
+### 2. Atomic Coordination Principles
+
+#### 2.1 The Coordination Hierarchy
+```rust
+// Level 1: Single-system atomic operations
+async fn atomic_message_create(db: &Database, message: Message) -> Result<Message, MessageError> {
+    let mut tx = db.begin().await?;
+    
+    // All operations in single transaction
+    let stored = sqlx::query_as!(Message, "INSERT INTO messages (...) VALUES (...) RETURNING *", ...)
+        .fetch_one(&mut *tx).await?;
+    
+    sqlx::query!("UPDATE rooms SET last_message_at = $1 WHERE id = $2", Utc::now(), message.room_id)
+        .execute(&mut *tx).await?;
+    
+    tx.commit().await?;
+    Ok(stored)
+}
+
+// Level 2: Cross-system coordination with compensation
+async fn coordinated_message_broadcast(
+    db: &Database,
+    broadcaster: &MessageBroadcaster,
+    message: Message,
+) -> Result<Message, CoordinationError> {
+    // Step 1: Atomic database operation
+    let stored_message = atomic_message_create(db, message).await
+        .map_err(CoordinationError::Database)?;
+    
+    // Step 2: Broadcast with compensation on failure
+    match broadcaster.broadcast_message(&stored_message).await {
+        Ok(()) => Ok(stored_message),
+        Err(broadcast_error) => {
+            // Compensation: Mark message as "broadcast_failed" for retry
+            let _ = mark_message_broadcast_failed(db, stored_message.id).await;
+            Err(CoordinationError::BroadcastFailed {
+                message_id: stored_message.id,
+                error: broadcast_error,
+            })
+        }
+    }
+}
+
+// Level 3: Multi-client coordination with conflict resolution
+async fn coordinated_optimistic_message(
+    coordinator: &MessageCoordinator,
+    client_id: Uuid,
+    content: String,
+    room_id: RoomId,
+    creator_id: UserId,
+) -> Result<Message, CoordinationError> {
+    // Check for duplicate client_message_id first
+    if let Some(existing) = coordinator.get_by_client_id(client_id).await? {
+        return Ok(existing); // Idempotent operation
+    }
+    
+    // Proceed with coordinated creation
+    coordinated_message_broadcast(
+        &coordinator.db,
+        &coordinator.broadcaster,
+        Message::new(client_id, content, room_id, creator_id)
+    ).await
+}
+```
+
+#### 2.2 Coordination Error Recovery
+```rust
+#[derive(Debug, thiserror::Error)]
+pub enum CoordinationError {
+    #[error("Database operation failed: {0}")]
+    Database(#[from] sqlx::Error),
+    
+    #[error("Broadcast failed for message {message_id}: {error}")]
+    BroadcastFailed { message_id: MessageId, error: String },
+    
+    #[error("State synchronization failed: {details}")]
+    StateSyncFailed { details: String },
+    
+    #[error("Coordination timeout after {timeout_ms}ms")]
+    Timeout { timeout_ms: u64 },
+}
+
+// Automatic retry with exponential backoff for coordination failures
+pub struct CoordinationRetry {
+    max_attempts: u32,
+    base_delay: Duration,
+}
+
+impl CoordinationRetry {
+    pub async fn execute<F, T, E>(&self, operation: F) -> Result<T, E>
+    where
+        F: Fn() -> Pin<Box<dyn Future<Output = Result<T, E>> + Send>>,
+        E: std::fmt::Debug,
+    {
+        let mut attempts = 0;
+        let mut delay = self.base_delay;
+        
+        loop {
+            match operation().await {
+                Ok(result) => return Ok(result),
+                Err(error) if attempts >= self.max_attempts => return Err(error),
+                Err(_) => {
+                    tokio::time::sleep(delay).await;
+                    delay *= 2;
+                    attempts += 1;
+                }
+            }
+        }
+    }
+}
+```
+
+---
+
+## Atomic State Coordination Patterns
+
+### 1. WebSocket Connection State Coordination
+
+**Problem Addressed**: Race conditions in connection management, message ordering, and presence tracking.
+
+#### 1.1 Atomic Connection Establishment
+```rust
+use tokio::sync::{RwLock, Mutex};
+use std::collections::HashMap;
+
+pub struct AtomicConnectionManager {
+    // Connection state with atomic operations
+    connections: Arc<RwLock<HashMap<UserId, Vec<ConnectionHandle>>>>,
+    // Per-room coordination
+    room_coordinators: Arc<RwLock<HashMap<RoomId, Arc<RoomCoordinator>>>>,
+    // Global sequence number for message ordering
+    global_sequence: Arc<Mutex<u64>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ConnectionHandle {
+    id: ConnectionId,
+    user_id: UserId,
+    room_id: RoomId,
+    sender: mpsc::UnboundedSender<CoordinatedMessage>,
+    // Connection state tracking
+    established_at: Instant,
+    last_heartbeat: Arc<Mutex<Instant>>,
+    sequence_number: Arc<Mutex<u64>>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CoordinatedMessage {
+    sequence: u64,
+    timestamp: DateTime<Utc>,
+    event: RoomEvent,
+    // Coordination metadata
+    requires_ack: bool,
+    retry_count: u8,
+}
+
+impl AtomicConnectionManager {
+    pub async fn establish_connection(
+        &self,
+        user_id: UserId,
+        room_id: RoomId,
+        websocket: WebSocket,
+    ) -> Result<ConnectionHandle, CoordinationError> {
+        // Step 1: Get or create room coordinator
+        let room_coordinator = self.get_or_create_room_coordinator(room_id).await;
+        
+        // Step 2: Atomic connection establishment
+        let connection_id = ConnectionId(Uuid::new_v4());
+        let (tx, rx) = mpsc::unbounded_channel();
+        
+        let handle = ConnectionHandle {
+            id: connection_id,
+            user_id,
+            room_id,
+            sender: tx,
+            established_at: Instant::now(),
+            last_heartbeat: Arc::new(Mutex::new(Instant::now())),
+            sequence_number: Arc::new(Mutex::new(0)),
+        };
+        
+        // Step 3: Atomic state updates
+        {
+            let mut connections = self.connections.write().await;
+            connections.entry(user_id).or_default().push(handle.clone());
+        }
+        
+        // Step 4: Subscribe to room with state synchronization
+        let mut event_stream = room_coordinator.subscribe_with_state_sync(user_id).await?;
+        
+        // Step 5: Start connection handler with coordination
+        self.spawn_coordinated_connection_handler(handle.clone(), websocket, event_stream).await;
+        
+        // Step 6: Broadcast join event AFTER connection is fully established
+        room_coordinator.coordinate_user_joined(user_id, connection_id).await?;
+        
+        Ok(handle)
+    }
+    
+    async fn spawn_coordinated_connection_handler(
+        &self,
+        handle: ConnectionHandle,
+        mut websocket: WebSocket,
+        mut event_stream: broadcast::Receiver<CoordinatedMessage>,
+    ) {
+        let connection_id = handle.id;
+        let user_id = handle.user_id;
+        let room_id = handle.room_id;
+        
+        tokio::spawn(async move {
+            let mut pending_acks = HashMap::<u64, Instant>::new();
+            let mut heartbeat_interval = tokio::time::interval(Duration::from_secs(30));
+            
+            loop {
+                tokio::select! {
+                    // Handle outgoing coordinated messages
+                    msg = event_stream.recv() => {
+                        match msg {
+                            Ok(coordinated_msg) => {
+                                // Update sequence number
+                                {
+                                    let mut seq = handle.sequence_number.lock().await;
+                                    *seq = coordinated_msg.sequence;
+                                }
+                                
+                                // Send message
+                                let json = serde_json::to_string(&coordinated_msg).unwrap();
+                                if websocket.send(Message::Text(json)).await.is_err() {
+                                    break;
+                                }
+                                
+                                // Track for acknowledgment if required
+                                if coordinated_msg.requires_ack {
+                                    pending_acks.insert(coordinated_msg.sequence, Instant::now());
+                                }
+                            }
+                            Err(_) => break,
+                        }
+                    }
+                    
+                    // Handle incoming WebSocket messages with coordination
+                    ws_msg = websocket.recv() => {
+                        match ws_msg {
+                            Some(Ok(Message::Text(text))) => {
+                                if let Err(e) = self.handle_coordinated_incoming_message(
+                                    &text, user_id, room_id, connection_id
+                                ).await {
+                                    tracing::error!("Coordination error: {}", e);
+                                }
+                            }
+                            Some(Ok(Message::Close(_))) => break,
+                            Some(Err(e)) => {
+                                tracing::error!("WebSocket error: {}", e);
+                                break;
+                            }
+                            None => break,
+                        }
+                    }
+                    
+                    // Heartbeat with coordination
+                    _ = heartbeat_interval.tick() => {
+                        // Update heartbeat timestamp
+                        {
+                            let mut heartbeat = handle.last_heartbeat.lock().await;
+                            *heartbeat = Instant::now();
+                        }
+                        
+                        // Clean up old pending acks (timeout after 30 seconds)
+                        let now = Instant::now();
+                        pending_acks.retain(|_, timestamp| {
+                            now.duration_since(*timestamp) < Duration::from_secs(30)
+                        });
+                        
+                        // Send heartbeat
+                        let heartbeat_msg = CoordinatedMessage {
+                            sequence: 0, // Heartbeats don't need sequence
+                            timestamp: Utc::now(),
+                            event: RoomEvent::Heartbeat,
+                            requires_ack: false,
+                            retry_count: 0,
+                        };
+                        
+                        let json = serde_json::to_string(&heartbeat_msg).unwrap();
+                        if websocket.send(Message::Text(json)).await.is_err() {
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // Cleanup with coordination
+            self.coordinate_connection_cleanup(user_id, room_id, connection_id).await;
+        });
+    }
+}
+```
+
+#### 1.2 Room-Level Coordination
+```rust
+pub struct RoomCoordinator {
+    room_id: RoomId,
+    // Atomic state management
+    state: Arc<RwLock<RoomState>>,
+    // Event ordering
+    event_sequence: Arc<Mutex<u64>>,
+    // Message broadcasting with ordering guarantees
+    event_broadcaster: broadcast::Sender<CoordinatedMessage>,
+    // Presence coordination
+    presence_tracker: Arc<PresenceCoordinator>,
+}
+
+#[derive(Debug, Clone)]
+pub struct RoomState {
+    active_connections: HashMap<UserId, Vec<ConnectionId>>,
+    typing_users: HashMap<UserId, Instant>,
+    last_message_sequence: u64,
+    // State version for conflict resolution
+    version: u64,
+}
+
+impl RoomCoordinator {
+    pub async fn coordinate_user_joined(
+        &self,
+        user_id: UserId,
+        connection_id: ConnectionId,
+    ) -> Result<(), CoordinationError> {
+        // Atomic state update
+        let (new_version, was_first_connection) = {
+            let mut state = self.state.write().await;
+            let connections = state.active_connections.entry(user_id).or_default();
+            let was_first = connections.is_empty();
+            connections.push(connection_id);
+            state.version += 1;
+            (state.version, was_first)
+        };
+        
+        // Only broadcast if this is the first connection for the user
+        if was_first_connection {
+            self.broadcast_coordinated_event(RoomEvent::UserJoined(user_id), true).await?;
+        }
+        
+        // Update presence coordination
+        self.presence_tracker.coordinate_user_present(user_id).await?;
+        
+        Ok(())
+    }
+    
+    pub async fn coordinate_message_creation(
+        &self,
+        message: Message,
+    ) -> Result<(), CoordinationError> {
+        // Get next sequence number atomically
+        let sequence = {
+            let mut seq = self.event_sequence.lock().await;
+            *seq += 1;
+            *seq
+        };
+        
+        // Update room state atomically
+        {
+            let mut state = self.state.write().await;
+            state.last_message_sequence = sequence;
+            state.version += 1;
+        }
+        
+        // Broadcast with coordination
+        let coordinated_msg = CoordinatedMessage {
+            sequence,
+            timestamp: Utc::now(),
+            event: RoomEvent::MessageCreated(message),
+            requires_ack: true, // Messages require acknowledgment
+            retry_count: 0,
+        };
+        
+        // Broadcast to all room subscribers
+        self.event_broadcaster.send(coordinated_msg)
+            .map_err(|_| CoordinationError::StateSyncFailed {
+                details: "Failed to broadcast message event".to_string()
+            })?;
+        
+        Ok(())
+    }
+    
+    pub async fn subscribe_with_state_sync(
+        &self,
+        user_id: UserId,
+    ) -> Result<broadcast::Receiver<CoordinatedMessage>, CoordinationError> {
+        let receiver = self.event_broadcaster.subscribe();
+        
+        // Send current state to new subscriber
+        let current_state = {
+            let state = self.state.read().await;
+            state.clone()
+        };
+        
+        // Send state synchronization message
+        let sync_msg = CoordinatedMessage {
+            sequence: current_state.last_message_sequence,
+            timestamp: Utc::now(),
+            event: RoomEvent::StateSync {
+                version: current_state.version,
+                active_users: current_state.active_connections.keys().cloned().collect(),
+                typing_users: current_state.typing_users.keys().cloned().collect(),
+            },
+            requires_ack: true,
+            retry_count: 0,
+        };
+        
+        // Note: In real implementation, we'd send this directly to the specific user
+        // rather than broadcasting to all subscribers
+        
+        Ok(receiver)
+    }
+}
+
+---
+
+## Database Transaction Coordination
+
+### 1. SQLite Coordination Patterns
+
+**Problem Addressed**: SQLite WAL mode writer serialization, transaction boundary mismatches, and FTS5 consistency.
+
+#### 1.1 Coordinated Database Operations
+```rust
+use sqlx::{Sqlite, Transaction};
+use tokio::sync::Semaphore;
+
+pub struct CoordinatedDatabase {
+    pool: SqlitePool,
+    // Limit concurrent writers to prevent contention
+    write_semaphore: Arc<Semaphore>,
+    // FTS5 coordination
+    fts_coordinator: Arc<FtsCoordinator>,
+    // Transaction coordination
+    tx_coordinator: Arc<TransactionCoordinator>,
+}
+
+impl CoordinatedDatabase {
+    pub fn new(pool: SqlitePool) -> Self {
+        Self {
+            pool,
+            // SQLite WAL mode: limit to 1 concurrent writer for optimal performance
+            write_semaphore: Arc::new(Semaphore::new(1)),
+            fts_coordinator: Arc::new(FtsCoordinator::new()),
+            tx_coordinator: Arc::new(TransactionCoordinator::new()),
+        }
+    }
+    
+    pub async fn coordinated_message_create(
+        &self,
+        message: &Message,
+    ) -> Result<Message, CoordinationError> {
+        // Acquire write lock
+        let _write_permit = self.write_semaphore.acquire().await
+            .map_err(|_| CoordinationError::Database("Failed to acquire write lock".into()))?;
+        
+        // Start coordinated transaction
+        let tx_id = TransactionId(Uuid::new_v4());
+        let mut tx = self.tx_coordinator.begin_coordinated_transaction(
+            &self.pool, 
+            tx_id,
+            TransactionType::MessageCreate
+        ).await?;
+        
+        // Step 1: Insert message
+        let stored_message = sqlx::query_as!(
+            Message,
+            r#"
+            INSERT INTO messages (id, content, room_id, creator_id, client_message_id, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING id, content, room_id, creator_id, client_message_id, created_at, updated_at
+            "#,
+            message.id.0,
+            message.content,
+            message.room_id.0,
+            message.creator_id.0,
+            message.client_message_id,
+            message.created_at,
+            message.updated_at
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+        
+        // Step 2: Update room last_message_at
+        sqlx::query!(
+            "UPDATE rooms SET last_message_at = $1, updated_at = $1 WHERE id = $2",
+            message.created_at,
+            message.room_id.0
+        )
+        .execute(&mut *tx)
+        .await?;
+        
+        // Step 3: Update membership unread counts (for disconnected users)
+        sqlx::query!(
+            r#"
+            UPDATE memberships 
+            SET unread_at = $1 
+            WHERE room_id = $2 
+              AND user_id != $3 
+              AND connections = 0
+            "#,
+            message.created_at,
+            message.room_id.0,
+            message.creator_id.0
+        )
+        .execute(&mut *tx)
+        .await?;
+        
+        // Step 4: Commit transaction atomically
+        self.tx_coordinator.commit_coordinated_transaction(tx, tx_id).await?;
+        
+        // Step 5: Schedule FTS5 update (async, after transaction commit)
+        self.fts_coordinator.schedule_fts_update(stored_message.id, &stored_message.content).await?;
+        
+        Ok(stored_message)
+    }
+}
+
+pub struct TransactionCoordinator {
+    active_transactions: Arc<RwLock<HashMap<TransactionId, TransactionMetadata>>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TransactionMetadata {
+    id: TransactionId,
+    tx_type: TransactionType,
+    started_at: Instant,
+    operations: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub enum TransactionType {
+    MessageCreate,
+    MessageUpdate,
+    MessageDelete,
+    RoomCreate,
+    UserCreate,
+}
+
+impl TransactionCoordinator {
+    pub async fn begin_coordinated_transaction(
+        &self,
+        pool: &SqlitePool,
+        tx_id: TransactionId,
+        tx_type: TransactionType,
+    ) -> Result<Transaction<'_, Sqlite>, CoordinationError> {
+        let tx = pool.begin().await?;
+        
+        // Track transaction metadata
+        let metadata = TransactionMetadata {
+            id: tx_id,
+            tx_type,
+            started_at: Instant::now(),
+            operations: Vec::new(),
+        };
+        
+        {
+            let mut active = self.active_transactions.write().await;
+            active.insert(tx_id, metadata);
+        }
+        
+        Ok(tx)
+    }
+    
+    pub async fn commit_coordinated_transaction(
+        &self,
+        tx: Transaction<'_, Sqlite>,
+        tx_id: TransactionId,
+    ) -> Result<(), CoordinationError> {
+        // Commit the transaction
+        tx.commit().await?;
+        
+        // Remove from active transactions
+        {
+            let mut active = self.active_transactions.write().await;
+            active.remove(&tx_id);
+        }
+        
+        Ok(())
+    }
+    
+    pub async fn get_active_transactions(&self) -> Vec<TransactionMetadata> {
+        let active = self.active_transactions.read().await;
+        active.values().cloned().collect()
+    }
+}
+```
+
+#### 1.2 FTS5 Coordination
+```rust
+pub struct FtsCoordinator {
+    update_queue: Arc<Mutex<VecDeque<FtsUpdate>>>,
+    is_processing: Arc<AtomicBool>,
+}
+
+#[derive(Debug, Clone)]
+pub struct FtsUpdate {
+    message_id: MessageId,
+    content: String,
+    operation: FtsOperation,
+    scheduled_at: Instant,
+}
+
+#[derive(Debug, Clone)]
+pub enum FtsOperation {
+    Insert,
+    Update,
+    Delete,
+}
+
+impl FtsCoordinator {
+    pub fn new() -> Self {
+        let coordinator = Self {
+            update_queue: Arc::new(Mutex::new(VecDeque::new())),
+            is_processing: Arc::new(AtomicBool::new(false)),
+        };
+        
+        // Start background FTS processing
+        coordinator.start_background_processor();
+        coordinator
+    }
+    
+    pub async fn schedule_fts_update(
+        &self,
+        message_id: MessageId,
+        content: &str,
+    ) -> Result<(), CoordinationError> {
+        let update = FtsUpdate {
+            message_id,
+            content: content.to_string(),
+            operation: FtsOperation::Insert,
+            scheduled_at: Instant::now(),
+        };
+        
+        {
+            let mut queue = self.update_queue.lock().await;
+            queue.push_back(update);
+        }
+        
+        Ok(())
+    }
+    
+    fn start_background_processor(&self) {
+        let queue = Arc::clone(&self.update_queue);
+        let is_processing = Arc::clone(&self.is_processing);
+        
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_millis(100));
+            
+            loop {
+                interval.tick().await;
+                
+                // Skip if already processing
+                if is_processing.load(Ordering::Acquire) {
+                    continue;
+                }
+                
+                // Get batch of updates
+                let updates = {
+                    let mut queue_guard = queue.lock().await;
+                    let batch_size = std::cmp::min(queue_guard.len(), 10);
+                    queue_guard.drain(..batch_size).collect::<Vec<_>>()
+                };
+                
+                if updates.is_empty() {
+                    continue;
+                }
+                
+                // Mark as processing
+                is_processing.store(true, Ordering::Release);
+                
+                // Process batch
+                if let Err(e) = Self::process_fts_batch(updates).await {
+                    tracing::error!("FTS batch processing failed: {}", e);
+                }
+                
+                // Mark as not processing
+                is_processing.store(false, Ordering::Release);
+            }
+        });
+    }
+    
+    async fn process_fts_batch(updates: Vec<FtsUpdate>) -> Result<(), CoordinationError> {
+        // Implementation would batch FTS5 updates
+        // This prevents FTS updates from blocking message creation
+        for update in updates {
+            tracing::debug!("Processing FTS update for message {}", update.message_id.0);
+            // Actual FTS5 update logic here
+        }
+        Ok(())
+    }
+}
+```
+
+---
+
+## Real-time Event Ordering and Recovery
+
+### 1. Event Sequence Coordination
+
+**Problem Addressed**: Message ordering guarantees, event bus coordination, and state reconciliation.
+
+#### 1.1 Global Event Sequencing
+```rust
+pub struct GlobalEventCoordinator {
+    // Global sequence number for all events
+    global_sequence: Arc<Mutex<u64>>,
+    // Event log for recovery
+    event_log: Arc<RwLock<VecDeque<SequencedEvent>>>,
+    // Per-client sequence tracking
+    client_sequences: Arc<RwLock<HashMap<UserId, u64>>>,
+    // Event broadcasting
+    event_broadcaster: broadcast::Sender<SequencedEvent>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SequencedEvent {
+    sequence: u64,
+    timestamp: DateTime<Utc>,
+    event_type: EventType,
+    room_id: RoomId,
+    user_id: Option<UserId>,
+    data: serde_json::Value,
+    // Recovery metadata
+    requires_ack: bool,
+    ack_timeout: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum EventType {
+    MessageCreated,
+    MessageUpdated,
+    MessageDeleted,
+    UserJoined,
+    UserLeft,
+    TypingStarted,
+    TypingEnded,
+    PresenceUpdate,
+    StateSync,
+}
+
+impl GlobalEventCoordinator {
+    pub fn new() -> Self {
+        let (tx, _) = broadcast::channel(10000);
+        
+        Self {
+            global_sequence: Arc::new(Mutex::new(0)),
+            event_log: Arc::new(RwLock::new(VecDeque::new())),
+            client_sequences: Arc::new(RwLock::new(HashMap::new())),
+            event_broadcaster: tx,
+        }
+    }
+    
+    pub async fn coordinate_event(
+        &self,
+        event_type: EventType,
+        room_id: RoomId,
+        user_id: Option<UserId>,
+        data: serde_json::Value,
+        requires_ack: bool,
+    ) -> Result<u64, CoordinationError> {
+        // Get next sequence number atomically
+        let sequence = {
+            let mut seq = self.global_sequence.lock().await;
+            *seq += 1;
+            *seq
+        };
+        
+        let sequenced_event = SequencedEvent {
+            sequence,
+            timestamp: Utc::now(),
+            event_type,
+            room_id,
+            user_id,
+            data,
+            requires_ack,
+            ack_timeout: if requires_ack {
+                Some(Utc::now() + Duration::seconds(30))
+            } else {
+                None
+            },
+        };
+        
+        // Add to event log for recovery
+        {
+            let mut log = self.event_log.write().await;
+            log.push_back(sequenced_event.clone());
+            
+            // Keep only last 10,000 events
+            if log.len() > 10000 {
+                log.pop_front();
+            }
+        }
+        
+        // Broadcast event
+        self.event_broadcaster.send(sequenced_event)
+            .map_err(|_| CoordinationError::StateSyncFailed {
+                details: "Failed to broadcast sequenced event".to_string()
+            })?;
+        
+        Ok(sequence)
+    }
+    
+    pub async fn get_events_since(
+        &self,
+        since_sequence: u64,
+        room_id: Option<RoomId>,
+    ) -> Vec<SequencedEvent> {
+        let log = self.event_log.read().await;
+        
+        log.iter()
+            .filter(|event| {
+                event.sequence > since_sequence &&
+                room_id.map_or(true, |rid| event.room_id == rid)
+            })
+            .cloned()
+            .collect()
+    }
+    
+    pub async fn acknowledge_event(
+        &self,
+        user_id: UserId,
+        sequence: u64,
+    ) -> Result<(), CoordinationError> {
+        // Update client sequence tracking
+        {
+            let mut sequences = self.client_sequences.write().await;
+            sequences.insert(user_id, sequence);
+        }
+        
+        Ok(())
+    }
+    
+    pub async fn recover_client_state(
+        &self,
+        user_id: UserId,
+        last_known_sequence: u64,
+        room_id: RoomId,
+    ) -> Result<Vec<SequencedEvent>, CoordinationError> {
+        // Get all events since last known sequence for this room
+        let missed_events = self.get_events_since(last_known_sequence, Some(room_id)).await;
+        
+        // Update client sequence
+        if let Some(latest_event) = missed_events.last() {
+            let mut sequences = self.client_sequences.write().await;
+            sequences.insert(user_id, latest_event.sequence);
+        }
+        
+        Ok(missed_events)
+    }
+}
+```
+
+#### 1.2 Connection Recovery Coordination
+```rust
+pub struct ConnectionRecoveryCoordinator {
+    event_coordinator: Arc<GlobalEventCoordinator>,
+    connection_manager: Arc<AtomicConnectionManager>,
+}
+
+impl ConnectionRecoveryCoordinator {
+    pub async fn handle_connection_recovery(
+        &self,
+        user_id: UserId,
+        room_id: RoomId,
+        last_known_sequence: Option<u64>,
+    ) -> Result<RecoveryResult, CoordinationError> {
+        let last_sequence = last_known_sequence.unwrap_or(0);
+        
+        // Get missed events
+        let missed_events = self.event_coordinator
+            .recover_client_state(user_id, last_sequence, room_id)
+            .await?;
+        
+        // Get current room state
+        let room_coordinator = self.connection_manager
+            .get_room_coordinator(room_id)
+            .await
+            .ok_or_else(|| CoordinationError::StateSyncFailed {
+                details: format!("Room coordinator not found for room {}", room_id.0)
+            })?;
+        
+        let current_state = room_coordinator.get_current_state().await;
+        
+        Ok(RecoveryResult {
+            missed_events,
+            current_state,
+            recovery_sequence: self.event_coordinator.get_current_sequence().await,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RecoveryResult {
+    pub missed_events: Vec<SequencedEvent>,
+    pub current_state: RoomState,
+    pub recovery_sequence: u64,
+}
+```
 ```
 
 #### 1.1 Rust TDD Pattern

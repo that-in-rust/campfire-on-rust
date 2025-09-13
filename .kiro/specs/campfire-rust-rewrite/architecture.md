@@ -108,16 +108,26 @@ Client                    Server                     Database
 ```
 
 ### 2. Real-time State Synchronization
-- **Event Bus Pattern**: Central coordination for all real-time events
-- **State Reconciliation**: WebSocket reconnection triggers state diff sync
-- **Atomic Operations**: Message creation + broadcast as single transaction
-- **Connection Cleanup**: Heartbeat-based zombie connection detection
+- **Event Bus Pattern**: Central coordination for all real-time events with sequence numbers
+- **State Reconciliation**: WebSocket reconnection triggers state diff sync with missed events
+- **Atomic Operations**: Message creation + broadcast as single database transaction
+- **Connection Cleanup**: Heartbeat-based zombie connection detection with 60-second timeout
+- **Circuit Breakers**: Prevent cascade failures when components are unhealthy
+- **Backpressure Management**: Queue limits and load shedding prevent system overload
 
 ### 3. Feature Flag Propagation
-- **Server-Side Changes**: Broadcast feature flag updates via WebSocket
-- **Client-Side Caching**: Local feature flag cache with TTL
-- **Graceful Transitions**: UI components react to real-time flag changes
-- **Rollback Safety**: Feature flag changes can be reverted instantly
+- **Server-Side Changes**: Broadcast feature flag updates via WebSocket with versioning
+- **Client-Side Caching**: Local feature flag cache with TTL and invalidation
+- **Graceful Transitions**: UI components react to real-time flag changes with animations
+- **Rollback Safety**: Feature flag changes can be reverted instantly with backward compatibility
+- **Consistency Guarantees**: All connected clients receive flag updates within 5 seconds
+
+### 4. Fault Tolerance and Recovery
+- **Database Transactions**: All multi-step operations use atomic transactions with rollback
+- **Message Retry System**: Exponential backoff retry with persistent queue for failed messages
+- **Fallback Storage**: Critical operations use fallback storage when primary database fails
+- **Graceful Degradation**: System continues with reduced functionality during outages
+- **Error Classification**: Different error types have appropriate recovery strategies
 
 ---
 
@@ -217,26 +227,34 @@ SENTRY_DSN=your-sentry-dsn
 
 ## Performance Targets
 
-### MVP Phase 1 Targets
-- **Memory**: 15-40MB total (includes coordination overhead)
-- **Connections**: 1,000+ concurrent WebSocket (realistic for single instance)
-- **Startup**: <100ms cold start (includes state initialization)
-- **Throughput**: 5K+ req/sec (sustainable with coordination)
-- **Storage**: 12.5MB-314MB (text-only)
-- **Cost Reduction**: 90-95% vs Rails
+### MVP Phase 1 Targets (With Fault Tolerance)
+- **Memory**: 20-50MB total (includes coordination, retry queues, fallback storage)
+- **Connections**: 1,000+ concurrent WebSocket (with circuit breaker protection)
+- **Startup**: <200ms cold start (includes health checks and state recovery)
+- **Throughput**: 3K+ req/sec sustainable (with backpressure and retry overhead)
+- **Storage**: 15MB-400MB (text-only + retry queues + fallback storage)
+- **Cost Reduction**: 90-95% vs Rails (fault tolerance adds minimal cost)
 
-### Response Time Targets
-- **API Calls**: <10ms (includes coordination)
-- **Message Operations**: <50ms (optimistic UI masks latency)
-- **Static Assets**: <1ms
-- **WebSocket Messages**: <5ms routing (includes state sync)
-- **Database Queries**: <5ms (includes write coordination)
+### Response Time Targets (With Coordination Overhead)
+- **API Calls**: <20ms (includes transaction overhead and health checks)
+- **Message Operations**: <100ms (optimistic UI masks latency, includes retry logic)
+- **Static Assets**: <1ms (unaffected by coordination)
+- **WebSocket Messages**: <10ms routing (includes state sync and event ordering)
+- **Database Queries**: <10ms (includes transaction coordination and circuit breaker)
 
-### Scalability Limits
-- **Single Room**: 200 concurrent users (actor bottleneck)
-- **Total Rooms**: 100 active rooms (memory constraints)
-- **Message Rate**: 100 messages/second system-wide
-- **Horizontal Scaling**: Not supported in MVP (single SQLite)
+### Reliability Targets
+- **Availability**: 99.9% uptime (8.76 hours downtime per year)
+- **Message Delivery**: 99.99% success rate (with retry mechanisms)
+- **Data Consistency**: 100% (atomic transactions prevent corruption)
+- **Recovery Time**: <30 seconds for component failures
+- **State Sync**: <5 seconds for WebSocket reconnection
+
+### Scalability Limits (Fault-Tolerant)
+- **Single Room**: 150 concurrent users (reduced due to coordination overhead)
+- **Total Rooms**: 75 active rooms (memory for retry queues and fallback storage)
+- **Message Rate**: 75 messages/second system-wide (with retry and coordination)
+- **Retry Queue**: 10,000 pending operations maximum
+- **Fallback Storage**: 100MB maximum before oldest operations are discarded
 
 ---
 
@@ -302,10 +320,17 @@ AppConfig {
 - **Connection Continuity**: WebSocket connections maintained during feature flag changes
 - **Rollback Safety**: Each phase can be rolled back without data loss
 
-#### Scaling Preparation
-- **Phase 2-3**: Monitor room actor performance, prepare sharding
-- **Phase 3-4**: Implement horizontal scaling preparation (connection distribution)
-- **Phase 4+**: Consider multi-instance deployment with shared state coordination
+#### Scaling and Reliability Preparation
+- **Phase 1**: Establish fault tolerance patterns, monitor reliability metrics
+- **Phase 2-3**: Monitor room actor performance, prepare sharding, enhance retry mechanisms for file operations
+- **Phase 3-4**: Implement horizontal scaling preparation, distributed coordination patterns
+- **Phase 4+**: Multi-instance deployment with shared state coordination, distributed fallback storage
+
+#### Reliability Evolution
+- **Phase 1**: Single-instance fault tolerance with local fallback storage
+- **Phase 2**: Enhanced retry mechanisms for avatar uploads, file processing circuit breakers
+- **Phase 3**: Distributed retry queues, cross-instance state synchronization
+- **Phase 4**: Full distributed fault tolerance with external message queues and shared storage
 
 ---
 
@@ -407,3 +432,35 @@ This architecture provides the optimal balance of **complete user experience**, 
 5. **Technical foundation** ready for future feature expansion
 
 The approach eliminates the common MVP problem of "looking unfinished" while maintaining the cost benefits of a minimal backend implementation. Users get a complete, professional chat experience with clear expectations about future enhancements.
+
+---
+
+## Operational Monitoring and Observability
+
+### Health Check Endpoints
+- **`/health`**: Basic service health (database, WebSocket, memory usage)
+- **`/health/detailed`**: Comprehensive health including circuit breaker states, queue sizes, retry counts
+- **`/metrics`**: Prometheus metrics for monitoring and alerting
+
+### Key Metrics to Monitor
+- **Message Processing**: Success rate, retry count, queue depth, processing latency
+- **WebSocket Connections**: Active connections, reconnection rate, heartbeat failures
+- **Database Performance**: Query latency, transaction rollback rate, connection pool usage
+- **Circuit Breaker States**: Open/closed status, failure rates, recovery attempts
+- **Memory Usage**: Total memory, retry queue size, fallback storage usage
+
+### Alerting Thresholds
+- **Message Failure Rate**: >1% (indicates system issues)
+- **WebSocket Reconnection Rate**: >10% (network or server issues)
+- **Database Query Latency**: >50ms average (performance degradation)
+- **Circuit Breaker Open**: Any circuit open for >5 minutes
+- **Memory Usage**: >80% of allocated memory
+
+### Fault Tolerance Validation
+- **Recovery Time**: <30 seconds for component failures
+- **Data Consistency**: 100% (atomic transactions prevent corruption)
+- **Message Delivery**: 99.99% success rate (with retry mechanisms)
+- **State Synchronization**: <5 seconds for WebSocket reconnection
+- **Availability**: 99.9% uptime target
+
+**This fault-tolerant architecture can now confidently deliver the professional chat experience specified in the requirements while maintaining the 90-95% cost reduction goal and providing production-grade reliability.**
