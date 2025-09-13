@@ -85,16 +85,18 @@ The existing system has these key components that must be replicated:
 
 #### Acceptance Criteria
 
-1. WHEN messages are broadcast THEN the system SHALL use Turbo Streams format with stream_for @room, broadcast_append_to room :messages, and ActionCable.server.broadcast for unread rooms
-2. WHEN presence is managed THEN the system SHALL track connections count, connected_at timestamp with 60-second TTL, and support connected/disconnected scopes
-3. WHEN users connect to presence THEN the system SHALL call membership.present to increment connections, update connected_at, clear unread_at, and broadcast read status
-4. WHEN users disconnect THEN the system SHALL call membership.disconnected to decrement connections, set connected_at to nil when connections < 1
-5. WHEN presence refreshes THEN the system SHALL send refresh action every 50 seconds, call membership.refresh_connection to maintain connection state
-6. WHEN typing notifications occur THEN the system SHALL broadcast start/stop actions with user attributes (id, name) to TypingNotificationsChannel subscribers
-7. WHEN visibility changes THEN the system SHALL delay by 5 seconds using VISIBILITY_CHANGE_DELAY, track wasVisible state, and send present/absent actions
-8. WHEN WebSocket connections are managed THEN the system SHALL identify by current_user, authenticate via find_session_by_cookie, and reject unauthorized connections
-9. WHEN channels are subscribed THEN the system SHALL verify room access via current_user.rooms.find_by(id: params[:room_id]) and reject if unauthorized
-10. WHEN connection state changes THEN the system SHALL broadcast to user-specific channels for read rooms and unread room badge updates
+1. WHEN messages are broadcast THEN the system SHALL use Turbo Streams format with stream_for @room, broadcast_append_to room :messages for new messages, broadcast_replace_to for edits, broadcast_remove_to for deletions, and ActionCable.server.broadcast for unread room badge updates
+2. WHEN presence is managed THEN the system SHALL track connections count via Connectable concern, connected_at timestamp with 60-second TTL, support connected/disconnected scopes, and implement per-room granular presence tracking at Membership level
+3. WHEN users connect to presence THEN the system SHALL call membership.present to increment connections atomically, update connected_at timestamp, clear unread_at to mark room as read, broadcast read event via PresenceChannel, and update sidebar indicators
+4. WHEN users disconnect THEN the system SHALL call membership.disconnected to decrement connections atomically, set connected_at to nil when connections < 1, maintain connection count accuracy, and handle browser crashes gracefully
+5. WHEN presence refreshes THEN the system SHALL send refresh action every 50 seconds via client-side presence_controller.js, call membership.refresh_connection to maintain heartbeat, prevent connection timeouts, and handle network interruptions
+6. WHEN typing notifications occur THEN the system SHALL broadcast start/stop actions with user attributes (id, name) to TypingNotificationsChannel subscribers, throttle notifications to prevent spam, track active typers per room, and clear indicators on message send
+7. WHEN visibility changes THEN the system SHALL implement 5-second delay using VISIBILITY_CHANGE_DELAY constant, track wasVisible state in client, send present/absent actions via PresenceChannel, and handle tab switching/minimization
+8. WHEN WebSocket connections are managed THEN the system SHALL identify by current_user via ApplicationCable::Connection, authenticate via find_session_by_cookie method, reject unauthorized connections, and maintain connection registry
+9. WHEN channels are subscribed THEN the system SHALL verify room access via current_user.rooms.find_by(id: params[:room_id]), reject unauthorized subscriptions, implement proper channel authorization, and handle subscription failures gracefully
+10. WHEN connection state changes THEN the system SHALL broadcast to user-specific channels using stream_for current_user for read rooms updates, unread room badge counts, and sidebar state synchronization across multiple browser tabs
+11. WHEN real-time updates are processed THEN the system SHALL maintain message order consistency, handle concurrent updates properly, implement conflict resolution for simultaneous edits, and ensure eventual consistency across all connected clients
+12. WHEN ActionCable channels are managed THEN the system SHALL implement RoomChannel for room-specific events, PresenceChannel for connection tracking, TypingNotificationsChannel for typing indicators, HeartbeatChannel for connection health, ReadRoomsChannel and UnreadRoomsChannel for read state management
 
 ### Requirement 5: Bot Integration and Webhook System
 
@@ -121,16 +123,18 @@ The existing system has these key components that must be replicated:
 
 #### Acceptance Criteria
 
-1. WHEN the system handles memory usage THEN it SHALL use <2MB baseline vs Rails 50-100MB, with efficient Rust structs and optimized WebSocket connection handling achieving 5-10x memory reduction
-2. WHEN concurrent connections are managed THEN it SHALL support 10,000+ concurrent WebSocket connections vs Rails ~1,000 using async/await and tokio runtime with proper backpressure
-3. WHEN the system starts up THEN it SHALL be ready in <100ms cold start vs Rails several seconds, including SQLite database opening, FTS5 index verification, and embedded asset loading
-4. WHEN HTTP requests are processed THEN it SHALL achieve 10-12k requests/second vs Rails few hundred per core, with <5ms response times for API calls and <10ms for message operations
-5. WHEN database operations occur THEN it SHALL use SQLite connection pooling with prepared statements, maintain <2ms query times with compile-time SQL validation via Diesel
-6. WHEN file processing happens THEN it SHALL use async image processing with tokio::spawn_blocking for CPU-bound tasks, generate thumbnails without blocking message delivery
-7. WHEN static assets are served THEN it SHALL embed React build artifacts in binary creating <50MB Docker images vs Rails several hundred MB, with zero-copy serving
-8. WHEN WebSocket broadcasting occurs THEN it SHALL use efficient message serialization, batch broadcasts to multiple connections, and minimize memory allocations per connection
-9. WHEN search operations are performed THEN it SHALL leverage SQLite FTS5 with optimized queries, proper indexing, and result caching achieving sub-millisecond search times
-10. WHEN measuring cost efficiency THEN it SHALL demonstrate 87% cost reduction example (2 vCPU/4GB → 0.25 vCPU/0.5GB) enabling single instance to replace multiple Rails servers
+1. WHEN the system handles memory usage THEN it SHALL use <2MB baseline vs Rails 50-100MB, implement efficient Rust structs with zero-cost abstractions, optimize WebSocket connection handling with minimal per-connection overhead, and achieve 5-10x memory reduction through careful resource management
+2. WHEN concurrent connections are managed THEN it SHALL support 10,000+ concurrent WebSocket connections vs Rails ~1,000 using async/await with tokio runtime, implement proper backpressure handling, use connection pooling, and maintain sub-millisecond message routing
+3. WHEN the system starts up THEN it SHALL achieve <100ms cold start vs Rails several seconds, perform SQLite database opening with WAL mode, verify FTS5 index integrity, load embedded assets into memory, and initialize tokio runtime efficiently
+4. WHEN HTTP requests are processed THEN it SHALL achieve 10-12k requests/second vs Rails few hundred per core using hyper/axum framework, maintain <5ms response times for API calls, <10ms for message operations, and <1ms for static asset serving
+5. WHEN database operations occur THEN it SHALL use SQLite connection pooling with configurable limits, implement prepared statements with compile-time SQL validation via Diesel ORM, maintain <2ms query times, and use WAL mode for concurrent read/write performance
+6. WHEN file processing happens THEN it SHALL use async image processing with tokio::spawn_blocking for CPU-bound VIPS operations, generate thumbnails without blocking message delivery, implement streaming for large files, and use efficient memory management
+7. WHEN static assets are served THEN it SHALL embed React build artifacts using include_bytes! macro, create <50MB Docker images vs Rails several hundred MB, implement zero-copy serving with proper caching headers, and compress responses efficiently
+8. WHEN WebSocket broadcasting occurs THEN it SHALL use efficient message serialization with serde, batch broadcasts to multiple connections, minimize memory allocations per connection, implement message queuing for offline users, and use broadcast channels for scalability
+9. WHEN search operations are performed THEN it SHALL leverage SQLite FTS5 with Porter stemming, implement optimized queries with proper indexing strategies, use result caching with TTL, achieve sub-millisecond search times, and handle large message volumes efficiently
+10. WHEN measuring cost efficiency THEN it SHALL demonstrate 87% cost reduction (2 vCPU/4GB → 0.25 vCPU/0.5GB), enable single instance to replace multiple Rails servers, reduce Docker image size by 80%+, and achieve 10x better resource utilization
+11. WHEN system scaling occurs THEN it SHALL handle horizontal scaling through stateless design, implement efficient load balancing for WebSocket connections, use shared SQLite database with proper locking, and maintain performance under high load
+12. WHEN resource monitoring is active THEN it SHALL provide Prometheus metrics for memory usage, connection counts, request latency, database performance, and system resource utilization with minimal overhead
 
 ### Requirement 7: Data Migration and Schema Compatibility
 
@@ -287,16 +291,18 @@ The existing system has these key components that must be replicated:
 
 #### Acceptance Criteria
 
-1. WHEN message formatting occurs THEN it SHALL implement MessageFormatter with 5-minute threading windows, emoji detection using Unicode regex, mention highlighting with @username parsing, and first-of-day detection with separators
-2. WHEN message pagination happens THEN it SHALL implement MessagePaginator with intersection observers for auto-loading, excess message trimming (performance optimization), scroll position management, and loading state indicators
-3. WHEN scroll management is active THEN it SHALL implement ScrollManager with auto-scroll threshold (100px from bottom), keep-scroll positioning during updates, pending operation queuing, and smooth scrolling behavior
-4. WHEN client messages are rendered THEN it SHALL implement ClientMessage with template rendering, state management (pending/sent/failed), UUID generation for client_message_id, and optimistic updates
-5. WHEN file uploads occur THEN it SHALL implement FileUploader with XMLHttpRequest progress tracking, visual feedback with percentage completion, drag-and-drop support, and error recovery mechanisms
-6. WHEN message threading is displayed THEN it SHALL group messages within 5-minute windows, show thread style with reduced avatars, calculate proper sort values, and handle thread breaks with separators
-7. WHEN emoji-only messages are detected THEN it SHALL apply message--emoji CSS class using Unicode emoji detection regex and enlarge display appropriately
-8. WHEN code blocks are processed THEN it SHALL apply syntax highlighting using highlight.js, detect language from content, and maintain proper formatting
-9. WHEN mentions are processed THEN it SHALL highlight @username patterns, link to user profiles, and trigger notification logic for mentioned users
-10. WHEN message positioning occurs THEN it SHALL calculate proper sort values, handle message insertion at correct positions, and maintain chronological order with threading
+1. WHEN message formatting occurs THEN it SHALL implement MessageFormatter with precise 5-minute threading windows using timestamp calculations, emoji detection using Unicode regex patterns, mention highlighting with @username parsing and profile linking, first-of-day detection with date separators, and thread style management with avatar reduction
+2. WHEN message pagination happens THEN it SHALL implement MessagePaginator with intersection observers for auto-loading older messages, excess message trimming for performance (remove messages beyond viewport), scroll position management during updates, loading state indicators, and efficient DOM manipulation
+3. WHEN scroll management is active THEN it SHALL implement ScrollManager with auto-scroll threshold (100px from bottom), keep-scroll positioning during real-time updates, pending operation queuing to prevent conflicts, smooth scrolling behavior with CSS transforms, and scroll restoration after page navigation
+4. WHEN client messages are rendered THEN it SHALL implement ClientMessage with Mustache template rendering, state management (pending/sent/failed/optimistic), UUID generation for client_message_id matching server response, optimistic updates with rollback capability, and error state handling
+5. WHEN file uploads occur THEN it SHALL implement FileUploader with XMLHttpRequest progress tracking, visual feedback showing percentage completion, drag-and-drop support with visual indicators, clipboard paste detection, error recovery mechanisms, and file validation
+6. WHEN message threading is displayed THEN it SHALL group messages within 5-minute windows using precise timing, apply thread styling with .message--thread CSS class, reduce avatar display for subsequent messages, calculate proper sort values for insertion, and handle thread breaks with visual separators
+7. WHEN emoji-only messages are detected THEN it SHALL apply message--emoji CSS class using Unicode emoji detection regex, enlarge display with appropriate font sizing, detect emoji-only content accurately, and handle mixed emoji/text content properly
+8. WHEN code blocks are processed THEN it SHALL apply syntax highlighting using highlight.js library, detect programming language from content or user specification, maintain proper formatting with monospace fonts, handle code block escaping, and support inline code spans
+9. WHEN mentions are processed THEN it SHALL highlight @username patterns with mention styling, link to user profiles with proper routing, trigger notification logic for mentioned users, implement autocomplete with fuzzy search, and handle mention validation
+10. WHEN message positioning occurs THEN it SHALL calculate proper sort values for chronological ordering, handle message insertion at correct positions in DOM, maintain threading relationships, resolve conflicts from concurrent updates, and preserve scroll position during insertions
+11. WHEN Stimulus controllers are implemented THEN it SHALL replicate messages_controller.js for message management, composer_controller.js for message composition, presence_controller.js for connection tracking, autocomplete_controller.js for user suggestions, and typing_notifications_controller.js for typing indicators
+12. WHEN client-side state is managed THEN it SHALL maintain message cache for performance, handle WebSocket reconnection gracefully, sync state across browser tabs, implement offline message queuing, and provide visual feedback for connection status
 
 ### Requirement 17: Content Processing and Security Pipeline
 
@@ -321,16 +327,18 @@ The existing system has these key components that must be replicated:
 
 #### Acceptance Criteria
 
-1. WHEN OpenGraph fetching occurs THEN it SHALL implement RestrictedHTTP::PrivateNetworkGuard to prevent SSRF attacks against internal networks, localhost, and private IP ranges
-2. WHEN URLs are validated THEN it SHALL check against private network ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16), localhost (127.0.0.1, ::1), and link-local addresses
-3. WHEN HTTP requests are made THEN it SHALL enforce 7-second timeout, limit redirects to 10 maximum, validate SSL certificates, and handle network errors gracefully
-4. WHEN metadata is extracted THEN it SHALL use Nokogiri-compatible HTML parsing, extract title/description/image safely, validate content length limits, and sanitize extracted text
-5. WHEN images are processed THEN it SHALL validate image URLs for safety, enforce size limits (5MB maximum), check MIME types, and generate secure cached versions
-6. WHEN document parsing occurs THEN it SHALL handle malformed HTML gracefully, prevent XML external entity attacks, limit parsing time, and validate character encoding
-7. WHEN OpenGraph data is cached THEN it SHALL store metadata with expiration times, validate cached content on retrieval, and handle cache invalidation properly
-8. WHEN network restrictions are bypassed THEN it SHALL log security events, block the request, and notify administrators of attempted SSRF attacks
-9. WHEN OpenGraph processing fails THEN it SHALL fall back gracefully without breaking message display, log errors appropriately, and provide user feedback
-10. WHEN rate limiting is applied THEN it SHALL limit OpenGraph requests per user/IP, implement exponential backoff for failures, and prevent abuse
+1. WHEN OpenGraph fetching occurs THEN it SHALL implement RestrictedHTTP::PrivateNetworkGuard equivalent to prevent SSRF attacks against internal networks (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16), localhost (127.0.0.1, ::1), link-local addresses (169.254.0.0/16), and cloud metadata endpoints
+2. WHEN URLs are validated THEN it SHALL perform comprehensive validation against private network ranges, localhost variations, IPv6 loopback, cloud provider metadata services (169.254.169.254), and malicious redirect chains before making any HTTP requests
+3. WHEN HTTP requests are made THEN it SHALL enforce strict 7-second timeout, limit redirects to maximum 10 hops, validate SSL certificates with proper chain verification, use secure HTTP client configuration, and handle network errors gracefully with proper logging
+4. WHEN metadata is extracted THEN it SHALL use Nokogiri-compatible HTML parsing with security restrictions, extract og:title/og:description/og:image safely with length limits, validate content against XSS patterns, sanitize extracted text using allowlist-based filtering, and handle malformed HTML gracefully
+5. WHEN images are processed THEN it SHALL validate image URLs against SSRF restrictions, enforce size limits (5MB maximum for OpenGraph images), verify MIME types against allowlist, generate secure cached versions with proper headers, and handle image processing failures gracefully
+6. WHEN document parsing occurs THEN it SHALL implement XML external entity (XXE) attack prevention, limit parsing time to prevent DoS, validate character encoding (UTF-8), handle malformed HTML with fallback parsing, and prevent memory exhaustion attacks
+7. WHEN OpenGraph data is cached THEN it SHALL store metadata with configurable TTL expiration, validate cached content integrity on retrieval, implement cache invalidation for updated URLs, use secure cache keys, and handle cache corruption gracefully
+8. WHEN security violations are detected THEN it SHALL log detailed security events with request details, immediately block suspicious requests, implement rate limiting for repeated violations, notify administrators via configured channels, and maintain security audit trail
+9. WHEN OpenGraph processing fails THEN it SHALL fall back gracefully without breaking message composition, log errors with appropriate detail level, provide user feedback for network issues, handle timeout scenarios elegantly, and maintain message flow continuity
+10. WHEN rate limiting is applied THEN it SHALL limit OpenGraph requests per user (10/minute) and per IP (50/minute), implement exponential backoff for failures, track request patterns for abuse detection, and provide clear error messages for rate limit violations
+11. WHEN special URL handling occurs THEN it SHALL use fxtwitter.com service for Twitter/X links to bypass API restrictions, handle social media platform variations, support custom URL transformations, and maintain compatibility with platform changes
+12. WHEN link unfurling is triggered THEN it SHALL detect URLs in message composition via client-side Unfurler.js, send requests to UnfurlLinksController asynchronously, insert rich previews as <action-text-attachment> elements, and handle unfurling failures transparently
 
 ### Requirement 19: Advanced Membership Management and Presence Tracking
 
@@ -554,16 +562,18 @@ The existing system has these key components that must be replicated:
 
 #### Acceptance Criteria
 
-1. WHEN sound commands are parsed THEN it SHALL recognize /play soundname format, support all 50+ predefined sounds (56k, bell, bezos, bueller, etc.), and handle case-insensitive matching
-2. WHEN sound responses are generated THEN it SHALL return appropriate text responses for each sound, display associated images where applicable, and maintain response consistency
-3. WHEN sound assets are served THEN it SHALL embed all sound files in binary, serve with proper MIME types and caching headers, and support efficient streaming
-4. WHEN sound metadata is processed THEN it SHALL use Sound::Image structure with name, width, height dimensions, maintain WebP format compatibility, and handle missing assets gracefully
-5. WHEN sound commands are broadcast THEN it SHALL send sound events via WebSocket to all room members, include sound metadata in message content, and handle playback synchronization
-6. WHEN sound validation occurs THEN it SHALL validate sound names against predefined list, prevent arbitrary file access, and handle invalid sound requests gracefully
-7. WHEN sound history is maintained THEN it SHALL track recently played sounds per room, implement sound usage statistics, and provide sound discovery features
-8. WHEN sound permissions are checked THEN it SHALL respect room-level sound settings, handle user preferences for sound playback, and implement sound muting options
-9. WHEN sound assets are optimized THEN it SHALL compress sound files efficiently, implement lazy loading for sound assets, and minimize bandwidth usage
-10. WHEN sound system fails THEN it SHALL fall back gracefully without breaking message functionality, log sound errors appropriately, and provide user feedback
+1. WHEN sound commands are parsed THEN it SHALL recognize exact /play soundname format, support all 50+ predefined sounds (56k, bell, bezos, bueller, trombone, rimshot, crickets, etc.), handle case-insensitive matching, and validate against Sound model predefined list
+2. WHEN sound responses are generated THEN it SHALL return appropriate text responses for each sound effect, display associated Sound::Image with proper dimensions where applicable, maintain response consistency across all sounds, and render special UI elements instead of plain text
+3. WHEN sound assets are served THEN it SHALL embed all sound files in binary using include_bytes! macro, serve with proper MIME types (audio/mpeg, audio/wav), implement caching headers for performance, support efficient streaming, and handle missing sound files gracefully
+4. WHEN sound metadata is processed THEN it SHALL use Sound::Image structure with name, width, height dimensions (typically 100x100), maintain WebP format compatibility for images, handle missing assets with fallback images, and validate sound metadata integrity
+5. WHEN sound commands are broadcast THEN it SHALL send sound events via WebSocket to all room members using Turbo Streams, include sound metadata in message content, handle playback synchronization across clients, and maintain sound state consistency
+6. WHEN sound validation occurs THEN it SHALL validate sound names against predefined allowlist in Sound model, prevent arbitrary file access and directory traversal attacks, handle invalid sound requests with appropriate error messages, and log security violations
+7. WHEN sound history is maintained THEN it SHALL track recently played sounds per room for discovery, implement sound usage statistics for analytics, provide sound browsing interface, and maintain sound play counts
+8. WHEN sound permissions are checked THEN it SHALL respect room-level sound settings configured by administrators, handle user preferences for sound playback and volume, implement sound muting options per user, and provide granular sound controls
+9. WHEN sound assets are optimized THEN it SHALL compress sound files efficiently using appropriate codecs, implement lazy loading for sound assets to reduce initial load time, minimize bandwidth usage with progressive loading, and cache frequently used sounds
+10. WHEN sound system fails THEN it SHALL fall back gracefully without breaking message functionality, log sound errors with appropriate detail level, provide user feedback for sound loading failures, and maintain message flow continuity
+11. WHEN sound detection occurs THEN it SHALL identify /play commands in Message model using pattern matching, prevent rendering as plain text when sound command detected, trigger sound UI rendering via messages_helper.rb, and handle sound command validation
+12. WHEN sound UI is rendered THEN it SHALL display interactive sound elements with play buttons, show sound names and associated images, provide visual feedback during playback, handle browser audio permissions, and maintain consistent styling across all sound types
 
 ### Requirement 24: Progressive Web App and Offline Support
 
@@ -622,16 +632,18 @@ The existing system has these key components that must be replicated:
 
 #### Acceptance Criteria
 
-1. WHEN custom styles are applied THEN it SHALL store CSS in custom_styles field, sanitize CSS for security, apply styles globally across interface, and validate CSS syntax
-2. WHEN account logos are managed THEN it SHALL use has_one_attached :logo pattern, process images with VIPS-compatible handling, serve with caching headers, and support multiple formats
-3. WHEN account branding is displayed THEN it SHALL show account name in interface headers, use custom logo in notifications and PWA manifest, and maintain brand consistency
-4. WHEN join codes are managed THEN it SHALL allow administrator regeneration, validate codes during registration, and provide secure code distribution methods
-5. WHEN account settings are updated THEN it SHALL broadcast changes via Turbo Streams, update cached account data across connections, and validate setting changes
-6. WHEN custom CSS is processed THEN it SHALL prevent XSS through CSS injection, validate CSS properties against allowlist, and handle CSS parsing errors gracefully
-7. WHEN account themes are applied THEN it SHALL support light/dark theme switching, maintain user theme preferences, and handle theme transitions smoothly
-8. WHEN branding assets are optimized THEN it SHALL compress images efficiently, generate multiple sizes for different contexts, and implement lazy loading
-9. WHEN account configuration is managed THEN it SHALL provide interface for all account settings, validate configuration changes, and maintain configuration history
-10. WHEN multi-tenant isolation is enforced THEN it SHALL ensure complete tenant data separation, prevent cross-tenant data access, and maintain security boundaries
+1. WHEN custom styles are applied THEN it SHALL store CSS in custom_styles text field on Account model, sanitize CSS for security using allowlist-based validation, apply styles globally via Accounts::CustomStylesController, validate CSS syntax and prevent malicious code injection, and provide CSS editor interface for administrators
+2. WHEN account logos are managed THEN it SHALL use has_one_attached :logo with Active Storage, process images with VIPS-compatible handling for resizing and optimization, serve with proper caching headers via fresh_account_logo helper, support multiple formats (PNG, JPG, SVG), and handle logo updates with cache invalidation
+3. WHEN account branding is displayed THEN it SHALL show account name in interface headers and titles, use custom logo in push notifications and PWA manifest, maintain brand consistency across all views, display logo in appropriate sizes for different contexts, and handle missing logo gracefully with fallback
+4. WHEN join codes are managed THEN it SHALL allow administrator regeneration via Accounts::JoinCodesController, validate codes during registration with format "XXXX-XXXX-XXXX", provide secure code distribution methods, invalidate previous codes on regeneration, and track join code usage for security
+5. WHEN account settings are updated THEN it SHALL broadcast changes via Turbo Streams to all connected clients, update cached account data using Current.account pattern, validate all setting changes for security and consistency, and maintain audit trail of configuration changes
+6. WHEN custom CSS is processed THEN it SHALL prevent XSS through CSS injection using strict parsing, validate CSS properties against security allowlist, handle CSS parsing errors gracefully with fallback, sanitize user input thoroughly, and log security violations for monitoring
+7. WHEN account themes are applied THEN it SHALL support light/dark theme switching with user preferences, maintain theme state across sessions, handle theme transitions smoothly with CSS animations, provide theme preview functionality, and ensure accessibility compliance for all themes
+8. WHEN branding assets are optimized THEN it SHALL compress images efficiently using VIPS processing, generate multiple sizes for different display contexts (favicon, header, notifications), implement lazy loading for large assets, and optimize delivery with proper caching strategies
+9. WHEN account configuration is managed THEN it SHALL provide comprehensive interface via AccountsController#edit for all account settings, validate all configuration changes with proper error handling, maintain configuration history for rollback capability, and implement role-based access control
+10. WHEN single-tenant isolation is enforced THEN it SHALL ensure complete data separation within single Account boundary, prevent unauthorized access to account data, maintain security boundaries through proper authentication, and implement account-scoped data access patterns throughout application
+11. WHEN account initialization occurs THEN it SHALL create singleton Account record during first run setup, establish default "All Talk" room, set up initial administrator user, generate secure join code, and configure default account settings
+12. WHEN account identity is managed THEN it SHALL support account name updates with validation, handle account logo changes with proper asset management, maintain account metadata consistency, and provide account information display throughout interface
 
 ### Requirement 28: Error Handling and System Resilience
 
