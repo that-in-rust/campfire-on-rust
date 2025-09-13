@@ -28,16 +28,18 @@ The existing system has these key components that must be replicated:
 
 #### Acceptance Criteria
 
-1. WHEN a user sends a message THEN the system SHALL store it with client_message_id (UUID format), creator_id, room_id, created_at/updated_at timestamps and broadcast via Turbo Streams within 100ms
-2. WHEN a message contains rich text THEN the system SHALL store it in action_text_rich_texts table with HTML body, support Trix editor formatting, and render with proper sanitization
-3. WHEN a user uploads a file attachment THEN the system SHALL store it in active_storage_blobs with key, filename, content_type, byte_size, checksum, and service_name fields
-4. WHEN an image/video is uploaded THEN the system SHALL generate thumbnails with max dimensions 1200x800 using VIPS-compatible processing and create variant records
-5. WHEN a user plays a sound command (/play soundname) THEN the system SHALL recognize 50+ predefined sounds (56k, bell, bezos, etc.) and return appropriate response text or image
-6. WHEN a user boosts a message THEN the system SHALL create boost record with message_id, booster_id, content (max 16 chars), and timestamps
-7. WHEN messages are paginated THEN the system SHALL support before/after parameters, page_around functionality, and maintain scroll position with proper threading
-8. WHEN a message is edited/deleted THEN the system SHALL broadcast updates via Turbo Streams and maintain message integrity
-9. WHEN emoji-only messages are detected THEN the system SHALL apply message--emoji CSS class using Unicode emoji detection regex
-10. WHEN code blocks are present THEN the system SHALL apply syntax highlighting using highlight.js for plain text code blocks
+1. WHEN a user sends a message THEN the system SHALL store it with client_message_id (UUID format), creator_id, room_id, created_at/updated_at timestamps and broadcast via Turbo Streams within 100ms using turbo_stream_from @room, :messages
+2. WHEN a message contains rich text THEN the system SHALL store it in action_text_rich_texts table with HTML body, support Trix editor formatting with bold/italics/blockquotes/hyperlinks, and render with proper sanitization
+3. WHEN a user uploads a file attachment THEN the system SHALL store it in active_storage_blobs with key, filename, content_type, byte_size, checksum, and service_name fields, supporting drag-and-drop, clipboard paste, and file picker
+4. WHEN an image/video is uploaded THEN the system SHALL generate thumbnails with max dimensions 1200x800 using VIPS-compatible processing, create variant records, and display client-side previews during upload
+5. WHEN a user plays a sound command (/play soundname) THEN the system SHALL recognize 50+ predefined sounds (56k, bell, bezos, bueller, trombone, etc.) and render special UI element for sound playback instead of plain text
+6. WHEN a user boosts a message THEN the system SHALL create boost record with message_id, booster_id, content (max 16 chars emoji), timestamps, and broadcast via Turbo Streams to append/remove boost from message
+7. WHEN messages are paginated THEN the system SHALL support before/after parameters, page_around functionality, last_page method, and maintain scroll position with proper threading using intersection observers
+8. WHEN a message is edited/deleted THEN the system SHALL broadcast updates via Turbo Streams using replace/remove actions, maintain message integrity, and require creator or administrator permissions
+9. WHEN emoji-only messages are detected THEN the system SHALL apply message--emoji CSS class using Unicode emoji detection regex and enlarge display appropriately
+10. WHEN code blocks are present THEN the system SHALL apply syntax highlighting using highlight.js for plain text code blocks with language detection and proper formatting
+11. WHEN @mentions are processed THEN the system SHALL use <action-text-attachment> tags with Signed Global ID (SGID), trigger rich_autocomplete_controller.js with 300ms debounce, and send notifications to mentioned users
+12. WHEN optimistic UI updates occur THEN the system SHALL generate temporary client_message_id (UUID), create pending message UI, show upload progress for files, and replace with confirmed message using same client_message_id
 
 ### Requirement 2: Room Types and Membership Management
 
@@ -45,16 +47,18 @@ The existing system has these key components that must be replicated:
 
 #### Acceptance Criteria
 
-1. WHEN a user creates an open room (Rooms::Open) THEN the system SHALL automatically grant membership to all active users via after_save_commit callback and auto-grant to new users
-2. WHEN a user creates a closed room (Rooms::Closed) THEN the system SHALL restrict access to explicitly invited members only with manual membership management
-3. WHEN a user creates a direct message (Rooms::Direct) THEN the system SHALL find existing room with same user set or create new one, set default involvement to "everything", and use no name field
-4. WHEN memberships are managed THEN the system SHALL support involvement levels: invisible, nothing, mentions, everything with proper scoping and filtering
-5. WHEN a room receives a message THEN the system SHALL call room.receive(message) to update unread_at for visible, disconnected members excluding creator
-6. WHEN a user accesses a room THEN the system SHALL support message pagination with page_before, page_after, last_page, and page_around methods
-7. WHEN a room is deleted THEN the system SHALL cascade delete messages, memberships, and broadcast removal via Turbo Streams
-8. WHEN room membership changes THEN the system SHALL support grant_to/revoke_from batch operations and reset remote connections on membership destruction
-9. WHEN direct rooms are found THEN the system SHALL use Set comparison of user_ids for singleton behavior (performance note: needs optimization for 10K+ rooms)
-10. WHEN room types are checked THEN the system SHALL support open?, closed?, direct? methods and proper STI inheritance
+1. WHEN a user creates an open room (Rooms::Open) THEN the system SHALL automatically grant membership to all active users via after_save_commit callback, auto-grant to new users joining the account, and make rooms public to all account users
+2. WHEN a user creates a closed room (Rooms::Closed) THEN the system SHALL restrict access to explicitly invited members only, require manual invitation by admin/creator, and provide UI with user selector for initial members
+3. WHEN a user creates a direct message (Rooms::Direct) THEN the system SHALL enforce singleton pattern using Set comparison of user_ids, find existing room or create new one, set default involvement to "everything", and auto-generate name from member list
+4. WHEN memberships are managed THEN the system SHALL support involvement levels: invisible (hidden from sidebar), nothing (no notifications), mentions (@mention notifications only), everything (all message notifications) with proper enum scoping
+5. WHEN a room receives a message THEN the system SHALL call room.receive(message) to update unread_at for visible disconnected members excluding creator, mark room as unread only when user's Membership is disconnected
+6. WHEN a user accesses a room THEN the system SHALL support message pagination with page_before, page_after, last_page, and page_around methods, load last page by default, and establish real-time ActionCable connection
+7. WHEN a room is deleted THEN the system SHALL cascade delete messages, memberships, boosts, and broadcast removal via Turbo Streams to all affected users' sidebars
+8. WHEN room membership changes THEN the system SHALL support grant_to/revoke_from batch operations, reset remote connections on membership destruction, and broadcast sidebar updates via Turbo Streams
+9. WHEN direct rooms are managed THEN the system SHALL use Set comparison of user_ids for singleton behavior, optimize for large room counts (10K+), and handle membership efficiently with proper indexing
+10. WHEN room types are processed THEN the system SHALL use Single Table Inheritance (STI) with type column storing class name, support open?, closed?, direct? methods, and enable specialized behavior in subclasses
+11. WHEN room involvement is changed THEN the system SHALL cycle through sequence: mentions → everything → nothing → invisible → mentions via Rooms::InvolvementsController, update bell icon UI, and broadcast sidebar changes
+12. WHEN room settings are managed THEN the system SHALL allow name changes, member addition/removal for closed rooms, and broadcast all changes via Turbo Streams to affected users
 
 ### Requirement 3: User Authentication and Session Management
 
@@ -62,16 +66,18 @@ The existing system has these key components that must be replicated:
 
 #### Acceptance Criteria
 
-1. WHEN a user registers THEN the system SHALL verify join code against Current.account.join_code, create user with has_secure_password, and auto-grant open room memberships
-2. WHEN a user logs in THEN the system SHALL authenticate via User.authenticate_by(email_address, password), create session with secure token, and set httponly SameSite=Lax cookies
-3. WHEN login attempts exceed limits THEN the system SHALL rate limit to 10 attempts per 3 minutes and render :too_many_requests status
-4. WHEN sessions are managed THEN the system SHALL track token, ip_address, user_agent, last_active_at with 1-hour refresh rate and proper cleanup
-5. WHEN user avatars are handled THEN the system SHALL use has_one_attached :avatar, generate signed avatar tokens, and serve with proper caching headers
-6. WHEN user roles are managed THEN the system SHALL support member/administrator/bot enum with can_administer? method checking role or record ownership
-7. WHEN users are deactivated THEN the system SHALL close_remote_connections, delete non-direct memberships, anonymize email with UUID suffix, and set active=false
-8. WHEN browser compatibility is enforced THEN the system SHALL use allow_browser gem with specified version requirements and render incompatible_browser template
-9. WHEN bot authentication occurs THEN the system SHALL parse bot_key format "id-token", authenticate via User.authenticate_bot, and skip CSRF protection
-10. WHEN first run setup occurs THEN the system SHALL redirect to first_run_url when User.none? and create account with administrator user
+1. WHEN first run setup occurs THEN the system SHALL detect empty database (Account.any? is false), present "Set up Campfire" screen via FirstRunsController, create singleton Account, first User with administrator role, initial "All Talk" Rooms::Open, and auto-login administrator
+2. WHEN a user registers THEN the system SHALL verify join_code format "XXXX-XXXX-XXXX" against Current.account.join_code via verify_join_code, create user with has_secure_password and default member role, auto-grant memberships to all existing Rooms::Open, and redirect existing emails to sign-in
+3. WHEN a user logs in THEN the system SHALL perform browser compatibility check via AllowBrowser concern, authenticate via User.authenticate_by(email_address, password), create Session record with secure token, set httponly SameSite=Lax session_token cookie, and redirect to last visited room
+4. WHEN login attempts exceed limits THEN the system SHALL rate limit to 10 attempts per 3 minutes via SessionsController rate limiting, return :too_many_requests status, and log security events
+5. WHEN sessions are managed THEN the system SHALL track token, ip_address, user_agent, last_active_at with 1-hour refresh rate, implement automatic cleanup, and support concurrent sessions per user
+6. WHEN user avatars are handled THEN the system SHALL use has_one_attached :avatar with Active Storage, generate signed avatar tokens for security, serve with proper caching headers, and support multiple formats
+7. WHEN user roles are managed THEN the system SHALL support role enum (member: 0, administrator: 1, bot: 2), implement can_administer? method checking role OR record ownership, and use ensure_can_administer before_action for protected operations
+8. WHEN users are deactivated THEN the system SHALL execute User#deactivate method to close_remote_connections, delete non-direct memberships, anonymize email with UUID suffix, set active=false, and delete sessions
+9. WHEN bot authentication occurs THEN the system SHALL parse bot_key format "id-token", authenticate via User.authenticate_bot with bot_token (SecureRandom.alphanumeric(12)), skip CSRF protection via allow_bot_access, and restrict to designated controllers
+10. WHEN session transfer occurs THEN the system SHALL generate unique single-use transfer URL and QR code via User::Transferable concern, validate transfer ID via Sessions::TransfersController, create new session on second device, and provide passwordless cross-device login
+11. WHEN sign-out occurs THEN the system SHALL remove push notification subscription from database, delete session_token cookie, destroy Session record, and redirect to sign-in page
+12. WHEN authorization is enforced THEN the system SHALL use deny_bots filter globally except for controllers with allow_bot_access, implement dual-condition logic (administrator role OR record ownership), and protect all destructive actions
 
 ### Requirement 4: Real-time Communication and Presence
 
@@ -96,16 +102,18 @@ The existing system has these key components that must be replicated:
 
 #### Acceptance Criteria
 
-1. WHEN bots are created THEN the system SHALL use User.create_bot! with bot_token (SecureRandom.alphanumeric(12)), role: :bot, and optional webhook_url
-2. WHEN bot authentication occurs THEN the system SHALL parse bot_key "id-token" format, authenticate via User.authenticate_bot, and set Current.user with :bot_key authentication method
-3. WHEN webhook payloads are built THEN the system SHALL include user (id, name), room (id, name, path), message (id, body.html, body.plain, path) in JSON format
-4. WHEN webhook delivery occurs THEN the system SHALL POST to webhook.url with 7-second timeout, Content-Type: application/json, and handle Net::OpenTimeout/ReadTimeout
-5. WHEN webhook responses are processed THEN the system SHALL extract text from text/html or text/plain responses, create attachment from binary responses with proper MIME types
-6. WHEN webhook replies are sent THEN the system SHALL create messages with extracted content, set creator to bot user, and broadcast_create to room
-7. WHEN webhook delivery is triggered THEN the system SHALL use Bot::WebhookJob.perform_later for direct rooms or when bot is mentioned via message.mentionees
-8. WHEN bot tokens are reset THEN the system SHALL generate new SecureRandom.alphanumeric(12) token and update bot_token field immediately
-9. WHEN bot API requests are made THEN the system SHALL bypass CSRF protection, authenticate via bot_key parameter, and process messages identically to user messages
-10. WHEN mention processing occurs THEN the system SHALL remove bot's own mentions from webhook payload using attachable_plain_text_representation and Unicode whitespace cleanup
+1. WHEN bots are created THEN the system SHALL use User.create_bot! with bot_token (SecureRandom.alphanumeric(12)), role: :bot enum value (2), optional webhook_url, and management via Accounts::BotsController for administrators
+2. WHEN bot authentication occurs THEN the system SHALL parse bot_key "id-token" format, authenticate via User.authenticate_bot using bot_token, set Current.user with :bot_key authentication method, and restrict access via deny_bots filter except allowed controllers
+3. WHEN webhook triggers are detected THEN the system SHALL trigger Bot::WebhookJob when bot is @mentioned in any room OR when any message is posted in Direct Message room with bot membership, check eligibility in MessagesController#create
+4. WHEN webhook payloads are built THEN the system SHALL construct detailed JSON payload with user (id, name), room (id, name, path), message (id, body.html, body.plain, path), and remove bot's own mentions using attachable_plain_text_representation
+5. WHEN webhook delivery occurs THEN the system SHALL execute Webhook#deliver method, POST to bot's webhook_url with 7-second timeout, Content-Type: application/json, handle Net::OpenTimeout/ReadTimeout, and process asynchronously via Bot::WebhookJob
+6. WHEN webhook responses are processed THEN the system SHALL extract text from text/html or text/plain responses, create attachment from binary responses with proper MIME types, validate response content, and handle malformed responses gracefully
+7. WHEN webhook replies are sent THEN the system SHALL create messages with extracted content via Messages::ByBotsController, set creator to bot user, broadcast_create to room via Turbo Streams, and maintain same message flow as user messages
+8. WHEN bot tokens are reset THEN the system SHALL generate new SecureRandom.alphanumeric(12) token via Accounts::Bots::KeysController, invalidate old token immediately, display new token to administrator, and update bot_token field
+9. WHEN bot API requests are made THEN the system SHALL bypass CSRF protection for Messages::ByBotsController, authenticate via bot_key parameter, process messages identically to user messages, and maintain API compatibility
+10. WHEN bot management occurs THEN the system SHALL provide administrator interface to create/edit/deactivate bots, modify name/avatar/webhook_url, reset API keys, and list all active bots with proper permissions
+11. WHEN bot permissions are enforced THEN the system SHALL restrict bots to programmatic functions only, prevent access to standard user interface, allow only designated API endpoints, and maintain strict separation from user workflows
+12. WHEN webhook failures occur THEN the system SHALL log delivery failures, implement retry logic for transient errors, handle bot service unavailability gracefully, and provide administrator visibility into webhook status
 
 ### Requirement 6: Performance Optimization and Resource Efficiency
 
@@ -273,6 +281,91 @@ The existing system has these key components that must be replicated:
 7. WHEN system shutdown occurs THEN it SHALL gracefully complete running jobs, drain job queues, and handle cleanup properly
 8. WHEN job persistence is needed THEN it SHALL store job state in SQLite, handle job recovery after restart, and maintain job history
 
+### Requirement 16: Frontend JavaScript Architecture and Complex UI Models
+
+**User Story:** As a user, I want sophisticated client-side functionality including message formatting, scroll management, and real-time interactions that replicate the existing Stimulus controller behavior exactly, so that the interface feels identical to the current implementation.
+
+#### Acceptance Criteria
+
+1. WHEN message formatting occurs THEN it SHALL implement MessageFormatter with 5-minute threading windows, emoji detection using Unicode regex, mention highlighting with @username parsing, and first-of-day detection with separators
+2. WHEN message pagination happens THEN it SHALL implement MessagePaginator with intersection observers for auto-loading, excess message trimming (performance optimization), scroll position management, and loading state indicators
+3. WHEN scroll management is active THEN it SHALL implement ScrollManager with auto-scroll threshold (100px from bottom), keep-scroll positioning during updates, pending operation queuing, and smooth scrolling behavior
+4. WHEN client messages are rendered THEN it SHALL implement ClientMessage with template rendering, state management (pending/sent/failed), UUID generation for client_message_id, and optimistic updates
+5. WHEN file uploads occur THEN it SHALL implement FileUploader with XMLHttpRequest progress tracking, visual feedback with percentage completion, drag-and-drop support, and error recovery mechanisms
+6. WHEN message threading is displayed THEN it SHALL group messages within 5-minute windows, show thread style with reduced avatars, calculate proper sort values, and handle thread breaks with separators
+7. WHEN emoji-only messages are detected THEN it SHALL apply message--emoji CSS class using Unicode emoji detection regex and enlarge display appropriately
+8. WHEN code blocks are processed THEN it SHALL apply syntax highlighting using highlight.js, detect language from content, and maintain proper formatting
+9. WHEN mentions are processed THEN it SHALL highlight @username patterns, link to user profiles, and trigger notification logic for mentioned users
+10. WHEN message positioning occurs THEN it SHALL calculate proper sort values, handle message insertion at correct positions, and maintain chronological order with threading
+
+### Requirement 17: Content Processing and Security Pipeline
+
+**User Story:** As a security-conscious administrator, I want comprehensive content filtering and sanitization that prevents XSS attacks and malicious content while preserving rich text functionality, so that the system remains secure against content-based attacks.
+
+#### Acceptance Criteria
+
+1. WHEN ActionText content is processed THEN it SHALL implement ContentFilters::RemoveSoloUnfurledLinkText to clean up link previews, maintain content integrity, and preserve user-intended formatting
+2. WHEN social media content is processed THEN it SHALL implement ContentFilters::StyleUnfurledTwitterAvatars for proper avatar styling, handle Twitter/X embed formatting, and maintain visual consistency
+3. WHEN HTML content is sanitized THEN it SHALL implement ContentFilters::SanitizeTags to strip dangerous HTML tags, preserve safe formatting elements, and prevent XSS attacks
+4. WHEN rich text is processed THEN it SHALL use ActionText-compatible filtering pipeline, maintain HTML body integrity, and support Trix editor formatting requirements
+5. WHEN user input is validated THEN it SHALL sanitize all HTML input using allowlist-based filtering, escape dangerous characters, and validate against known attack patterns
+6. WHEN content is stored THEN it SHALL validate content length limits, check for malicious patterns, and maintain referential integrity with attachments
+7. WHEN content is displayed THEN it SHALL apply final sanitization pass, ensure safe rendering, and prevent client-side script execution
+8. WHEN link content is processed THEN it SHALL validate URLs for safety, prevent javascript: and data: schemes, and apply proper link formatting
+9. WHEN file attachments are processed THEN it SHALL validate MIME types against allowlist, scan for embedded scripts, and ensure safe file serving
+10. WHEN content filtering fails THEN it SHALL log security events, fall back to safe defaults, and notify administrators of potential threats
+
+### Requirement 18: Advanced OpenGraph Implementation with Security
+
+**User Story:** As a user, I want automatic link previews with rich metadata that are fetched securely without exposing the system to SSRF attacks, so that I can share links with rich context while maintaining system security.
+
+#### Acceptance Criteria
+
+1. WHEN OpenGraph fetching occurs THEN it SHALL implement RestrictedHTTP::PrivateNetworkGuard to prevent SSRF attacks against internal networks, localhost, and private IP ranges
+2. WHEN URLs are validated THEN it SHALL check against private network ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16), localhost (127.0.0.1, ::1), and link-local addresses
+3. WHEN HTTP requests are made THEN it SHALL enforce 7-second timeout, limit redirects to 10 maximum, validate SSL certificates, and handle network errors gracefully
+4. WHEN metadata is extracted THEN it SHALL use Nokogiri-compatible HTML parsing, extract title/description/image safely, validate content length limits, and sanitize extracted text
+5. WHEN images are processed THEN it SHALL validate image URLs for safety, enforce size limits (5MB maximum), check MIME types, and generate secure cached versions
+6. WHEN document parsing occurs THEN it SHALL handle malformed HTML gracefully, prevent XML external entity attacks, limit parsing time, and validate character encoding
+7. WHEN OpenGraph data is cached THEN it SHALL store metadata with expiration times, validate cached content on retrieval, and handle cache invalidation properly
+8. WHEN network restrictions are bypassed THEN it SHALL log security events, block the request, and notify administrators of attempted SSRF attacks
+9. WHEN OpenGraph processing fails THEN it SHALL fall back gracefully without breaking message display, log errors appropriately, and provide user feedback
+10. WHEN rate limiting is applied THEN it SHALL limit OpenGraph requests per user/IP, implement exponential backoff for failures, and prevent abuse
+
+### Requirement 19: Advanced Membership Management and Presence Tracking
+
+**User Story:** As a user, I want sophisticated membership management with real-time presence tracking, involvement levels, and batch operations that scale efficiently with large user bases, so that I can manage room access and see who's active.
+
+#### Acceptance Criteria
+
+1. WHEN presence is tracked THEN it SHALL implement connection counting with atomic increment/decrement, track connected_at timestamps with 60-second TTL, and support connected/disconnected scopes efficiently
+2. WHEN involvement levels are managed THEN it SHALL support invisible (no notifications), nothing (room access only), mentions (mention notifications), everything (all notifications) with proper filtering and scoping
+3. WHEN batch operations occur THEN it SHALL implement grant_to and revoke_from for multiple users, revise for bulk membership changes, and handle large user sets (10K+) efficiently
+4. WHEN membership changes THEN it SHALL reset remote connections on membership destruction, broadcast presence updates via Turbo Streams, and maintain connection state consistency
+5. WHEN direct rooms are managed THEN it SHALL use Set comparison of user_ids for singleton behavior, optimize for large room counts, and handle membership efficiently
+6. WHEN room types are processed THEN it SHALL auto-grant open room memberships to new users, restrict closed room access to explicit invites, and manage direct room creation automatically
+7. WHEN presence refreshes occur THEN it SHALL send refresh actions every 50 seconds, maintain connection heartbeat, and handle connection timeouts gracefully
+8. WHEN visibility changes THEN it SHALL implement 5-second delay using VISIBILITY_CHANGE_DELAY, track wasVisible state, and send present/absent actions appropriately
+9. WHEN performance optimization is needed THEN it SHALL use efficient SQL queries with proper indexing, implement connection pooling, and optimize for concurrent access
+10. WHEN membership data is accessed THEN it SHALL provide fast lookups for user permissions, cache frequently accessed data, and maintain data consistency across connections
+
+### Requirement 20: Message Threading and Positioning Logic
+
+**User Story:** As a user, I want messages to be grouped and positioned intelligently with proper threading, timestamps, and visual organization that makes conversations easy to follow, so that I can understand message flow and context.
+
+#### Acceptance Criteria
+
+1. WHEN message threading occurs THEN it SHALL group messages within 5-minute windows using precise timing calculations, handle timezone differences, and maintain thread integrity
+2. WHEN thread styles are applied THEN it SHALL reduce avatar display for subsequent messages in thread, apply proper CSS classes, and maintain visual hierarchy
+3. WHEN sort values are calculated THEN it SHALL generate proper message positioning values, handle concurrent message insertion, and maintain chronological order
+4. WHEN first-of-day detection occurs THEN it SHALL identify day boundaries accurately, insert date separators, and handle timezone conversions properly
+5. WHEN message positioning happens THEN it SHALL calculate insertion points efficiently, handle out-of-order message arrival, and maintain scroll position during updates
+6. WHEN thread breaks occur THEN it SHALL detect thread interruptions (time gaps, different users), insert appropriate separators, and reset thread styling
+7. WHEN message updates occur THEN it SHALL maintain thread relationships during edits, handle message deletion gracefully, and update positioning as needed
+8. WHEN concurrent messages arrive THEN it SHALL handle race conditions in positioning, maintain thread consistency, and resolve conflicts deterministically
+9. WHEN performance optimization is needed THEN it SHALL use efficient algorithms for position calculation, cache thread state, and minimize DOM updates
+10. WHEN thread display changes THEN it SHALL animate transitions smoothly, maintain user scroll position, and provide visual feedback for thread changes
+
 ### Requirement 16: Caching and Performance Optimization
 
 **User Story:** As a system operator, I want intelligent caching and performance optimization throughout the system, so that response times are minimized and resource usage is efficient.
@@ -420,3 +513,139 @@ The existing system has these key components that must be replicated:
 9. WHEN onboarding developers THEN the system SHALL provide training materials, idiom documentation, and hands-on workshops for Rust best practices
 10. WHEN measuring success THEN the system SHALL track compile-first success rate, bug reduction metrics, and development velocity improvements
 
+
+### Requirement 21: Advanced UI Components and Interaction Patterns
+
+**User Story:** As a user, I want sophisticated UI components including autocomplete, lightbox, modals, and keyboard navigation that provide a polished and efficient user experience matching the current Stimulus implementation exactly.
+
+#### Acceptance Criteria
+
+1. WHEN autocomplete is used THEN it SHALL implement AutocompleteHandler with 300ms debounce timing, fuzzy user search with ranking, keyboard navigation (up/down/enter/escape), and proper selection management
+2. WHEN lightbox is displayed THEN it SHALL support image/video viewing with zoom, keyboard navigation (left/right/escape), proper modal behavior, and accessibility features
+3. WHEN modals are shown THEN it SHALL implement focus management with focus trapping, escape key handling, click-outside-to-close behavior, and proper ARIA attributes
+4. WHEN keyboard shortcuts are used THEN it SHALL support Enter/Cmd+Enter for sending messages, up arrow for editing last message, escape for closing dialogs, and tab navigation
+5. WHEN responsive design is applied THEN it SHALL adapt to mobile devices with touch-friendly controls, handle soft keyboard resizing, support swipe gestures, and maintain usability
+6. WHEN animations are used THEN it SHALL implement smooth transitions with CSS transforms, loading states with spinners, hover effects, and performance optimization
+7. WHEN accessibility is implemented THEN it SHALL support screen readers with proper ARIA labels, keyboard navigation for all functions, semantic HTML structure, and high contrast support
+8. WHEN error states are handled THEN it SHALL show appropriate error messages with retry options, loading states with progress indicators, and graceful degradation for network issues
+9. WHEN drag-and-drop is used THEN it SHALL provide visual feedback during drag operations, handle file drops with validation, and support multiple file selection
+10. WHEN touch interactions occur THEN it SHALL support touch gestures for mobile devices, handle touch events properly, and provide haptic feedback where appropriate
+
+### Requirement 22: Performance Optimization Patterns and Efficiency
+
+**User Story:** As a system operator, I want the Rust implementation to replicate Rails-specific optimizations while achieving superior performance through modern techniques, so that the system scales efficiently and reduces resource usage.
+
+#### Acceptance Criteria
+
+1. WHEN database queries are executed THEN it SHALL use prepared statements with compile-time validation via Diesel, implement connection pooling with configurable limits, and maintain <2ms query times
+2. WHEN SQL optimization is applied THEN it SHALL use proper indexing strategies for FTS5 search, foreign key relationships, and frequently accessed columns with query plan analysis
+3. WHEN WebSocket broadcasting occurs THEN it SHALL use efficient message serialization with minimal allocations, batch broadcasts to multiple connections, and implement backpressure handling
+4. WHEN memory management is optimized THEN it SHALL use Rust's zero-cost abstractions, minimize heap allocations, implement object pooling for frequently used objects, and maintain <2MB baseline memory
+5. WHEN concurrent processing occurs THEN it SHALL use async/await with tokio runtime, handle 10,000+ concurrent connections, and implement proper task scheduling
+6. WHEN asset serving is optimized THEN it SHALL embed static assets in binary with zero-copy serving, implement proper caching headers, and compress responses efficiently
+7. WHEN real-time updates are processed THEN it SHALL use Turbo Stream optimizations with minimal DOM updates, batch UI changes, and maintain 60fps performance
+8. WHEN file processing occurs THEN it SHALL use async image processing with tokio::spawn_blocking, generate thumbnails without blocking, and implement streaming for large files
+9. WHEN search operations are performed THEN it SHALL leverage SQLite FTS5 with optimized queries, implement result caching, and achieve sub-millisecond search times
+10. WHEN performance monitoring is active THEN it SHALL provide metrics for response times, memory usage, connection counts, and database performance with Prometheus compatibility
+
+### Requirement 23: Sound System and Media Effects
+
+**User Story:** As a user, I want the complete sound system with all 50+ sound effects, proper command parsing, and visual responses that work identically to the current implementation, so that I can use sounds to enhance conversations.
+
+#### Acceptance Criteria
+
+1. WHEN sound commands are parsed THEN it SHALL recognize /play soundname format, support all 50+ predefined sounds (56k, bell, bezos, bueller, etc.), and handle case-insensitive matching
+2. WHEN sound responses are generated THEN it SHALL return appropriate text responses for each sound, display associated images where applicable, and maintain response consistency
+3. WHEN sound assets are served THEN it SHALL embed all sound files in binary, serve with proper MIME types and caching headers, and support efficient streaming
+4. WHEN sound metadata is processed THEN it SHALL use Sound::Image structure with name, width, height dimensions, maintain WebP format compatibility, and handle missing assets gracefully
+5. WHEN sound commands are broadcast THEN it SHALL send sound events via WebSocket to all room members, include sound metadata in message content, and handle playback synchronization
+6. WHEN sound validation occurs THEN it SHALL validate sound names against predefined list, prevent arbitrary file access, and handle invalid sound requests gracefully
+7. WHEN sound history is maintained THEN it SHALL track recently played sounds per room, implement sound usage statistics, and provide sound discovery features
+8. WHEN sound permissions are checked THEN it SHALL respect room-level sound settings, handle user preferences for sound playback, and implement sound muting options
+9. WHEN sound assets are optimized THEN it SHALL compress sound files efficiently, implement lazy loading for sound assets, and minimize bandwidth usage
+10. WHEN sound system fails THEN it SHALL fall back gracefully without breaking message functionality, log sound errors appropriately, and provide user feedback
+
+### Requirement 24: Progressive Web App and Offline Support
+
+**User Story:** As a mobile user, I want full PWA functionality with offline support, push notifications, and native app-like behavior that works seamlessly across devices, so that I can use Campfire like a native application.
+
+#### Acceptance Criteria
+
+1. WHEN PWA manifest is served THEN it SHALL provide /webmanifest with complete app metadata, proper icons for all sizes, theme colors, and display mode configuration
+2. WHEN service worker is active THEN it SHALL serve /service-worker.js with offline support, cache management, push notification handling, and background sync capabilities
+3. WHEN offline functionality is used THEN it SHALL cache essential resources, provide offline message composition, queue messages for sending when online, and show connection status
+4. WHEN push notifications are managed THEN it SHALL use WebPush with VAPID keys, handle subscription lifecycle, manage notification permissions, and provide rich notification content
+5. WHEN notification payloads are delivered THEN it SHALL include title, body, path for navigation, badge with unread count, and account logo as icon
+6. WHEN app installation is triggered THEN it SHALL provide install prompts, handle beforeinstallprompt events, support add-to-homescreen functionality, and track installation metrics
+7. WHEN background sync occurs THEN it SHALL queue failed network requests, retry when connection restored, sync message state, and handle conflict resolution
+8. WHEN app updates are available THEN it SHALL notify users of updates, handle service worker updates gracefully, and provide update installation options
+9. WHEN native features are accessed THEN it SHALL support file sharing via Web Share API, handle deep links, provide native-like navigation, and integrate with OS notifications
+10. WHEN PWA performance is optimized THEN it SHALL achieve fast loading times, smooth animations, efficient caching strategies, and minimal resource usage
+
+### Requirement 25: Advanced Search and Full-Text Capabilities
+
+**User Story:** As a user, I want powerful search functionality with full-text search, search history, result highlighting, and advanced filtering that helps me find messages and content quickly across all my conversations.
+
+#### Acceptance Criteria
+
+1. WHEN FTS5 search is performed THEN it SHALL use SQLite FTS5 virtual table with Porter stemming, support phrase queries with quotes, and handle boolean operators (AND, OR, NOT)
+2. WHEN search history is managed THEN it SHALL maintain user search history with limit of 10 recent searches, provide search suggestions, and allow history clearing
+3. WHEN search results are displayed THEN it SHALL highlight matching terms in results, show message context with surrounding text, and provide relevance scoring
+4. WHEN search indexing occurs THEN it SHALL index message content in real-time, handle rich text content properly, and maintain index consistency during updates
+5. WHEN search performance is optimized THEN it SHALL achieve sub-millisecond search times, implement result caching, and handle large message volumes efficiently
+6. WHEN search filtering is applied THEN it SHALL support filtering by room, user, date range, and content type with proper query optimization
+7. WHEN search pagination occurs THEN it SHALL provide efficient result pagination, maintain search context across pages, and handle large result sets
+8. WHEN search syntax is processed THEN it SHALL support advanced query syntax, handle special characters properly, and provide query validation with error messages
+9. WHEN search results are navigated THEN it SHALL provide direct links to messages, maintain scroll position in conversations, and highlight target messages
+10. WHEN search analytics are tracked THEN it SHALL log search queries for optimization, track search performance metrics, and identify popular search patterns
+
+### Requirement 26: Session Management and Cross-Device Functionality
+
+**User Story:** As a user, I want seamless session management with secure authentication, session transfer between devices, and proper session lifecycle management that keeps me logged in securely across devices.
+
+#### Acceptance Criteria
+
+1. WHEN sessions are created THEN it SHALL generate secure tokens using cryptographically strong randomness, set httponly SameSite=Lax cookies, and track session metadata
+2. WHEN session transfer occurs THEN it SHALL generate secure transfer tokens with expiration, support QR code generation for easy transfer, and maintain security during cross-device authentication
+3. WHEN session lifecycle is managed THEN it SHALL track last_active_at with 1-hour refresh rate, implement automatic session cleanup, and handle concurrent sessions properly
+4. WHEN session security is enforced THEN it SHALL validate session tokens on each request, detect session hijacking attempts, and implement session fixation protection
+5. WHEN device tracking occurs THEN it SHALL track IP addresses and user agents, detect suspicious login patterns, and provide session management interface
+6. WHEN session expiration occurs THEN it SHALL handle graceful session expiration, provide re-authentication prompts, and maintain user data during re-auth
+7. WHEN concurrent sessions are managed THEN it SHALL support multiple active sessions per user, provide session listing and termination, and handle session conflicts
+8. WHEN session storage is optimized THEN it SHALL use efficient session storage in SQLite, implement session cleanup jobs, and maintain session performance
+9. WHEN session events are logged THEN it SHALL log login/logout events, track session security events, and provide audit trails for administrators
+10. WHEN session recovery occurs THEN it SHALL handle browser crashes gracefully, restore session state when possible, and provide session recovery options
+
+### Requirement 27: Account Customization and Branding
+
+**User Story:** As an account administrator, I want comprehensive customization options including custom styles, branding, and account-specific configuration that allows full personalization of the Campfire instance.
+
+#### Acceptance Criteria
+
+1. WHEN custom styles are applied THEN it SHALL store CSS in custom_styles field, sanitize CSS for security, apply styles globally across interface, and validate CSS syntax
+2. WHEN account logos are managed THEN it SHALL use has_one_attached :logo pattern, process images with VIPS-compatible handling, serve with caching headers, and support multiple formats
+3. WHEN account branding is displayed THEN it SHALL show account name in interface headers, use custom logo in notifications and PWA manifest, and maintain brand consistency
+4. WHEN join codes are managed THEN it SHALL allow administrator regeneration, validate codes during registration, and provide secure code distribution methods
+5. WHEN account settings are updated THEN it SHALL broadcast changes via Turbo Streams, update cached account data across connections, and validate setting changes
+6. WHEN custom CSS is processed THEN it SHALL prevent XSS through CSS injection, validate CSS properties against allowlist, and handle CSS parsing errors gracefully
+7. WHEN account themes are applied THEN it SHALL support light/dark theme switching, maintain user theme preferences, and handle theme transitions smoothly
+8. WHEN branding assets are optimized THEN it SHALL compress images efficiently, generate multiple sizes for different contexts, and implement lazy loading
+9. WHEN account configuration is managed THEN it SHALL provide interface for all account settings, validate configuration changes, and maintain configuration history
+10. WHEN multi-tenant isolation is enforced THEN it SHALL ensure complete tenant data separation, prevent cross-tenant data access, and maintain security boundaries
+
+### Requirement 28: Error Handling and System Resilience
+
+**User Story:** As a system operator, I want comprehensive error handling with graceful degradation, proper logging, and system resilience that maintains service availability even during partial failures.
+
+#### Acceptance Criteria
+
+1. WHEN errors occur THEN it SHALL provide user-friendly error messages, log detailed error information for debugging, and implement proper error categorization
+2. WHEN network failures happen THEN it SHALL handle connection timeouts gracefully, implement retry logic with exponential backoff, and provide offline functionality
+3. WHEN database errors occur THEN it SHALL handle connection failures, implement transaction rollback, provide data consistency guarantees, and recover from corruption
+4. WHEN WebSocket connections fail THEN it SHALL implement automatic reconnection, maintain message queue during disconnection, and provide connection status indicators
+5. WHEN file operations fail THEN it SHALL handle disk space issues, implement file validation, provide upload retry mechanisms, and clean up failed uploads
+6. WHEN memory pressure occurs THEN it SHALL implement memory monitoring, provide garbage collection optimization, and handle out-of-memory conditions gracefully
+7. WHEN system overload happens THEN it SHALL implement rate limiting, provide backpressure mechanisms, and maintain service availability under load
+8. WHEN security violations occur THEN it SHALL log security events, implement automatic blocking, and provide administrator notifications
+9. WHEN data validation fails THEN it SHALL provide clear validation messages, prevent data corruption, and maintain referential integrity
+10. WHEN system recovery is needed THEN it SHALL implement health checks, provide automatic restart mechanisms, and maintain service continuity during recovery
