@@ -1600,4 +1600,718 @@ This comprehensive guide provides the essential React patterns needed for the Ca
 8. **Optimize Judiciously**: Profile first, then apply memoization where needed
 9. **Avoid Common Pitfalls**: No state mutation, prop drilling, or premature optimization
 
-By following these patterns, the Campfire React frontend will be maintainable, performant, and robust, providing an excellent foundation for the chat application's user interface.
+By following these patterns, the Campfire React frontend will be maintainable, performant, and robust, providing an excellent foundation for the chat application's user interface.---
+
+#
+# Advanced Patterns from Complete Analysis
+
+### Test-Driven Development Integration
+
+The complete analysis reveals that TDD is not just about testing—it's a design methodology that naturally guides developers toward idiomatic React patterns.
+
+#### Red-Green-Refactor Cycle for React
+
+```jsx
+// 1. RED: Write failing test first
+describe('SearchComponent', () => {
+  it('should show loading state when searching', async () => {
+    render(<SearchComponent />);
+    
+    const input = screen.getByRole('textbox');
+    const button = screen.getByRole('button', { name: /search/i });
+    
+    await userEvent.type(input, 'test query');
+    await userEvent.click(button);
+    
+    expect(screen.getByRole('status')).toBeInTheDocument();
+  });
+});
+
+// 2. GREEN: Minimal implementation to pass
+const SearchComponent = () => {
+  const [query, setQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const handleSearch = () => {
+    setIsLoading(true);
+  };
+  
+  return (
+    <div>
+      <input 
+        type="text" 
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      <button onClick={handleSearch}>Search</button>
+      {isLoading && <div role="status">Loading...</div>}
+    </div>
+  );
+};
+
+// 3. REFACTOR: Extract custom hook
+const useSearch = (searchFn) => {
+  const [query, setQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [results, setResults] = useState([]);
+  const [error, setError] = useState(null);
+  
+  const search = useCallback(async () => {
+    if (!query.trim()) return;
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const data = await searchFn(query);
+      setResults(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [query, searchFn]);
+  
+  return {
+    query,
+    setQuery,
+    results,
+    isLoading,
+    error,
+    search
+  };
+};
+
+// Refactored component using custom hook
+const SearchComponent = ({ onSearch }) => {
+  const { query, setQuery, results, isLoading, error, search } = useSearch(onSearch);
+  
+  return (
+    <div>
+      <input 
+        type="text" 
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      <button onClick={search}>Search</button>
+      {isLoading && <div role="status">Loading...</div>}
+      {error && <div role="alert">{error}</div>}
+      {results.map(result => (
+        <div key={result.id}>{result.title}</div>
+      ))}
+    </div>
+  );
+};
+```
+
+### Advanced Composition Patterns
+
+#### Compound Components for Complex UI
+
+```jsx
+// Campfire Room Component with Compound Pattern
+const Room = ({ children, roomId }) => {
+  const [roomState, setRoomState] = useState({
+    messages: [],
+    users: [],
+    typingUsers: [],
+    isConnected: false
+  });
+
+  const contextValue = useMemo(() => ({
+    roomId,
+    roomState,
+    setRoomState,
+    // Derived state
+    messageCount: roomState.messages.length,
+    userCount: roomState.users.length,
+    hasTypingUsers: roomState.typingUsers.length > 0
+  }), [roomId, roomState]);
+
+  return (
+    <RoomContext.Provider value={contextValue}>
+      <div className="room" data-room-id={roomId}>
+        {children}
+      </div>
+    </RoomContext.Provider>
+  );
+};
+
+// Sub-components with specific responsibilities
+Room.Header = ({ children }) => {
+  const { roomState } = useContext(RoomContext);
+  
+  return (
+    <header className="room-header">
+      <h2>{roomState.name}</h2>
+      <UserCount count={roomState.users.length} />
+      <ConnectionStatus isConnected={roomState.isConnected} />
+      {children}
+    </header>
+  );
+};
+
+Room.Messages = () => {
+  const { roomState } = useContext(RoomContext);
+  
+  return (
+    <div className="messages-container">
+      <VirtualizedMessageList messages={roomState.messages} />
+      <TypingIndicator users={roomState.typingUsers} />
+    </div>
+  );
+};
+
+Room.Input = () => {
+  const { roomId } = useContext(RoomContext);
+  const { sendMessage } = useWebSocket(roomId);
+  
+  return (
+    <MessageInput 
+      onSend={(content) => sendMessage({ 
+        type: 'new_message', 
+        content,
+        timestamp: Date.now()
+      })}
+      placeholder="Type a message..."
+    />
+  );
+};
+
+// Usage - flexible composition
+const ChatRoom = ({ roomId }) => (
+  <Room roomId={roomId}>
+    <Room.Header>
+      <RoomSettings />
+    </Room.Header>
+    <Room.Messages />
+    <Room.Input />
+  </Room>
+);
+```
+
+#### Render Props for Maximum Flexibility
+
+```jsx
+// Flexible Message List with Render Props
+const MessageList = ({ 
+  messages, 
+  renderMessage, 
+  renderEmpty, 
+  renderLoading,
+  renderError,
+  isLoading = false,
+  error = null
+}) => {
+  if (error) {
+    return renderError ? renderError(error) : (
+      <div className="error-state" role="alert">
+        <p>Failed to load messages: {error.message}</p>
+        <button onClick={() => window.location.reload()}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return renderLoading ? renderLoading() : (
+      <div className="loading-state">
+        <div className="spinner" role="status" aria-label="Loading messages" />
+        <p>Loading messages...</p>
+      </div>
+    );
+  }
+
+  if (messages.length === 0) {
+    return renderEmpty ? renderEmpty() : (
+      <div className="empty-state">
+        <p>No messages yet. Start the conversation!</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="message-list" role="log" aria-live="polite">
+      {messages.map((message, index) => (
+        <div key={message.id} className="message-wrapper">
+          {renderMessage ? 
+            renderMessage(message, index, messages) : 
+            <DefaultMessage message={message} />
+          }
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// Usage with custom rendering logic
+const CustomChatRoom = () => {
+  const { messages, isLoading, error } = useMessages(roomId);
+  
+  return (
+    <MessageList
+      messages={messages}
+      isLoading={isLoading}
+      error={error}
+      renderMessage={(message, index, allMessages) => {
+        const showAvatar = index === 0 || 
+          allMessages[index - 1].creatorId !== message.creatorId;
+        
+        const showTimestamp = index % 10 === 0; // Every 10th message
+        
+        return (
+          <Message 
+            key={message.id}
+            message={message}
+            showAvatar={showAvatar}
+            showTimestamp={showTimestamp}
+            variant={message.creatorId === currentUserId ? 'own' : 'other'}
+          />
+        );
+      }}
+      renderEmpty={() => (
+        <WelcomeMessage 
+          roomName={roomName} 
+          onInviteUsers={() => setShowInviteModal(true)}
+        />
+      )}
+      renderError={(error) => (
+        <ErrorBoundaryFallback 
+          error={error}
+          resetError={() => refetch()}
+        />
+      )}
+    />
+  );
+};
+```
+
+### Advanced State Management Patterns
+
+#### Optimistic Updates with Rollback
+
+```jsx
+// Advanced optimistic updates with automatic rollback
+const useOptimisticMessages = () => {
+  const { state, actions } = useApp();
+  const { sendMessage } = useWebSocket();
+  const [pendingMessages, setPendingMessages] = useState(new Map());
+  const rollbackTimeoutRef = useRef(new Map());
+
+  const sendOptimisticMessage = useCallback(async (content) => {
+    const tempId = `temp-${Date.now()}-${Math.random()}`;
+    const optimisticMessage = {
+      id: tempId,
+      content,
+      creatorId: state.user.id,
+      createdAt: new Date().toISOString(),
+      status: 'sending',
+      isOptimistic: true
+    };
+
+    // Add optimistic message immediately
+    actions.addMessage(optimisticMessage);
+    setPendingMessages(prev => new Map(prev).set(tempId, optimisticMessage));
+
+    // Set rollback timeout (30 seconds)
+    const timeoutId = setTimeout(() => {
+      actions.updateMessage({
+        id: tempId,
+        status: 'failed',
+        error: 'Message send timeout'
+      });
+    }, 30000);
+    
+    rollbackTimeoutRef.current.set(tempId, timeoutId);
+
+    try {
+      // Send to server
+      const serverMessage = await sendMessage({
+        type: 'new_message',
+        content,
+        clientMessageId: tempId
+      });
+
+      // Clear timeout
+      const timeout = rollbackTimeoutRef.current.get(tempId);
+      if (timeout) {
+        clearTimeout(timeout);
+        rollbackTimeoutRef.current.delete(tempId);
+      }
+
+      // Replace optimistic message with server response
+      actions.replaceMessage(tempId, {
+        ...serverMessage,
+        status: 'sent'
+      });
+      
+      setPendingMessages(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(tempId);
+        return newMap;
+      });
+
+    } catch (error) {
+      // Clear timeout
+      const timeout = rollbackTimeoutRef.current.get(tempId);
+      if (timeout) {
+        clearTimeout(timeout);
+        rollbackTimeoutRef.current.delete(tempId);
+      }
+
+      // Mark message as failed with retry option
+      actions.updateMessage({
+        id: tempId,
+        status: 'failed',
+        error: error.message,
+        canRetry: true
+      });
+    }
+  }, [state.user, actions, sendMessage]);
+
+  const retryMessage = useCallback(async (messageId) => {
+    const pendingMessage = pendingMessages.get(messageId);
+    if (pendingMessage) {
+      // Remove failed message
+      actions.deleteMessage(messageId);
+      setPendingMessages(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(messageId);
+        return newMap;
+      });
+      
+      // Resend with new optimistic message
+      await sendOptimisticMessage(pendingMessage.content);
+    }
+  }, [pendingMessages, sendOptimisticMessage, actions]);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      rollbackTimeoutRef.current.forEach(timeout => clearTimeout(timeout));
+    };
+  }, []);
+
+  return {
+    sendOptimisticMessage,
+    retryMessage,
+    pendingMessages: Array.from(pendingMessages.values())
+  };
+};
+```
+
+### Advanced Performance Patterns
+
+#### Virtualization with Dynamic Heights
+
+```jsx
+// Advanced virtualization for messages with dynamic heights
+import { VariableSizeList as List } from 'react-window';
+
+const VirtualizedMessageList = ({ 
+  messages, 
+  height = 400,
+  onLoadMore,
+  estimatedItemSize = 80
+}) => {
+  const listRef = useRef();
+  const itemHeights = useRef(new Map());
+  const [isAutoScrolling, setIsAutoScrolling] = useState(true);
+  const resizeObserver = useRef();
+
+  // Measure item heights dynamically
+  const getItemSize = useCallback((index) => {
+    return itemHeights.current.get(index) || estimatedItemSize;
+  }, [estimatedItemSize]);
+
+  // Set up resize observer for dynamic height measurement
+  useEffect(() => {
+    resizeObserver.current = new ResizeObserver((entries) => {
+      let hasChanged = false;
+      
+      entries.forEach((entry) => {
+        const index = parseInt(entry.target.dataset.index);
+        const newHeight = entry.contentRect.height;
+        
+        if (itemHeights.current.get(index) !== newHeight) {
+          itemHeights.current.set(index, newHeight);
+          hasChanged = true;
+        }
+      });
+      
+      if (hasChanged && listRef.current) {
+        listRef.current.resetAfterIndex(0);
+      }
+    });
+
+    return () => {
+      if (resizeObserver.current) {
+        resizeObserver.current.disconnect();
+      }
+    };
+  }, []);
+
+  // Message renderer with height measurement
+  const MessageRow = useCallback(({ index, style, data }) => {
+    const message = data.messages[index];
+    const rowRef = useRef();
+    
+    useEffect(() => {
+      if (rowRef.current && resizeObserver.current) {
+        rowRef.current.dataset.index = index;
+        resizeObserver.current.observe(rowRef.current);
+        
+        return () => {
+          if (resizeObserver.current && rowRef.current) {
+            resizeObserver.current.unobserve(rowRef.current);
+          }
+        };
+      }
+    }, [index]);
+    
+    return (
+      <div style={style}>
+        <div ref={rowRef} data-index={index}>
+          <Message 
+            message={message}
+            currentUserId={data.currentUserId}
+            showAvatar={index === 0 || 
+              data.messages[index - 1]?.creatorId !== message.creatorId
+            }
+          />
+        </div>
+      </div>
+    );
+  }, []);
+
+  // Memoize message data
+  const itemData = useMemo(() => ({
+    messages,
+    currentUserId: user?.id
+  }), [messages, user?.id]);
+
+  // Auto-scroll to bottom for new messages
+  useEffect(() => {
+    if (isAutoScrolling && messages.length > 0) {
+      listRef.current?.scrollToItem(messages.length - 1, 'end');
+    }
+  }, [messages.length, isAutoScrolling]);
+
+  // Handle scroll events with intersection observer for load more
+  const handleScroll = useCallback(({ scrollOffset, scrollUpdateWasRequested }) => {
+    if (!scrollUpdateWasRequested) {
+      // Check if near bottom for auto-scroll
+      const totalHeight = messages.reduce((sum, _, index) => 
+        sum + getItemSize(index), 0
+      );
+      const isNearBottom = scrollOffset > totalHeight - height - 100;
+      setIsAutoScrolling(isNearBottom);
+      
+      // Load more messages when scrolling to top
+      if (scrollOffset < 200 && onLoadMore) {
+        onLoadMore();
+      }
+    }
+  }, [messages, getItemSize, height, onLoadMore]);
+
+  return (
+    <div className="virtualized-message-list">
+      <List
+        ref={listRef}
+        height={height}
+        itemCount={messages.length}
+        itemSize={getItemSize}
+        itemData={itemData}
+        onScroll={handleScroll}
+        overscanCount={5} // Render extra items for smooth scrolling
+      >
+        {MessageRow}
+      </List>
+      
+      {!isAutoScrolling && (
+        <button 
+          className="scroll-to-bottom"
+          onClick={() => {
+            setIsAutoScrolling(true);
+            listRef.current?.scrollToItem(messages.length - 1, 'end');
+          }}
+          aria-label="Scroll to newest messages"
+        >
+          ↓ New messages
+        </button>
+      )}
+    </div>
+  );
+};
+```
+
+### Advanced Testing Patterns
+
+#### Property-Based Testing for React Components
+
+```jsx
+// Property-based testing with fast-check
+import fc from 'fast-check';
+
+describe('Message Component Property Tests', () => {
+  it('should always render valid HTML structure', () => {
+    fc.assert(fc.property(
+      fc.record({
+        id: fc.string(),
+        content: fc.string({ minLength: 1, maxLength: 4000 }),
+        creatorId: fc.string(),
+        createdAt: fc.date().map(d => d.toISOString()),
+        updatedAt: fc.option(fc.date().map(d => d.toISOString()))
+      }),
+      fc.string(), // currentUserId
+      (message, currentUserId) => {
+        const { container } = render(
+          <Message message={message} currentUserId={currentUserId} />
+        );
+        
+        // Property: Should always have a message container
+        expect(container.querySelector('[data-testid^="message-"]')).toBeInTheDocument();
+        
+        // Property: Content should be escaped and safe
+        expect(container.innerHTML).not.toContain('<script');
+        
+        // Property: Should have proper ARIA attributes
+        const messageElement = container.querySelector('[role="article"]');
+        expect(messageElement).toBeInTheDocument();
+        
+        // Property: Timestamps should be valid
+        const timeElement = container.querySelector('time');
+        if (timeElement) {
+          expect(timeElement.getAttribute('datetime')).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+        }
+      }
+    ));
+  });
+
+  it('should handle edge cases in message content', () => {
+    fc.assert(fc.property(
+      fc.oneof(
+        fc.constant(''), // Empty string
+        fc.string({ minLength: 4000, maxLength: 4000 }), // Max length
+        fc.string().filter(s => s.includes('<script>')), // XSS attempt
+        fc.string().filter(s => s.includes('\n'.repeat(100))), // Many newlines
+        fc.unicodeString() // Unicode characters
+      ),
+      (content) => {
+        const message = {
+          id: 'test-id',
+          content,
+          creatorId: 'user-1',
+          createdAt: new Date().toISOString()
+        };
+        
+        // Should not throw errors regardless of content
+        expect(() => {
+          render(<Message message={message} currentUserId="user-2" />);
+        }).not.toThrow();
+      }
+    ));
+  });
+});
+```
+
+#### Integration Testing with Mock Service Worker
+
+```jsx
+// Realistic API testing with MSW
+import { setupServer } from 'msw/node';
+import { rest } from 'msw';
+
+const server = setupServer(
+  rest.get('/api/messages', (req, res, ctx) => {
+    const roomId = req.url.searchParams.get('roomId');
+    const limit = parseInt(req.url.searchParams.get('limit') || '50');
+    
+    return res(
+      ctx.json({
+        messages: Array.from({ length: limit }, (_, i) => ({
+          id: `msg-${i}`,
+          content: `Test message ${i}`,
+          creatorId: `user-${i % 3}`,
+          roomId,
+          createdAt: new Date(Date.now() - i * 60000).toISOString()
+        }))
+      })
+    );
+  }),
+  
+  rest.post('/api/messages', (req, res, ctx) => {
+    return res(
+      ctx.json({
+        id: `msg-${Date.now()}`,
+        ...req.body,
+        createdAt: new Date().toISOString()
+      })
+    );
+  })
+);
+
+beforeAll(() => server.listen());
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+
+describe('ChatRoom Integration Tests', () => {
+  it('should load and display messages from API', async () => {
+    render(<ChatRoom roomId="room-1" />);
+    
+    // Wait for messages to load
+    await waitFor(() => {
+      expect(screen.getByText('Test message 0')).toBeInTheDocument();
+    });
+    
+    // Should display multiple messages
+    expect(screen.getAllByRole('article')).toHaveLength(50);
+  });
+  
+  it('should send new message and update UI optimistically', async () => {
+    const user = userEvent.setup();
+    render(<ChatRoom roomId="room-1" />);
+    
+    // Wait for initial load
+    await waitFor(() => {
+      expect(screen.getByText('Test message 0')).toBeInTheDocument();
+    });
+    
+    // Type and send message
+    const input = screen.getByRole('textbox');
+    await user.type(input, 'New test message');
+    await user.click(screen.getByRole('button', { name: /send/i }));
+    
+    // Should appear immediately (optimistic update)
+    expect(screen.getByText('New test message')).toBeInTheDocument();
+    
+    // Should show sending status
+    expect(screen.getByText('Sending...')).toBeInTheDocument();
+    
+    // Wait for server confirmation
+    await waitFor(() => {
+      expect(screen.queryByText('Sending...')).not.toBeInTheDocument();
+    });
+  });
+});
+```
+
+---
+
+## Summary of Advanced Patterns
+
+This comprehensive analysis provides the complete foundation for implementing Campfire's React frontend using the most advanced patterns and techniques available in the modern React ecosystem.
+
+**Key Advanced Takeaways**:
+
+1. **TDD as Design Tool** - Use Red-Green-Refactor to naturally arrive at idiomatic patterns
+2. **Advanced Composition** - Leverage compound components and render props for maximum flexibility
+3. **Sophisticated State Management** - Implement optimistic updates with rollback capabilities
+4. **Performance Excellence** - Use dynamic virtualization and strategic memoization
+5. **Comprehensive Testing** - Apply property-based testing and realistic API mocking
+6. **Error Resilience** - Implement multi-level error boundaries with graceful degradation
+7. **Accessibility First** - Ensure all patterns include proper ARIA attributes and semantic HTML
+8. **Type Safety** - Use TypeScript to encode business logic in the type system
+
+By combining these advanced patterns with the foundational React idioms, the Campfire frontend will deliver exceptional performance, maintainability, and user experience while following the highest standards of modern React development.
