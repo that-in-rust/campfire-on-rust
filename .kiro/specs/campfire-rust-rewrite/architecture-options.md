@@ -23,14 +23,6 @@ EXPOSE $PORT
 CMD ["/usr/local/bin/campfire-rust"]
 ```
 
-```dockerfile
-# ❌ WRONG: Database in image
-FROM alpine:latest
-COPY campfire-rust /usr/local/bin/campfire-rust
-COPY campfire.db /app/campfire.db  # NEVER DO THIS!
-CMD ["/usr/local/bin/campfire-rust"]
-```
-
 ### Deployment Strategies by Platform:
 - **Docker/VPS**: Use volume mounts (`-v campfire-data:/data`)
 - **Railway/Render**: Use persistent filesystem (`/app/data/`)
@@ -41,7 +33,7 @@ CMD ["/usr/local/bin/campfire-rust"]
 
 ## Overview
 
-This document presents four distinct high-level architecture approaches for the Campfire Rust rewrite, each balancing different priorities while meeting the core requirements for 87% cost reduction, <2MB memory usage, and 100% feature parity with the Rails implementation.
+This document presents five distinct high-level architecture approaches for the Campfire Rust rewrite, each balancing different priorities while meeting the core requirements for 87% cost reduction, <2MB memory usage, and 100% feature parity with the Rails implementation.
 
 ## Requirements Context
 
@@ -57,22 +49,22 @@ Based on the comprehensive requirements analysis, the key architectural drivers 
 
 ---
 
-## Architecture Option 1: "Monolithic Efficiency" ⭐ RECOMMENDED
+## Architecture Option 1: "Monolithic Efficiency"
 
 ### Philosophy
-Single-binary deployment with embedded components, optimized for the 87% cost reduction goal and <2MB memory usage.
+Single-binary deployment with embedded components, optimized for the 87% cost reduction goal and complete Rails feature parity.
 
 ### Core Architecture
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Single Rust Binary                       │
+│                    Single Rust Binary (~30MB)               │
 ├─────────────────────────────────────────────────────────────┤
-│  Embedded React SPA (include_bytes!)                       │
+│  Embedded React SPA (Complete UI)                          │
 │  ├─── Static Assets (CSS, JS, Images, Sounds)              │
 │  └─── Service Worker (PWA, Push Notifications)             │
 ├─────────────────────────────────────────────────────────────┤
 │  Axum Web Server (HTTP + WebSocket)                        │
-│  ├─── REST API Handlers                                    │
+│  ├─── REST API Handlers (Full File Support)               │
 │  ├─── WebSocket Connection Manager                         │
 │  ├─── Session-based Authentication                         │
 │  └─── Rate Limiting & Security Middleware                  │
@@ -89,10 +81,11 @@ Single-binary deployment with embedded components, optimized for the 87% cost re
 │  ├─── File Processing (VIPS)                              │
 │  └─── Background Cleanup                                   │
 ├─────────────────────────────────────────────────────────────┤
-│  SQLite Database (WAL Mode)                                │
+│  SQLite Database (WAL Mode) + File Storage                 │
 │  ├─── Connection Pool                                      │
 │  ├─── FTS5 Search Index                                   │
 │  ├─── Prepared Statements                                 │
+│  ├─── Active Storage Blobs                                │
 │  └─── Migration System                                     │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -107,6 +100,34 @@ Single-binary deployment with embedded components, optimized for the 87% cost re
 - **Authentication**: Session-based with secure tokens
 - **Deployment**: Single binary with embedded assets
 
+### Feature Scope
+#### ✅ **Complete Rails Parity:**
+- Rich text messaging with Trix editor
+- File uploads (images, documents, videos)
+- Avatar images with processing
+- OpenGraph link previews
+- Real-time chat with presence
+- @mentions and notifications
+- Sound commands with embedded audio
+- Bot integration with webhooks
+- PWA support with push notifications
+- Full search functionality
+
+### Data Volume Analysis
+#### Small Team (25 users)
+```
+Database: ~25MB (messages + metadata)
+Files: ~100MB (avatars + attachments)
+Total Storage: ~125MB
+```
+
+#### Large Team (500 users)  
+```
+Database: ~625MB (messages + metadata)
+Files: ~2.5GB (avatars + attachments)
+Total Storage: ~3.1GB
+```
+
 ### Deployment Architecture
 ```dockerfile
 # Container Image (No Database!)
@@ -117,59 +138,51 @@ EXPOSE $PORT
 CMD ["/usr/local/bin/campfire-rust"]
 ```
 
-#### Deployment Options:
-**Docker/VPS:**
+#### Deployment Examples:
 ```bash
+# Docker/VPS
 docker run -d \
   -v campfire-data:/data \
   -e DATABASE_PATH=/data/campfire.db \
   -p 80:80 campfire-rust:latest
-```
 
-**Railway/Render:**
-```bash
-# Uses persistent /app filesystem
+# Railway/Render
 DATABASE_PATH=/app/data/campfire.db
 ```
 
-**Kubernetes:**
-```yaml
-volumeMounts:
-- name: campfire-data
-  mountPath: /data
-env:
-- name: DATABASE_PATH
-  value: /data/campfire.db
-```
+### Performance Targets
+- **Memory**: 1-2MB baseline + file processing buffers
+- **Connections**: 10,000+ concurrent WebSocket
+- **Startup**: <100ms cold start
+- **Throughput**: 10-12K req/sec
+- **Response times**: <5ms API, <10ms messages, <1ms static
 
 ### Key Benefits
-- **Ultra-low resource usage**: <2MB memory, single process
-- **Fastest startup**: <100ms cold start with embedded assets
-- **Simplest deployment**: Single binary + SQLite file + volume mount
-- **Maximum performance**: 10K+ WebSocket connections, 10-12K req/sec
-- **Cost optimization**: Directly achieves 87% cost reduction goal
-- **Rails parity**: Closest architectural match to current monolith
+- **Complete feature parity**: 100% Rails functionality from day one
+- **Single binary deployment**: Simplest possible deployment
+- **Production ready**: No missing features or workarounds
+- **87% cost reduction**: Meets primary cost goal
 - **Zero external dependencies**: No Redis, no separate services
 
 ### Trade-offs
-- **Horizontal scaling limitations**: Single SQLite instance constraint
-- **Component coupling**: All components in single process
+- **Higher storage costs**: Files increase storage requirements
+- **File processing complexity**: Image/video processing implementation
+- **Higher egress costs**: Serving images and videos
+- **Limited horizontal scaling**: Single SQLite instance
 - **All-or-nothing deployment**: Cannot deploy components independently
-- **Memory sharing**: All features share same memory space
 
-### Performance Targets
-- Memory: <2MB baseline (vs Rails 50-100MB)
-- Connections: 10,000+ concurrent WebSocket (vs Rails ~1,000)
-- Startup: <100ms cold start (vs Rails several seconds)
-- Throughput: 10-12K req/sec (vs Rails few hundred per core)
-- Response times: <5ms API, <10ms messages, <1ms static assets
+### Use Cases
+- **Production deployment** with immediate full feature needs
+- **Teams requiring file sharing** from day one
+- **Complete Rails replacement** without feature gaps
+- **Single-instance deployments** with moderate scale
 
 ---
 
 ## Architecture Option 2: "Microservices Scalability"
 
 ### Philosophy
-Distributed architecture with separate services for different concerns, optimized for horizontal scaling and team development.
+Distributed architecture with separate services for different concerns, optimized for horizontal scaling and large team development.
 
 ### Core Architecture
 ```
@@ -190,7 +203,6 @@ Distributed architecture with separate services for different concerns, optimize
    ┌────▼───┐   ┌────▼────┐   ┌───▼────┐
    │Message │   │  User   │   │  Room  │
    │Service │   │ Service │   │Service │
-   │        │   │         │   │        │
    └────────┘   └─────────┘   └────────┘
         │             │             │
         └─────────────┼─────────────┘
@@ -201,18 +213,10 @@ Distributed architecture with separate services for different concerns, optimize
         └───────────────────────────┘
                       │
               ┌───────▼────────┐
-              │  Shared SQLite │
-              │   (Network)    │
+              │  Database      │
+              │ (SQLite/Postgres) │
               └────────────────┘
 ```
-
-### Service Breakdown
-- **Frontend Service**: Static asset serving, React SPA
-- **API Gateway**: Request routing, authentication, rate limiting
-- **WebSocket Service**: Real-time connections, presence, broadcasting
-- **Message Service**: Message CRUD, rich content, search
-- **User Service**: Authentication, sessions, bot management
-- **Room Service**: Room management, memberships, access control
 
 ### Technical Stack
 - **Service Framework**: Axum for each service
@@ -223,39 +227,80 @@ Distributed architecture with separate services for different concerns, optimize
 - **Load Balancing**: HAProxy or cloud load balancer
 - **Orchestration**: Docker Compose or Kubernetes
 
+### Feature Scope
+#### ✅ **Complete Rails Parity (Distributed):**
+- All features from Option 1
+- Independent service scaling
+- Service-specific databases possible
+- Rolling deployments per service
+
+### Data Volume Analysis
+#### Distributed across services:
+```
+Frontend Service: Static assets only
+API Gateway: Minimal state
+WebSocket Service: Connection state only
+Message Service: Messages + search index
+User Service: Users + sessions + avatars
+Room Service: Rooms + memberships
+```
+
+### Deployment Architecture
+```yaml
+# Docker Compose
+version: '3.8'
+services:
+  frontend:
+    image: campfire-frontend:latest
+  api-gateway:
+    image: campfire-api:latest
+  websocket:
+    image: campfire-ws:latest
+  message-service:
+    image: campfire-messages:latest
+    volumes:
+      - message-data:/data
+  # ... other services
+```
+
+### Performance Targets
+- **Memory**: 5-10MB per service (30-60MB total)
+- **Connections**: Distributed across WebSocket services
+- **Startup**: Service dependency chains affect startup
+- **Throughput**: Network overhead between services
+- **Scaling**: Independent per service
+
 ### Key Benefits
-- **Independent scaling**: Scale services based on specific load patterns
-- **Team autonomy**: Different teams can own and deploy services independently
-- **Technology flexibility**: Could use different databases per service
-- **Fault isolation**: Service failures don't bring down entire system
-- **Development parallelization**: Teams can work on services simultaneously
-- **Deployment flexibility**: Rolling updates, canary deployments per service
+- **Independent scaling**: Scale services based on load
+- **Team autonomy**: Different teams own different services
+- **Technology flexibility**: Different databases per service
+- **Fault isolation**: Service failures don't affect others
+- **Rolling deployments**: Update services independently
 
 ### Trade-offs
-- **Higher complexity**: Service discovery, inter-service communication overhead
-- **More resource usage**: Multiple processes, network latency, serialization
-- **Deployment complexity**: Orchestration, service mesh, monitoring required
-- **Cost implications**: May not meet 87% cost reduction goal due to overhead
-- **Data consistency**: Distributed transactions, eventual consistency challenges
-- **Debugging difficulty**: Distributed tracing, log aggregation required
+- **High complexity**: Service discovery, orchestration
+- **Poor cost efficiency**: 30-60MB memory, network overhead
+- **Slow development**: Distributed debugging, testing
+- **Operational overhead**: Multiple deployment units
+- **May not meet cost goals**: Infrastructure overhead
 
-### Performance Implications
-- **Memory**: 5-10MB per service (30-60MB total)
-- **Network overhead**: Inter-service communication latency
-- **Startup time**: Service dependency chains increase startup time
-- **Operational complexity**: Multiple deployment units to manage
+### Use Cases
+- **Large development teams** (10+ developers)
+- **Different scaling requirements** per component
+- **Existing microservices infrastructure**
+- **Cost is not primary concern**
 
 ---
 
 ## Architecture Option 3: "Hybrid Modular Monolith"
 
 ### Philosophy
-Modular monolith with clear internal boundaries and optional service extraction, balancing simplicity with scalability.
+Modular monolith with clear internal boundaries and optional service extraction, balancing simplicity with future scalability.
 
 ### Core Architecture
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                 Campfire Rust Binary                        │
+│                 Campfire Rust Binary (~30MB)                │
 ├─────────────────────────────────────────────────────────────┤
 │  Frontend Module (Embedded React)                          │
 │  └─── Asset Serving + PWA Support                          │
@@ -291,23 +336,30 @@ Modular monolith with clear internal boundaries and optional service extraction,
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Module Design Principles
-- **Clear interfaces**: Each module exposes well-defined APIs
-- **Dependency inversion**: Modules depend on abstractions, not implementations
-- **Single responsibility**: Each module has one primary concern
-- **Loose coupling**: Minimal dependencies between modules
-- **High cohesion**: Related functionality grouped together
-
-### Technical Implementation
+### Technical Stack
 - **Module boundaries**: Rust modules with public interfaces
 - **Dependency injection**: Service traits and implementations
 - **Event system**: Internal event bus for module communication
 - **Shared types**: Common domain types across modules
 - **Testing isolation**: Each module can be tested independently
 
+### Feature Scope
+#### ✅ **Complete Rails Parity (Modular):**
+- All features from Option 1
+- Clear module boundaries
+- Extraction-ready design
+- Single deployment unit
+
+### Data Volume Analysis
+#### Same as Option 1:
+```
+Small Team: ~125MB total
+Large Team: ~3.1GB total
+```
+
 ### Deployment Architecture
 ```dockerfile
-# Container Image (No Database!)
+# Same as Option 1 - Single Binary
 FROM alpine:latest
 RUN apk add --no-cache ca-certificates
 COPY campfire-rust /usr/local/bin/campfire-rust
@@ -315,121 +367,35 @@ EXPOSE $PORT
 CMD ["/usr/local/bin/campfire-rust"]
 ```
 
-#### Deployment with Persistent Storage:
-```bash
-# Docker Compose
-version: '3.8'
-services:
-  campfire:
-    image: campfire-rust:latest
-    volumes:
-      - campfire-data:/data
-    environment:
-      - DATABASE_PATH=/data/campfire.db
-volumes:
-  campfire-data:
-```
+### Performance Targets
+- **Memory**: 2-5MB baseline + file processing
+- **Connections**: 10,000+ concurrent WebSocket
+- **Startup**: <100ms cold start
+- **Throughput**: 10-12K req/sec
+- **Scaling**: Limited by SQLite
 
 ### Key Benefits
-- **Clear boundaries**: Well-defined modules with explicit interfaces
-- **Extraction ready**: Modules can become services later if needed
-- **Development efficiency**: Single codebase, shared types, unified testing
-- **Performance**: In-process communication, shared memory, no serialization
-- **Meets cost goals**: Single deployment with efficiency benefits
-- **Refactoring safety**: Module boundaries prevent accidental coupling
-- **Team scaling**: Teams can own modules with clear responsibilities
+- **Clear boundaries**: Well-defined modules with interfaces
+- **Extraction ready**: Modules can become services later
+- **Development efficiency**: Single codebase, shared types
+- **87% cost reduction**: Single deployment efficiency
+- **Team scaling**: Teams can own modules
 
 ### Trade-offs
-- **Module discipline required**: Need to enforce boundaries through code review
-- **Potential coupling**: Risk of tight coupling if boundaries not maintained
-- **Single point of failure**: Still a monolith at runtime
-- **Shared database**: All modules share same database instance
+- **Module discipline required**: Boundary enforcement needed
+- **Single point of failure**: Still monolith at runtime
+- **Shared database**: All modules share SQLite
 - **Deployment coupling**: All modules deploy together
 
-### Evolution Path
-1. **Phase 1**: Start as modular monolith with clear boundaries
-2. **Phase 2**: Extract high-load modules (e.g., WebSocket service)
-3. **Phase 3**: Extract domain modules as needed for scaling
-4. **Phase 4**: Full microservices if business requirements demand
+### Use Cases
+- **Medium development teams** (3-8 developers)
+- **Future microservices plans** with current simplicity
+- **Clear module ownership** requirements
+- **Balance between simplicity and flexibility**
 
 ---
 
-## Database Deployment Best Practices Summary
-
-### ✅ Correct Deployment Patterns:
-```bash
-# Docker with Volume Mount
-docker run -v campfire-data:/data -e DATABASE_PATH=/data/campfire.db campfire-rust
-
-# Railway with Persistent Filesystem  
-DATABASE_PATH=/app/data/campfire.db
-
-# Kubernetes with PVC
-volumeMounts:
-- name: db-storage
-  mountPath: /data
-```
-
-### ❌ Anti-Patterns to Avoid:
-```dockerfile
-# NEVER: Database in image
-COPY campfire.db /app/  # Data loss on updates!
-
-# NEVER: Database in ephemeral storage
-DATABASE_PATH=/tmp/campfire.db  # Lost on restart!
-
-# NEVER: No backup strategy
-# Always implement automated backups
-```
-
-### Backup Requirements for All Options:
-1. **Automated backups**: Scheduled database exports
-2. **External storage**: Backups stored outside container
-3. **Restore testing**: Regular backup validation
-4. **Migration plan**: Clear data portability strategy
-
----
-
-## Comparative Analysis
-
-### Performance Requirements Alignment
-
-| Requirement | Option 1 (Monolith) | Option 2 (Microservices) | Option 3 (Modular) | Option 4 (Text-Only) |
-|-------------|---------------------|---------------------------|---------------------|----------------------|
-| <2MB Memory | ✅ Excellent (1-2MB) | ❌ Poor (30-60MB) | ✅ Good (2-5MB) | ✅ Excellent (10-30MB) |
-| 10K+ WebSocket | ✅ Excellent | ⚠️ Complex (service mesh) | ✅ Excellent | ✅ Excellent |
-| <100ms Startup | ✅ Excellent | ❌ Poor (service deps) | ✅ Good | ✅ Excellent (<50ms) |
-| 87% Cost Reduction | ✅ Excellent | ❌ Poor (overhead) | ✅ Good | ✅ Excellent (90-95%) |
-| Single Binary Deploy | ✅ Perfect | ❌ N/A | ✅ Perfect | ✅ Perfect |
-| 10-12K req/sec | ✅ Excellent | ⚠️ Network overhead | ✅ Excellent | ✅ Excellent (15K+) |
-| Data Safety | ✅ Volume Mount | ⚠️ Distributed | ✅ Volume Mount | ✅ Volume + Backup |
-
-### Development & Maintenance
-
-| Aspect | Option 1 | Option 2 | Option 3 | Option 4 |
-|--------|----------|----------|----------|----------|
-| Initial Development Speed | ✅ Fast | ❌ Slow | ✅ Medium | ✅ Fastest |
-| Team Scaling | ⚠️ Limited | ✅ Excellent | ✅ Good | ⚠️ Limited |
-| Debugging Complexity | ✅ Simple | ❌ Complex | ✅ Good | ✅ Simplest |
-| Testing Complexity | ✅ Simple | ❌ Complex | ✅ Good | ✅ Simplest |
-| Deployment Complexity | ✅ Simple | ❌ Complex | ✅ Simple | ✅ Simplest |
-| Operational Overhead | ✅ Minimal | ❌ High | ✅ Low | ✅ Minimal |
-| Backup Strategy | ✅ Volume Backup | ❌ Distributed | ✅ Volume Backup | ✅ Built-in + External |
-
-### Scalability & Evolution
-
-| Aspect | Option 1 | Option 2 | Option 3 | Option 4 |
-|--------|----------|----------|----------|----------|
-| Horizontal Scaling | ⚠️ Limited | ✅ Excellent | ⚠️ Limited | ⚠️ Limited |
-| Component Independence | ❌ Coupled | ✅ Independent | ⚠️ Bounded | ❌ Coupled |
-| Technology Diversity | ❌ Single stack | ✅ Per-service | ⚠️ Single stack | ❌ Single stack |
-| Future Evolution | ⚠️ Rewrite needed | ✅ Already distributed | ✅ Extract services | ✅ Clear upgrade path |
-| Resource Efficiency | ✅ Maximum | ❌ Overhead | ✅ Good | ✅ Maximum |
-| Data Portability | ✅ SQLite file | ❌ Complex | ✅ SQLite file | ✅ SQLite + Backups |
-
----
-
-## Architecture Option 4: "Ultra-Lightweight Text-Only MVP" 🚀 NEW
+## Architecture Option 4: "Ultra-Lightweight Text-Only MVP"
 
 ### Philosophy
 Minimal viable product focused exclusively on text-based chat, eliminating all file storage to achieve maximum deployment simplicity and cost efficiency.
@@ -472,110 +438,60 @@ Minimal viable product focused exclusively on text-based chat, eliminating all f
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Feature Scope (Text-Only MVP)
+### Technical Stack
+- **Web Framework**: Axum (minimal file handling)
+- **Database**: SQLite (text-only, no blobs)
+- **Real-time**: Actor pattern (text messages only)
+- **Frontend**: React SPA (simplified UI)
+- **Task Queue**: Tokio tasks (no file processing)
+- **Authentication**: Session-based
+- **Deployment**: Ultra-minimal binary
 
-#### ✅ Included Features
-- **Rich text messaging**: Bold, italic, links, code blocks
-- **Real-time chat**: WebSocket-based instant messaging
-- **@mentions**: User notifications and highlighting
-- **Sound commands**: `/play` commands with embedded audio
-- **Emoji support**: Unicode emoji (no custom images)
-- **Room management**: Open, closed, and direct message rooms
-- **User presence**: Online/offline status and typing indicators
-- **Search functionality**: Full-text search across all messages
-- **Bot integration**: Text-based webhook responses
-- **PWA support**: Offline-capable progressive web app
-- **Push notifications**: Web push for mentions and messages
-- **Session management**: Multi-device login support
+### Feature Scope
+#### ✅ **Text-Only Features:**
+- Rich text messaging (bold, italic, links, code)
+- Real-time chat with WebSocket
+- @mentions and notifications
+- Sound commands with embedded audio
+- Unicode emoji support
+- Room management (open, closed, direct)
+- User presence and typing indicators
+- Full-text search
+- Bot integration (text responses)
+- PWA support and push notifications
+- Multi-device session management
 
-#### ❌ Excluded Features (For Later Phases)
-- **File uploads**: No images, documents, or videos
-- **Avatar images**: Text initials or default icons only
-- **OpenGraph previews**: Links shown as plain text
-- **Thumbnail generation**: No image processing
-- **File attachments**: External link sharing only
+#### ❌ **Excluded Features:**
+- File uploads (images, documents, videos)
+- Avatar images (text initials only)
+- OpenGraph link previews
+- Thumbnail generation
+- File attachments
 
-### Data Volume Analysis (Text-Only)
-
+### Data Volume Analysis
 #### Small Team (25 users)
 ```
 Users: 25 × 0.5KB = 12.5KB
-Rooms: 10 × 0.3KB = 3KB
-Memberships: 250 × 0.2KB = 50KB
 Messages: 10,000 × 0.8KB = 8MB
 Rich Text: 2,000 × 1KB = 2MB
 FTS5 Index: ~2.5MB
-Sessions: 50 × 0.3KB = 15KB
-
 Total Database: ~12.5MB
 Total Storage: ~12.5MB (no files!)
-```
-
-#### Medium Team (100 users)
-```
-Users: 100 × 0.5KB = 50KB
-Rooms: 25 × 0.3KB = 7.5KB
-Memberships: 1,000 × 0.2KB = 200KB
-Messages: 50,000 × 0.8KB = 40MB
-Rich Text: 10,000 × 1KB = 10MB
-FTS5 Index: ~12.5MB
-Sessions: 200 × 0.3KB = 60KB
-
-Total Database: ~62.5MB
-Total Storage: ~62.5MB
 ```
 
 #### Large Team (500 users)
 ```
 Users: 500 × 0.5KB = 250KB
-Rooms: 50 × 0.3KB = 15KB
-Memberships: 5,000 × 0.2KB = 1MB
 Messages: 250,000 × 0.8KB = 200MB
 Rich Text: 50,000 × 1KB = 50MB
 FTS5 Index: ~62.5MB
-Sessions: 1,000 × 0.3KB = 300KB
-
 Total Database: ~314MB
 Total Storage: ~314MB
 ```
 
-### Deployment Characteristics
-
-#### Docker Image Size
+### Deployment Architecture
 ```dockerfile
-FROM scratch
-COPY campfire-rust /campfire-rust
-EXPOSE 80 443
-CMD ["/campfire-rust"]
-
-# Image sizes:
-# Fresh deployment: ~25MB
-# With 1 year data (100 users): ~90MB total
-```
-
-#### Memory Usage
-```
-Base Application: 1-2MB
-Message Cache: 2-5MB (text only)
-WebSocket Connections: 8KB × users
-Search Cache: 1-5MB
-Session Cache: 100KB-1MB
-
-Total for 100 users: ~10-15MB
-Total for 500 users: ~20-30MB
-```
-
-#### Resource Requirements
-```
-CPU: 0.1 vCPU (burst to 0.25)
-Memory: 256MB (vs 4GB Rails)
-Storage: 1GB (vs 50GB+ Rails)
-Bandwidth: Minimal (text-only)
-```
-
-### Deployment Architecture (Text-Only)
-```dockerfile
-# Ultra-Minimal Container (No Database!)
+# Ultra-Minimal Container
 FROM alpine:latest
 RUN apk add --no-cache ca-certificates curl
 COPY campfire-rust /usr/local/bin/campfire-rust
@@ -583,284 +499,368 @@ EXPOSE $PORT
 CMD ["/usr/local/bin/campfire-rust"]
 ```
 
-#### Platform-Specific Deployment:
-
-**Railway.app (Recommended for MVP):**
+#### Platform Examples:
 ```toml
-# railway.toml
-[build]
-builder = "DOCKERFILE"
-
-[deploy]
-startCommand = "/usr/local/bin/campfire-rust"
-healthcheckPath = "/up"
-
+# Railway.toml
 [environments.production]
-DATABASE_PATH = "/app/data/campfire.db"  # Railway persistent filesystem
+DATABASE_PATH = "/app/data/campfire.db"
 BACKUP_URL = "${{BACKUP_WEBHOOK_URL}}"
 ```
 
-**Docker/VPS:**
-```bash
-docker run -d \
-  --name campfire-app \
-  -v /opt/campfire/data:/data \
-  -e DATABASE_PATH=/data/campfire.db \
-  -p 80:80 campfire-rust:latest
-```
-
-**Fly.io:**
-```toml
-# fly.toml
-[mounts]
-source = "campfire_data"
-destination = "/data"
-
-[env]
-DATABASE_PATH = "/data/campfire.db"
-```
+### Performance Targets
+- **Memory**: 10-30MB total
+- **Connections**: 10,000+ concurrent WebSocket
+- **Startup**: <50ms cold start
+- **Throughput**: 15K+ req/sec (no file overhead)
+- **Response times**: <2ms API, <5ms messages
 
 ### Key Benefits
-
-#### **Ultra-Minimal Resource Usage**
-- **Memory**: 10-30MB total (vs 50-100MB Rails baseline)
-- **Storage**: 10-300MB database (vs 1-3GB with files)
-- **CPU**: Minimal processing (no image/video handling)
-- **Network**: Text-only payloads (1-5KB vs 100KB+ with media)
-
-#### **Deployment Simplicity**
-- **Single file**: Binary + SQLite database
-- **No dependencies**: No Redis, no file storage service
-- **Instant backup**: Copy SQLite file = complete backup
-- **Zero configuration**: Works out of the box
-
-#### **Development Velocity**
-- **No file handling complexity**: Skip upload/processing logic
-- **Faster testing**: No mock file services needed
-- **Simpler debugging**: Text-only data flows
-- **Rapid iteration**: Deploy in seconds
-
-#### **Cost Optimization**
-- **90-95% cost reduction**: Even better than 87% target
-- **Micro instances**: AWS t4g.nano ($3.50/month)
-- **Edge deployment**: Raspberry Pi capable
-- **Bandwidth savings**: Minimal data transfer
-
-#### **GitHub/Distribution Friendly**
-- **Small repository**: No large binary assets
-- **Fast clones**: Minimal download size
-- **Easy distribution**: Single binary deployment
-- **Version control**: Text-only changes
+- **Ultra-low costs**: 90-95% cost reduction ($3-5/month)
+- **Fastest development**: No file handling complexity
+- **Minimal resource usage**: 10-30MB memory, 314MB storage max
+- **Perfect for MVP**: Core chat validation
+- **Simplest deployment**: Single binary, minimal dependencies
 
 ### Trade-offs
+- **Limited user experience**: No file sharing capability
+- **UI feels incomplete**: Missing file upload areas
+- **External workarounds**: Users need external file sharing
+- **Future redesign**: UI changes needed for file features
 
-#### **Feature Limitations**
-- **No native file sharing**: Users must use external services (Imgur, etc.)
-- **No avatar images**: Text initials only
-- **No link previews**: Plain text links
-- **Limited rich media**: Text and emoji only
+### Use Cases
+- **MVP validation** with minimal investment
+- **Developer teams** focused on text communication
+- **Extreme cost optimization** requirements
+- **Edge/embedded deployments** with constraints
 
-#### **User Experience Impact**
-- **Modern chat feel**: Still rich text, real-time, sounds
-- **Professional usage**: Code sharing, @mentions work perfectly
-- **Mobile friendly**: Fast loading, PWA support
-- **Workarounds needed**: External image sharing
+---
 
-#### **Future Migration Complexity**
-- **File system addition**: Requires architecture changes
-- **Data migration**: Moving from text-only to media support
-- **API changes**: Adding file upload endpoints later
+## Architecture Option 5: "UI-Complete, Files-Disabled MVP" 🎯 **RECOMMENDED**
 
-### Backup Strategy for Text-Only MVP
+### Philosophy
+Build the complete user interface and experience while disabling only the heavy file processing backend, achieving ultra-low costs with zero UI redesign needed for future upgrades.
 
-#### Built-in Backup System:
+### Core Architecture
+```
+┌─────────────────────────────────────────────────────────────┐
+│                Single Rust Binary (~30MB)                   │
+├─────────────────────────────────────────────────────────────┤
+│  Complete React UI (Full Rails Parity)                     │
+│  ├─── All Components (File Upload, Lightbox, Avatars)      │
+│  ├─── Complete CSS/Styling (25+ stylesheets)               │
+│  ├─── Sound Assets (Embedded Audio Files)                  │
+│  ├─── Graceful Degradation (Disabled Features)             │
+│  └─── Service Worker (PWA, Push Notifications)             │
+├─────────────────────────────────────────────────────────────┤
+│  Axum Web Server (HTTP + WebSocket)                        │
+│  ├─── REST API Handlers (Stubbed File Endpoints)          │
+│  ├─── WebSocket Connection Manager                         │
+│  ├─── Session-based Authentication                         │
+│  └─── Rate Limiting & Security Middleware                  │
+├─────────────────────────────────────────────────────────────┤
+│  Complete Real-time Engine                                  │
+│  ├─── Room Actors (State Management)                       │
+│  ├─── Presence Tracking                                    │
+│  ├─── Message Broadcasting (Rich Text)                     │
+│  ├─── Typing Notifications                                 │
+│  └─── Sound Command Processing                             │
+├─────────────────────────────────────────────────────────────┤
+│  Feature-Flagged Task Queue                                │
+│  ├─── Webhook Delivery (Text Responses)                   │
+│  ├─── Push Notification Sending                           │
+│  ├─── Background Cleanup                                   │
+│  └─── File Processing (Disabled/Stubbed)                  │
+├─────────────────────────────────────────────────────────────┤
+│  Text-Only SQLite Database (10-300MB)                      │
+│  ├─── Connection Pool                                      │
+│  ├─── FTS5 Search Index                                   │
+│  ├─── Prepared Statements                                 │
+│  ├─── No Blob Storage (Feature Flagged)                   │
+│  └─── Migration System                                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Technical Stack
+- **Web Framework**: Axum (complete API, stubbed file endpoints)
+- **Database**: SQLite (text-only backend, ready for files)
+- **Real-time**: Actor pattern (complete implementation)
+- **Frontend**: Complete React UI (all components built)
+- **Task Queue**: Tokio tasks (feature-flagged file processing)
+- **Authentication**: Full session management
+- **Deployment**: Complete UI with minimal backend
+
+### Feature Scope
+#### ✅ **Fully Implemented (Complete UX):**
+- Complete React UI with all components
+- Rich text messaging with Trix editor
+- Real-time chat with full presence system
+- @mentions with autocomplete
+- Sound commands with embedded audio
+- Unicode emoji support
+- Complete room management UI
+- User presence and typing indicators
+- Full search functionality
+- Bot integration (text responses)
+- PWA support and push notifications
+- Multi-device session management with QR codes
+
+#### 🚧 **Gracefully Disabled (UI Present, Backend Stubbed):**
+- File upload zones (show "Coming in v2.0" message)
+- Avatar upload areas (text initials with placeholder)
+- Image lightbox (ready for images, shows upgrade prompt)
+- Document sharing (upload UI present but disabled)
+- OpenGraph previews (links shown as text with "Preview coming soon")
+
+### Data Volume Analysis
+#### Same as Option 4 (Text-Only Backend):
+```
+Small Team: ~12.5MB database
+Large Team: ~314MB database
+No file storage in v1.0
+```
+
+### Deployment Architecture
+```dockerfile
+# Complete UI Container (No Database!)
+FROM alpine:latest
+RUN apk add --no-cache ca-certificates curl
+COPY campfire-rust /usr/local/bin/campfire-rust
+EXPOSE $PORT
+CMD ["/usr/local/bin/campfire-rust"]
+```
+
+#### Feature Flag Configuration:
 ```rust
-// Automatic backup scheduler
-pub async fn start_backup_scheduler(db_path: &str) {
-    let mut interval = tokio::time::interval(Duration::from_secs(3600)); // 1 hour
-    
-    loop {
-        interval.tick().await;
-        
-        if let Ok(backup_url) = env::var("BACKUP_URL") {
-            backup_database_to_webhook(&db_path, &backup_url).await;
-        }
-    }
+// Configuration with feature flags
+#[derive(Debug, Clone)]
+pub struct AppConfig {
+    pub files_enabled: bool,        // v1.0: false
+    pub avatars_enabled: bool,      // v1.0: false
+    pub opengraph_enabled: bool,    // v1.0: false
+    pub max_file_size: usize,       // v1.0: 0
 }
 ```
 
-#### Platform-Specific Backup:
-- **Railway**: Webhook backups to external service
-- **Docker**: Volume backups with cron jobs
-- **Cloud**: Managed backup services (AWS Backup, etc.)
+### Performance Targets
+- **Memory**: 10-30MB total (same as Option 4)
+- **Connections**: 10,000+ concurrent WebSocket
+- **Startup**: <50ms cold start
+- **Throughput**: 15K+ req/sec
+- **Storage**: 12.5MB-314MB (text-only)
+
+### Key Benefits
+- **Complete user experience**: Full Rails UI from day one
+- **Ultra-low costs**: 90-95% cost reduction (same as Option 4)
+- **Zero redesign risk**: Complete interface built once
+- **Professional appearance**: Looks like finished product
+- **Perfect user expectation management**: Clear messaging about features
+- **Optimal evolution path**: Feature flags enable gradual rollout
+- **Stakeholder ready**: Demo complete vision while controlling costs
+
+### Trade-offs
+- **Slightly larger binary**: 30MB vs 25MB (includes complete UI)
+- **User expectation management**: Need clear messaging about disabled features
+- **Support questions**: Users will ask about disabled features
+- **Temporary workarounds**: External file sharing needed initially
 
 ### Evolution Strategy
+#### Phase 1: Complete UI, Text-Only Backend (Months 1-2)
+```rust
+AppConfig { files_enabled: false, avatars_enabled: false, .. }
+```
 
-#### Phase 1: Text-Only MVP (Months 1-3)
-- Deploy ultra-lightweight version with persistent storage
-- Implement automatic backup system
-- Validate core chat functionality
-- Build user base and feedback
+#### Phase 2: Enable Avatar Uploads (Month 3)
+```rust
+AppConfig { avatars_enabled: true, .. }
+```
 
-#### Phase 2: External File Integration (Months 4-5)
-- Add support for external image links
-- Implement link preview for known services
-- Maintain text-only storage with backup continuity
+#### Phase 3: Enable Document Uploads (Month 4)
+```rust
+AppConfig { files_enabled: true, .. }
+```
 
-#### Phase 3: Native File Support (Months 6-9)
-- Add file upload API
-- Implement cloud storage (S3/R2)
-- Keep SQLite for metadata, files external
-- Extend backup system for file metadata
+#### Phase 4: Full Feature Parity (Months 5-6)
+```rust
+AppConfig { files_enabled: true, avatars_enabled: true, opengraph_enabled: true, .. }
+```
 
-#### Phase 4: Full Feature Parity (Months 10-12)
-- Complete Rails feature set
-- Advanced file processing
-- Video/document support
-- Comprehensive backup/restore system
-
-### Use Cases Perfect for Option 4
-
-#### **Developer Teams**
-- Code-focused discussions
-- Technical documentation sharing
-- Minimal distraction environment
-- Fast, lightweight communication
-
-#### **Startup MVPs**
-- Rapid deployment and testing
-- Minimal infrastructure costs
-- Focus on core chat functionality
-- Easy scaling and iteration
-
-#### **Edge/Embedded Deployments**
-- IoT device communication
-- Offline-first environments
-- Resource-constrained systems
-- Distributed team coordination
-
-#### **Privacy-Focused Organizations**
-- No file storage concerns
-- Minimal data footprint
-- Easy compliance auditing
-- Complete data portability
-
-### Performance Targets (Text-Only)
-
-- **Memory**: <30MB total (vs Rails 50-100MB)
-- **Connections**: 10,000+ concurrent WebSocket
-- **Startup**: <50ms cold start (faster than Option 1)
-- **Throughput**: 15K+ req/sec (no file processing overhead)
-- **Response times**: <2ms API, <5ms messages, <1ms static
-- **Database**: Sub-millisecond queries (smaller indexes)
+### Use Cases
+- **Professional MVP** with complete user experience
+- **Stakeholder demos** requiring polished interface
+- **User validation** of complete workflows and UX
+- **Gradual feature rollout** strategy
+- **Team collaboration** tools needing professional appearance
+- **Cost optimization** with complete user experience
 
 ---
 
-## Recommendation: Option 4 - "Ultra-Lightweight Text-Only MVP" 🚀
+## Comprehensive Architecture Comparison
+
+### Quick Reference Table
+
+| Aspect | Option 1 (Full) | Option 2 (Micro) | Option 3 (Modular) | Option 4 (Text-Only) | Option 5 (UI-Complete) |
+|--------|-----------------|-------------------|---------------------|----------------------|------------------------|
+| **Features** | 100% Rails parity | 100% Rails parity | 100% Rails parity | Text chat only | Complete UI, text backend |
+| **Memory Usage** | 1-2MB + files | 30-60MB | 2-5MB + files | 10-30MB | 10-30MB |
+| **Storage** | 125MB-3.1GB | Distributed | 125MB-3.1GB | 12.5MB-314MB | 12.5MB-314MB |
+| **Binary Size** | 30MB | Multiple services | 30MB | 25MB | 30MB |
+| **Development Speed** | Fast | Slow | Medium | Fastest | Fast |
+| **Deployment** | Single binary | Orchestration | Single binary | Single binary | Single binary |
+| **Cost Reduction** | 87% | Poor (overhead) | 87% | 90-95% | 90-95% |
+| **User Experience** | Complete | Complete | Complete | Limited (no files) | Complete |
+| **Future Evolution** | Limited scaling | Already distributed | Extract services | Add file support | Enable features |
+| **MVP Readiness** | Production ready | Over-engineered | Production ready | Validation ready | Perfect MVP |
+
+### Detailed Pros and Cons Analysis
+
+#### Option 1: "Monolithic Efficiency"
+**Pros:**
+- ✅ Complete Rails feature parity immediately
+- ✅ Single binary deployment simplicity
+- ✅ Production-ready from day one
+- ✅ 87% cost reduction achieved
+- ✅ No missing features or workarounds
+
+**Cons:**
+- ❌ Higher storage costs (files included)
+- ❌ Complex file processing implementation
+- ❌ Higher egress costs (image/video serving)
+- ❌ Limited horizontal scaling
+- ❌ All-or-nothing deployment model
+
+**Best For:** Production deployment with immediate full feature needs
+
+#### Option 2: "Microservices Scalability"
+**Pros:**
+- ✅ Independent service scaling
+- ✅ Team autonomy and parallel development
+- ✅ Technology flexibility per service
+- ✅ Fault isolation between components
+- ✅ Rolling deployments per service
+
+**Cons:**
+- ❌ High complexity (service mesh, orchestration)
+- ❌ Poor cost efficiency (30-60MB memory)
+- ❌ Slow development and deployment
+- ❌ Distributed debugging challenges
+- ❌ May not meet cost reduction goals
+
+**Best For:** Large teams (10+ developers) with complex scaling needs
+
+#### Option 3: "Hybrid Modular Monolith"
+**Pros:**
+- ✅ Clear module boundaries for future extraction
+- ✅ Single binary deployment simplicity
+- ✅ Good team scaling (3-8 developers)
+- ✅ 87% cost reduction achieved
+- ✅ Balanced complexity and flexibility
+
+**Cons:**
+- ❌ Module discipline required (boundary enforcement)
+- ❌ Still monolith at runtime (single point of failure)
+- ❌ Shared database constraints
+- ❌ Deployment coupling between modules
+- ❌ Risk of boundary erosion over time
+
+**Best For:** Medium teams wanting future microservices flexibility
+
+#### Option 4: "Ultra-Lightweight Text-Only MVP"
+**Pros:**
+- ✅ Fastest development (no file complexity)
+- ✅ Ultra-low costs (90-95% reduction)
+- ✅ Minimal resource usage (10-30MB memory)
+- ✅ Perfect for MVP validation
+- ✅ Simplest deployment and operations
+
+**Cons:**
+- ❌ Limited user experience (no file sharing)
+- ❌ UI redesign needed for file features later
+- ❌ User expectation management challenges
+- ❌ May feel incomplete to users
+- ❌ External file sharing workarounds needed
+
+**Best For:** MVP validation, extreme cost optimization, developer-focused teams
+
+#### Option 5: "UI-Complete, Files-Disabled MVP" 🎯 **RECOMMENDED**
+**Pros:**
+- ✅ Complete user interface and experience
+- ✅ Ultra-low costs (90-95% reduction, same as Option 4)
+- ✅ Zero UI redesign needed for upgrades
+- ✅ Perfect user expectation management
+- ✅ Gradual feature enablement path
+- ✅ Professional appearance from day one
+- ✅ Stakeholder ready for demos
+
+**Cons:**
+- ❌ Slightly larger binary (30MB vs 25MB)
+- ❌ User questions about disabled features
+- ❌ Requires clear messaging strategy
+- ❌ Temporary external file sharing needed
+
+**Best For:** Professional MVP with complete UX, gradual feature rollout, stakeholder demos
+
+---
+
+## Final Recommendation: Option 5 - "UI-Complete, Files-Disabled MVP" 🎯
 
 ### Primary Rationale
 
-**Option 4 (Ultra-Lightweight Text-Only MVP) is now the recommended approach for initial deployment:**
+**Option 5 (UI-Complete, Files-Disabled MVP) is the optimal choice for initial deployment:**
 
-1. **Exceeds Cost Goals**: 90-95% cost reduction (better than 87% target)
-2. **Minimal Complexity**: Eliminates file handling complexity entirely
-3. **Ultra-Fast Development**: Focus on core chat features only
-4. **Maximum Portability**: 25MB binary runs anywhere
-5. **Perfect MVP**: Validates core value proposition quickly
-6. **Clear Evolution Path**: Can add file support in Phase 2
+1. **Best of Both Worlds**: Complete UX with ultra-low costs (90-95% reduction)
+2. **Zero Redesign Risk**: Full UI built once, features enabled incrementally  
+3. **Professional Appearance**: Looks like complete product from day one
+4. **Perfect User Management**: Clear messaging about coming features
+5. **Fastest Time to Value**: Validate complete user experience immediately
+6. **Optimal Evolution Path**: Feature flags enable gradual rollout
+7. **Stakeholder Ready**: Demo complete vision while controlling costs
 
-**Fallback to Option 1 if file support is absolutely required for MVP.**
+### Implementation Strategy for Option 5
 
-### Implementation Strategy
+#### Phase 1: Complete UI with Text-Only Backend (Months 1-2)
+- Single Rust binary with complete React UI
+- SQLite database with text-only storage
+- Feature-flagged file endpoints (stubbed)
+- Complete features: auth, messages, rooms, real-time, bots (text-only)
+- Professional UI with graceful degradation messaging
 
-#### Phase 1: Core Monolith (Months 1-3)
-- Single Rust binary with embedded React
-- SQLite database with connection pooling
-- Basic HTTP API and WebSocket support
-- Essential features: auth, messages, rooms
+#### Phase 2: Enable Avatar Uploads (Month 3)
+- Flip `avatars_enabled = true` feature flag
+- Add basic image processing for avatars only
+- Test file upload pipeline with small images
 
-#### Phase 2: Feature Completion (Months 4-6)
-- Real-time features (presence, typing)
-- File uploads and processing
-- Bot integration and webhooks
-- Search functionality
+#### Phase 3: Enable Document Uploads (Month 4)
+- Flip `files_enabled = true` for documents
+- Add file validation and security scanning
+- Support PDF, text, and office documents
 
-#### Phase 3: Optimization (Months 7-8)
-- Performance tuning for 10K+ connections
-- Memory optimization for <2MB target
-- Security hardening and rate limiting
-- Production deployment and monitoring
+#### Phase 4: Full File Support (Months 5-6)
+- Enable image/video uploads with processing
+- Add thumbnail generation and previews
+- Complete Rails feature parity
 
-### Migration Path from Option 1
+### Success Metrics for Option 5
 
-If scaling demands eventually require distribution:
+- **Cost Reduction**: Achieve 90-95% reduction (2 vCPU/4GB → 0.25 vCPU/0.5GB)
+- **Performance**: <30MB memory, 10K+ connections, <50ms startup
+- **User Experience**: Complete UI validation with professional appearance
+- **Feature Rollout**: Successful incremental feature enablement
+- **User Satisfaction**: High UX scores despite disabled features
 
-1. **Extract WebSocket Service**: High-connection load component
-2. **Extract File Processing**: CPU-intensive operations
-3. **Extract Bot Services**: External integrations
-4. **Database Sharding**: If SQLite becomes bottleneck
+### Critical Deployment Requirements for All Options
 
-### Success Metrics
-
-- **Cost Reduction**: Achieve 87% reduction (2 vCPU/4GB → 0.25 vCPU/0.5GB)
-- **Performance**: <2MB memory, 10K+ connections, <100ms startup
-- **Feature Parity**: 100% Rails functionality replicated
-- **Reliability**: 99.9% uptime with graceful degradation
-- **Developer Experience**: Faster development cycles than Rails
-
----
-
-## Alternative Scenarios
-
-### When to Choose Option 2 (Microservices)
-- **Large development team** (10+ developers)
-- **Different scaling requirements** per component
-- **Regulatory requirements** for service isolation
-- **Existing microservices infrastructure**
-- **Cost is not primary concern**
-
-### When to Choose Option 3 (Modular Monolith)
-- **Medium development team** (3-8 developers)
-- **Uncertain future scaling requirements**
-- **Need for clear module boundaries**
-- **Plan to extract services later**
-- **Balance between simplicity and flexibility**
-
-### When to Choose Option 4 (Ultra-Lightweight MVP)
-- **MVP/Proof of concept** development
-- **Extreme cost optimization** required ($3-5/month hosting)
-- **Text-focused use cases** (developer teams, documentation)
-- **Edge/embedded deployments** with resource constraints
-- **Rapid iteration** and validation needed
-- **GitHub/single-binary distribution** preferred
-- **Railway/Render deployment** for simplicity
-- **No file upload requirements** initially
-
----
-
-## Conclusion
-
-**Option 4 (Ultra-Lightweight Text-Only MVP)** is the recommended architecture for the initial Campfire Rust rewrite based on:
-
-- **Exceeds cost goals**: 90-95% cost reduction vs 87% target
-- **Minimal implementation risk**: Text-only eliminates file handling complexity
-- **Ultra-fast time to market**: Focus on core chat features only
-- **Maximum deployment flexibility**: 25MB binary runs anywhere
-- **Perfect validation tool**: Proves core value proposition quickly
-- **Clear evolution strategy**: Add file support in Phase 2 if needed
-
-**Critical Deployment Requirements for All Options:**
 1. **Never include database in container image** - Use persistent volumes/filesystems
 2. **Implement automated backup system** - External backup storage required
 3. **Test backup/restore procedures** - Validate data recovery regularly
 4. **Plan for data migration** - Clear strategy for platform changes
 
-**Fallback Strategy**: If file uploads are absolutely required for MVP, use Option 1 (Monolithic Efficiency) which still achieves the 87% cost reduction goal while providing full Rails feature parity.
+### Recommended Deployment Platforms
 
-**Recommended Deployment Platforms by Option:**
-- **Option 4 (Text-Only MVP)**: Railway.app, Render, Fly.io (persistent filesystem)
-- **Option 1 (Full Features)**: Docker/VPS, AWS ECS, Kubernetes (volume mounts)
-- **Option 2 (Microservices)**: Kubernetes, Docker Swarm (orchestrated volumes)
+- **Option 5 (UI-Complete MVP)**: Railway.app, Render, Fly.io - **RECOMMENDED**
+- **Option 4 (Text-Only MVP)**: Railway.app, Render, Fly.io
+- **Option 1 (Full Features)**: Docker/VPS, AWS ECS, Kubernetes
+- **Option 2 (Microservices)**: Kubernetes, Docker Swarm
 - **Option 3 (Modular)**: Any platform with persistent storage
 
-The text-only approach provides the fastest path to market with maximum cost savings, allowing rapid validation of the core chat experience before investing in file handling infrastructure, while maintaining proper data safety through persistent storage and automated backups.
+**Why Option 5 is Optimal:**
+Option 5 provides the perfect balance of complete user experience with ultra-low costs. Users get the full Campfire interface immediately while you validate the core chat workflows. The graceful degradation approach means no UI redesign is needed when enabling file features - just flip feature flags and deploy. This approach maximizes user satisfaction while minimizing technical and financial risk.
