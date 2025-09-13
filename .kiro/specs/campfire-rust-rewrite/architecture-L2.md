@@ -942,6 +942,766 @@ pub struct RecoveryResult {
     pub current_state: RoomState,
     pub recovery_sequence: u64,
 }
+
+---
+
+## React Frontend Coordination Patterns
+
+### 1. Optimistic UI with Coordination
+
+**Problem Addressed**: Client message ID coordination, state synchronization across tabs, and conflict resolution.
+
+#### 1.1 Coordinated Message State Management
+```jsx
+// Custom hook for coordinated message operations
+function useCoordinatedMessages(roomId) {
+  const [messages, setMessages] = useState([]);
+  const [optimisticMessages, setOptimisticMessages] = useState(new Map());
+  const [connectionState, setConnectionState] = useState('disconnected');
+  const [lastSequence, setLastSequence] = useState(0);
+  
+  // WebSocket connection with coordination
+  const { socket, isConnected } = useCoordinatedWebSocket(roomId, {
+    onMessage: handleCoordinatedMessage,
+    onReconnect: handleConnectionRecovery,
+    onSequenceUpdate: setLastSequence,
+  });
+  
+  const handleCoordinatedMessage = useCallback((coordinatedMsg) => {
+    const { sequence, event, timestamp } = coordinatedMsg;
+    
+    // Ensure message ordering
+    if (sequence <= lastSequence) {
+      console.warn('Received out-of-order message, ignoring');
+      return;
+    }
+    
+    switch (event.type) {
+      case 'MESSAGE_CREATED':
+        const message = event.data;
+        
+        // Remove optimistic message if it exists
+        if (message.client_message_id) {
+          setOptimisticMessages(prev => {
+            const updated = new Map(prev);
+            updated.delete(message.client_message_id);
+            return updated;
+          });
+        }
+        
+        // Add confirmed message
+        setMessages(prev => {
+          // Prevent duplicates
+          if (prev.some(m => m.id === message.id)) {
+            return prev;
+          }
+          return [...prev, message].sort((a, b) => 
+            new Date(a.created_at) - new Date(b.created_at)
+          );
+        });
+        break;
+        
+      case 'MESSAGE_UPDATED':
+        setMessages(prev => prev.map(msg => 
+          msg.id === event.data.id ? { ...msg, ...event.data } : msg
+        ));
+        break;
+        
+      case 'MESSAGE_DELETED':
+        setMessages(prev => prev.filter(msg => msg.id !== event.data.id));
+        break;
+        
+      case 'STATE_SYNC':
+        // Handle state synchronization
+        handleStateSync(event.data);
+        break;
+    }
+    
+    setLastSequence(sequence);
+  }, [lastSequence]);
+  
+  const sendMessage = useCallback(async (content) => {
+    const clientMessageId = crypto.randomUUID();
+    const optimisticMessage = {
+      id: `optimistic-${clientMessageId}`,
+      client_message_id: clientMessageId,
+      content,
+      room_id: roomId,
+      creator_id: getCurrentUserId(),
+      created_at: new Date().toISOString(),
+      status: 'sending',
+    };
+    
+    // Add optimistic message
+    setOptimisticMessages(prev => new Map(prev).set(clientMessageId, optimisticMessage));
+    
+    try {
+      // Send via WebSocket with coordination
+      await socket.send(JSON.stringify({
+        type: 'CREATE_MESSAGE',
+        client_message_id: clientMessageId,
+        content,
+        room_id: roomId,
+      }));
+      
+      // Update optimistic message status
+      setOptimisticMessages(prev => {
+        const updated = new Map(prev);
+        const existing = updated.get(clientMessageId);
+        if (existing) {
+          updated.set(clientMessageId, { ...existing, status: 'sent' });
+        }
+        return updated;
+      });
+      
+    } catch (error) {
+      // Mark optimistic message as failed
+      setOptimisticMessages(prev => {
+        const updated = new Map(prev);
+        const existing = updated.get(clientMessageId);
+        if (existing) {
+          updated.set(clientMessageId, { 
+            ...existing, 
+            status: 'failed',
+            error: error.message 
+          });
+        }
+        return updated;
+      });
+    }
+  }, [socket, roomId]);
+  
+  const retryMessage = useCallback(async (clientMessageId) => {
+    const optimisticMsg = optimisticMessages.get(clientMessageId);
+    if (!optimisticMsg) return;
+    
+    // Reset status and retry
+    setOptimisticMessages(prev => {
+      const updated = new Map(prev);
+      updated.set(clientMessageId, { ...optimisticMsg, status: 'sending', error: null });
+      return updated;
+    });
+    
+    try {
+      await socket.send(JSON.stringify({
+        type: 'CREATE_MESSAGE',
+        client_message_id: clientMessageId,
+        content: optimisticMsg.content,
+        room_id: roomId,
+      }));
+    } catch (error) {
+      setOptimisticMessages(prev => {
+        const updated = new Map(prev);
+        updated.set(clientMessageId, { 
+          ...optimisticMsg, 
+          status: 'failed',
+          error: error.message 
+        });
+        return updated;
+      });
+    }
+  }, [optimisticMessages, socket, roomId]);
+  
+  const handleConnectionRecovery = useCallback(async () => {
+    // Request state recovery from server
+    const recoveryMsg = {
+      type: 'RECOVER_STATE',
+      room_id: roomId,
+      last_known_sequence: lastSequence,
+    };
+    
+    await socket.send(JSON.stringify(recoveryMsg));
+  }, [socket, roomId, lastSequence]);
+  
+  // Combine confirmed and optimistic messages
+  const allMessages = useMemo(() => {
+    const optimisticArray = Array.from(optimisticMessages.values());
+    return [...messages, ...optimisticArray].sort((a, b) => 
+      new Date(a.created_at) - new Date(b.created_at)
+    );
+  }, [messages, optimisticMessages]);
+  
+  return {
+    messages: allMessages,
+    sendMessage,
+    retryMessage,
+    isConnected,
+    connectionState,
+  };
+}
+```
+
+#### 1.2 Cross-Tab State Synchronization
+```jsx
+// Hook for coordinating state across browser tabs
+function useCrossTabCoordination(roomId) {
+  const [tabId] = useState(() => crypto.randomUUID());
+  const [isLeaderTab, setIsLeaderTab] = useState(false);
+  
+  useEffect(() => {
+    const channel = new BroadcastChannel(`campfire-room-${roomId}`);
+    
+    // Leader election
+    const electLeader = () => {
+      const leaderKey = `campfire-leader-${roomId}`;
+      const currentLeader = localStorage.getItem(leaderKey);
+      
+      if (!currentLeader || currentLeader === tabId) {
+        localStorage.setItem(leaderKey, tabId);
+        setIsLeaderTab(true);
+        
+        // Broadcast leadership
+        channel.postMessage({
+          type: 'LEADER_ELECTED',
+          tabId,
+          timestamp: Date.now(),
+        });
+      }
+    };
+    
+    // Handle messages from other tabs
+    const handleMessage = (event) => {
+      switch (event.data.type) {
+        case 'LEADER_ELECTED':
+          if (event.data.tabId !== tabId) {
+            setIsLeaderTab(false);
+          }
+          break;
+          
+        case 'STATE_UPDATE':
+          // Sync state from leader tab
+          if (!isLeaderTab && event.data.tabId !== tabId) {
+            syncStateFromLeader(event.data.state);
+          }
+          break;
+          
+        case 'WEBSOCKET_MESSAGE':
+          // Share WebSocket messages across tabs
+          if (event.data.tabId !== tabId) {
+            handleSharedWebSocketMessage(event.data.message);
+          }
+          break;
+      }
+    };
+    
+    channel.addEventListener('message', handleMessage);
+    
+    // Initial leader election
+    electLeader();
+    
+    // Re-elect leader periodically
+    const leaderElectionInterval = setInterval(electLeader, 5000);
+    
+    // Cleanup
+    return () => {
+      channel.removeEventListener('message', handleMessage);
+      channel.close();
+      clearInterval(leaderElectionInterval);
+      
+      // Remove leadership if this tab was leader
+      if (isLeaderTab) {
+        localStorage.removeItem(`campfire-leader-${roomId}`);
+      }
+    };
+  }, [roomId, tabId, isLeaderTab]);
+  
+  const broadcastStateUpdate = useCallback((state) => {
+    if (isLeaderTab) {
+      const channel = new BroadcastChannel(`campfire-room-${roomId}`);
+      channel.postMessage({
+        type: 'STATE_UPDATE',
+        tabId,
+        state,
+        timestamp: Date.now(),
+      });
+      channel.close();
+    }
+  }, [isLeaderTab, tabId, roomId]);
+  
+  return {
+    isLeaderTab,
+    broadcastStateUpdate,
+  };
+}
+```
+
+#### 1.3 Coordinated WebSocket Management
+```jsx
+function useCoordinatedWebSocket(roomId, options = {}) {
+  const [socket, setSocket] = useState(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const { isLeaderTab } = useCrossTabCoordination(roomId);
+  
+  const connect = useCallback(() => {
+    // Only leader tab maintains WebSocket connection
+    if (!isLeaderTab) return;
+    
+    const ws = new WebSocket(`ws://localhost:8080/rooms/${roomId}`);
+    
+    ws.onopen = () => {
+      setIsConnected(true);
+      setReconnectAttempts(0);
+      
+      // Request state recovery if reconnecting
+      if (options.onReconnect) {
+        options.onReconnect();
+      }
+    };
+    
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      
+      // Handle coordination messages
+      if (data.sequence) {
+        options.onSequenceUpdate?.(data.sequence);
+      }
+      
+      // Process message
+      options.onMessage?.(data);
+      
+      // Broadcast to other tabs
+      const channel = new BroadcastChannel(`campfire-room-${roomId}`);
+      channel.postMessage({
+        type: 'WEBSOCKET_MESSAGE',
+        tabId: crypto.randomUUID(),
+        message: data,
+      });
+      channel.close();
+    };
+    
+    ws.onclose = () => {
+      setIsConnected(false);
+      setSocket(null);
+      
+      // Exponential backoff reconnection
+      const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+      setTimeout(() => {
+        setReconnectAttempts(prev => prev + 1);
+        connect();
+      }, delay);
+    };
+    
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+    
+    setSocket(ws);
+  }, [roomId, isLeaderTab, reconnectAttempts, options]);
+  
+  useEffect(() => {
+    connect();
+    
+    return () => {
+      if (socket) {
+        socket.close();
+      }
+    };
+  }, [connect]);
+  
+  const send = useCallback(async (message) => {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(message);
+    } else {
+      throw new Error('WebSocket not connected');
+    }
+  }, [socket]);
+  
+  return {
+    socket: { send },
+    isConnected,
+  };
+}
+```
+
+---
+
+## Testing Coordination Under Failure
+
+### 1. Coordination Test Patterns
+
+**Problem Addressed**: Validating coordination mechanisms under failure scenarios.
+
+#### 1.1 Network Partition Testing
+```rust
+#[cfg(test)]
+mod coordination_tests {
+    use super::*;
+    use tokio::time::{timeout, Duration};
+    
+    #[tokio::test]
+    async fn test_message_coordination_during_network_partition() {
+        let coordinator = MessageCoordinator::new_for_test().await;
+        let room_id = RoomId(Uuid::new_v4());
+        
+        // Setup two clients
+        let client1 = TestClient::new("user1", room_id).await;
+        let client2 = TestClient::new("user2", room_id).await;
+        
+        // Both clients send messages simultaneously
+        let message1_future = client1.send_message("Hello from client 1");
+        let message2_future = client2.send_message("Hello from client 2");
+        
+        // Simulate network partition between clients and server
+        coordinator.simulate_network_partition(Duration::from_secs(2)).await;
+        
+        let (result1, result2) = tokio::join!(message1_future, message2_future);
+        
+        // Both operations should eventually succeed with proper coordination
+        assert!(result1.is_ok());
+        assert!(result2.is_ok());
+        
+        // Verify message ordering is consistent across clients
+        let client1_messages = client1.get_messages().await;
+        let client2_messages = client2.get_messages().await;
+        
+        assert_eq!(client1_messages, client2_messages);
+        assert_eq!(client1_messages.len(), 2);
+    }
+    
+    #[tokio::test]
+    async fn test_optimistic_ui_coordination_with_failures() {
+        let coordinator = MessageCoordinator::new_for_test().await;
+        let room_id = RoomId(Uuid::new_v4());
+        let client = TestClient::new("user1", room_id).await;
+        
+        // Send message with optimistic UI
+        let client_msg_id = Uuid::new_v4();
+        let optimistic_future = client.send_optimistic_message(client_msg_id, "Test message");
+        
+        // Simulate server failure during processing
+        coordinator.simulate_server_failure(Duration::from_millis(500)).await;
+        
+        // Message should be retried and eventually succeed
+        let result = timeout(Duration::from_secs(10), optimistic_future).await;
+        assert!(result.is_ok());
+        
+        // Verify no duplicate messages
+        let messages = client.get_messages().await;
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].client_message_id, Some(client_msg_id));
+    }
+    
+    #[tokio::test]
+    async fn test_websocket_reconnection_coordination() {
+        let coordinator = MessageCoordinator::new_for_test().await;
+        let room_id = RoomId(Uuid::new_v4());
+        let client = TestClient::new("user1", room_id).await;
+        
+        // Send some messages
+        client.send_message("Message 1").await.unwrap();
+        client.send_message("Message 2").await.unwrap();
+        
+        let initial_sequence = client.get_last_sequence().await;
+        
+        // Simulate WebSocket disconnection
+        client.simulate_disconnect().await;
+        
+        // Send messages while disconnected (should be queued)
+        coordinator.send_message_to_room(room_id, "Message 3").await.unwrap();
+        coordinator.send_message_to_room(room_id, "Message 4").await.unwrap();
+        
+        // Reconnect client
+        client.reconnect().await.unwrap();
+        
+        // Client should receive missed messages in correct order
+        let messages = client.get_messages().await;
+        assert_eq!(messages.len(), 4);
+        assert_eq!(messages[2].content, "Message 3");
+        assert_eq!(messages[3].content, "Message 4");
+        
+        // Verify sequence numbers are consistent
+        let final_sequence = client.get_last_sequence().await;
+        assert!(final_sequence > initial_sequence);
+    }
+}
+
+// Test utilities for coordination testing
+struct TestClient {
+    user_id: UserId,
+    room_id: RoomId,
+    coordinator: Arc<MessageCoordinator>,
+    last_sequence: Arc<Mutex<u64>>,
+    messages: Arc<Mutex<Vec<Message>>>,
+}
+
+impl TestClient {
+    async fn new(user_name: &str, room_id: RoomId) -> Self {
+        // Implementation for test client setup
+        todo!()
+    }
+    
+    async fn send_optimistic_message(
+        &self,
+        client_msg_id: Uuid,
+        content: &str,
+    ) -> Result<Message, CoordinationError> {
+        // Implementation for optimistic message sending with coordination
+        todo!()
+    }
+    
+    async fn simulate_disconnect(&self) {
+        // Implementation for simulating WebSocket disconnection
+        todo!()
+    }
+    
+    async fn reconnect(&self) -> Result<(), CoordinationError> {
+        // Implementation for WebSocket reconnection with state recovery
+        todo!()
+    }
+}
+```
+
+This coordination-first architecture addresses the 47 critical gaps identified in the cynical analysis by:
+
+1. **Atomic State Coordination**: Ensuring all state changes are atomic and consistent
+2. **Event Ordering**: Global sequence numbers prevent out-of-order message delivery
+3. **Connection Recovery**: Proper state synchronization on WebSocket reconnection
+4. **Transaction Coordination**: SQLite operations coordinated with proper locking
+5. **Cross-Tab Synchronization**: Browser tabs coordinate to prevent conflicts
+6. **Graceful Degradation**: System continues operating during partial failures
+7. **Comprehensive Testing**: Coordination mechanisms tested under failure scenarios
+
+The key insight is that **coordination is not an afterthought** - it must be built into every component from the beginning to ensure reliable operation under real-world conditions.
+
+---
+
+## Project Structure and Implementation
+
+### Current Root Directory Structure
+```
+campfire-rust/
+├── Cargo.toml                    # Rust project configuration
+├── .gitignore                    # Git ignore patterns
+├── README.md                     # Project documentation
+├── .kiro/                        # Kiro IDE configuration and specs
+│   └── specs/
+│       └── campfire-rust-rewrite/
+├── src/                          # Rust source code
+│   ├── main.rs                   # Application entry point
+│   ├── lib.rs                    # Library root
+│   ├── config/                   # Configuration management
+│   ├── models/                   # Domain models and types
+│   ├── handlers/                 # HTTP request handlers
+│   ├── websocket/                # WebSocket coordination
+│   ├── database/                 # Database coordination
+│   ├── coordination/             # Coordination mechanisms
+│   └── assets/                   # Embedded assets
+├── frontend/                     # React frontend (to be created)
+│   ├── src/
+│   ├── public/
+│   └── package.json
+├── assets/                       # Static assets (copied from original)
+│   ├── images/                   # SVG icons and images
+│   ├── sounds/                   # Sound files for /play commands
+│   └── stylesheets/              # CSS files
+├── migrations/                   # Database migrations
+├── tests/                        # Test files
+│   ├── coordination/             # Coordination tests
+│   ├── integration/              # Integration tests
+│   └── fixtures/                 # Test data
+└── docker/                       # Docker configuration
+    ├── Dockerfile
+    └── docker-compose.yml
+```
+
+### Asset Integration from Original Campfire
+
+#### Sound Assets (56 files)
+The original Campfire includes 56 sound files for `/play` commands:
+```rust
+// Sound files to copy from zzCampfireOriginal/app/assets/sounds/
+const SOUND_FILES: &[&str] = &[
+    "56k.mp3", "ballmer.mp3", "bell.mp3", "bezos.mp3", "bueller.mp3",
+    "butts.mp3", "clowntown.mp3", "cottoneyejoe.mp3", "crickets.mp3",
+    "curb.mp3", "dadgummit.mp3", "dangerzone.mp3", "danielsan.mp3",
+    "deeper.mp3", "donotwant.mp3", "drama.mp3", "flawless.mp3",
+    "glados.mp3", "gogogo.mp3", "greatjob.mp3", "greyjoy.mp3",
+    "guarantee.mp3", "heygirl.mp3", "honk.mp3", "horn.mp3", "horror.mp3",
+    "incoming.mp3", "inconceivable.mp3", "letitgo.mp3", "live.mp3",
+    "loggins.mp3", "makeitso.mp3", "mario_coin.mp3", "maybe.mp3",
+    "noooo.mp3", "nyan.mp3", "ohmy.mp3", "ohyeah.mp3", "pushit.mp3",
+    "rimshot.mp3", "rollout.mp3", "rumble.mp3", "sax.mp3", "secret.mp3",
+    "sexyback.mp3", "story.mp3", "tada.mp3", "tmyk.mp3", "totes.mp3",
+    "trololo.mp3", "trombone.mp3", "unix.mp3", "vuvuzela.mp3",
+    "what.mp3", "whoomp.mp3", "wups.mp3", "yay.mp3", "yeah.mp3", "yodel.mp3"
+];
+```
+
+#### Image Assets (60+ files)
+SVG icons and images from zzCampfireOriginal/app/assets/images/:
+- UI icons (add.svg, arrow-*.svg, bell.svg, etc.)
+- Notification states (notification-bell-*.svg)
+- User interface elements (person.svg, messages.svg, etc.)
+- Campfire branding (campfire-icon.png)
+
+#### Stylesheet Assets (25 files)
+CSS files from zzCampfireOriginal/app/assets/stylesheets/:
+- Base styles (_reset.css, base.css, colors.css)
+- Component styles (messages.css, composer.css, avatars.css)
+- Layout styles (layout.css, nav.css, sidebar.css)
+- Feature styles (lightbox.css, autocomplete.css, boosts.css)
+
+### Cargo.toml Configuration
+
+```toml
+[package]
+name = "campfire-rust"
+version = "0.1.0"
+edition = "2021"
+authors = ["Campfire Team"]
+description = "Rust rewrite of Basecamp's Campfire chat application"
+license = "MIT"
+
+[dependencies]
+# Web framework and async runtime
+axum = { version = "0.7", features = ["ws", "macros"] }
+tokio = { version = "1.0", features = ["full"] }
+tower = { version = "0.4", features = ["full"] }
+tower-http = { version = "0.5", features = ["fs", "cors", "trace"] }
+
+# Database and migrations
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono"] }
+
+# Serialization and data handling
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# Authentication and security
+jsonwebtoken = "9.0"
+bcrypt = "0.15"
+rand = "0.8"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Logging and tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Configuration
+config = "0.14"
+dotenvy = "0.15"
+
+# Asset embedding
+rust-embed = "8.0"
+
+# WebSocket coordination
+broadcast = "0.1"
+
+# Rate limiting
+governor = "0.6"
+
+# HTML sanitization
+ammonia = "3.0"
+
+# Push notifications
+web-push = "0.9"
+
+[dev-dependencies]
+tokio-test = "0.4"
+mockall = "0.12"
+testcontainers = "0.15"
+
+[build-dependencies]
+# For asset processing during build
+walkdir = "2.0"
+
+[[bin]]
+name = "campfire-rust"
+path = "src/main.rs"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+```
+
+### Frontend Package.json Configuration
+
+```json
+{
+  "name": "campfire-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.8.0",
+    "@tanstack/react-query": "^4.24.0",
+    "zustand": "^4.3.0",
+    "date-fns": "^2.29.0",
+    "clsx": "^1.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@vitejs/plugin-react": "^3.1.0",
+    "typescript": "^4.9.0",
+    "vite": "^4.1.0",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/jest-dom": "^5.16.0",
+    "@testing-library/user-event": "^14.4.0",
+    "vitest": "^0.28.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest"
+  }
+}
+```
+
+### Implementation Priority Structure
+
+#### Phase 1: Core Coordination (Weeks 1-4)
+```
+src/
+├── main.rs                       # Application entry point
+├── lib.rs                        # Library exports
+├── config/
+│   ├── mod.rs                    # Configuration management
+│   └── feature_flags.rs          # Feature flag coordination
+├── coordination/
+│   ├── mod.rs                    # Coordination exports
+│   ├── global_coordinator.rs     # Global event coordination
+│   ├── room_coordinator.rs       # Room-level coordination
+│   └── connection_manager.rs     # WebSocket coordination
+├── database/
+│   ├── mod.rs                    # Database exports
+│   ├── coordinated_db.rs         # Coordinated database operations
+│   └── migrations.rs             # Database migrations
+└── models/
+    ├── mod.rs                    # Model exports
+    ├── message.rs                # Message domain model
+    ├── room.rs                   # Room domain model
+    └── user.rs                   # User domain model
+```
+
+#### Phase 2: Web Layer (Weeks 5-8)
+```
+src/
+├── handlers/
+│   ├── mod.rs                    # Handler exports
+│   ├── messages.rs               # Message API handlers
+│   ├── rooms.rs                  # Room API handlers
+│   └── websocket.rs              # WebSocket handlers
+├── websocket/
+│   ├── mod.rs                    # WebSocket exports
+│   ├── connection.rs             # Connection management
+│   └── events.rs                 # Event handling
+└── assets/
+    ├── mod.rs                    # Asset embedding
+    ├── sounds.rs                 # Sound file embedding
+    ├── images.rs                 # Image asset embedding
+    └── styles.rs                 # CSS embedding
+```
+
+This structure prioritizes coordination mechanisms first, then builds the web layer on top of proven coordination patterns. The asset integration ensures complete UI compatibility with the original Campfire while maintaining the coordination-first architecture.
 ```
 ```
 

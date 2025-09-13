@@ -9,6 +9,95 @@ This document contains features and requirements that are **deferred from MVP Ph
 
 ---
 
+## Evolution Strategy and Phases
+
+### Phase 1: Complete UI, Text-Only Backend (MVP - Months 1-2)
+```rust
+FeatureFlags { 
+    files_enabled: false, 
+    avatars_enabled: false, 
+    opengraph_enabled: false,
+    max_file_size: 0,
+    search_enabled: true,
+    push_notifications: true,
+    bot_integrations: true,
+}
+```
+**Focus**: Complete professional UI with text-only functionality
+**Cost**: 85-90% reduction, $3-5/month hosting
+**Memory**: 30-60MB total (coordination-aware)
+**Users**: 100 concurrent users per room
+
+### Phase 2: Enable Avatar Uploads (Month 3)
+```rust
+FeatureFlags { 
+    avatars_enabled: true,
+    files_enabled: false,
+    opengraph_enabled: false,
+    max_file_size: 1_048_576,  // 1MB for avatars
+    search_enabled: true,
+    push_notifications: true,
+    bot_integrations: true,
+}
+```
+**Added**: Avatar upload, image processing, basic file storage
+**Cost**: Still 80-85% reduction
+**Memory**: 40-80MB total
+
+### Phase 3: Enable Document Uploads (Month 4)
+```rust
+FeatureFlags { 
+    avatars_enabled: true,
+    files_enabled: true,
+    opengraph_enabled: false,
+    max_file_size: 10_485_760,  // 10MB for documents
+    search_enabled: true,
+    push_notifications: true,
+    bot_integrations: true,
+}
+```
+**Added**: Document sharing, file attachments, enhanced processing
+**Cost**: 75-80% reduction
+**Memory**: 50-100MB total
+
+### Phase 4: Full Feature Parity (Months 5-6)
+```rust
+FeatureFlags { 
+    files_enabled: true, 
+    avatars_enabled: true, 
+    opengraph_enabled: true,
+    max_file_size: 52_428_800,  // 50MB for all files
+    search_enabled: true,
+    push_notifications: true,
+    bot_integrations: true,
+}
+```
+**Added**: Image/video processing, OpenGraph previews, complete Rails parity
+**Cost**: 70-75% reduction (still significant savings)
+**Memory**: 60-120MB total
+
+### Coordination Considerations for Evolution
+
+#### Phase Transition Coordination
+- **Database Schema Evolution**: Backward-compatible migrations with feature flags
+- **State Migration**: Existing optimistic messages preserved during feature rollout
+- **Connection Continuity**: WebSocket connections maintained during feature flag changes
+- **Rollback Safety**: Each phase can be rolled back without data loss
+
+#### Scaling and Reliability Preparation
+- **Phase 1**: Establish fault tolerance patterns, monitor reliability metrics
+- **Phase 2-3**: Monitor room actor performance, prepare sharding, enhance retry mechanisms for file operations
+- **Phase 3-4**: Implement horizontal scaling preparation, distributed coordination patterns
+- **Phase 4+**: Multi-instance deployment with shared state coordination, distributed fallback storage
+
+#### Reliability Evolution
+- **Phase 1**: Single-instance fault tolerance with local fallback storage
+- **Phase 2**: Enhanced retry mechanisms for avatar uploads, file processing circuit breakers
+- **Phase 3**: Distributed retry queues, cross-instance state synchronization
+- **Phase 4**: Full distributed fault tolerance with external message queues and shared storage
+
+---
+
 ## Phase 2: Avatar Support (Month 3)
 
 ### File Upload Infrastructure Foundation

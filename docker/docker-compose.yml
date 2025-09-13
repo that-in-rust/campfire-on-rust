@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  campfire:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_PATH=/data/campfire.db
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE:-your-secret-key-here}
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+    volumes:
+      - campfire_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  campfire_data:
+    driver: local

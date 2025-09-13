@@ -442,3 +442,41 @@ While the Rails codebase analysis was valuable, the Rust implementation still fa
 **Recommendation**: Start with a much simpler MVP that proves the core coordination patterns work, then gradually add complexity. The current architecture is too ambitious for a first implementation and will likely fail due to coordination issues rather than technical problems.
 
 The path to success is not through perfect initial design, but through **iterative validation of coordination patterns** under increasing load and complexity.
+
+---
+
+## Architecture Updates Made
+
+Based on this cynical analysis, the following critical updates have been made to the architecture documents:
+
+### Architecture L2 Document Updates
+1. **Coordination-First Philosophy**: Redesigned from feature-first to coordination-first approach
+2. **Atomic State Coordination**: Added comprehensive patterns for atomic operations across systems
+3. **WebSocket State Synchronization**: Implemented proper connection management with state recovery
+4. **Database Transaction Coordination**: Added SQLite coordination patterns with proper locking
+5. **Real-time Event Ordering**: Implemented global sequence numbers and event recovery
+6. **React Coordination Patterns**: Added cross-tab coordination and optimistic UI recovery
+7. **Comprehensive Testing**: Added coordination testing under failure scenarios
+
+### Main Architecture Document Updates
+1. **Realistic Performance Targets**: Adjusted targets to reflect coordination overhead (1K vs 15K req/sec)
+2. **Coordination Mechanisms**: Updated flow diagrams to show atomic coordination patterns
+3. **Fault Tolerance**: Added comprehensive fault tolerance and recovery mechanisms
+4. **Memory Estimates**: Increased to realistic 30-60MB including coordination overhead
+5. **Scalability Limits**: Reduced to realistic limits with coordination constraints (100 vs 1000 users)
+
+### Key Architectural Changes
+1. **Global Event Coordinator**: Central sequencing for all real-time events
+2. **Room-Level Coordinators**: Atomic state management per room
+3. **Connection Recovery**: Proper state synchronization on WebSocket reconnection
+4. **Cross-Tab Coordination**: Browser tab leader election to prevent conflicts
+5. **Database Coordination**: SQLite write coordination with FTS5 async updates
+6. **Circuit Breakers**: Prevent cascade failures with automatic recovery
+
+### Implementation Strategy Refined
+1. **Phase 1**: Prove basic coordination patterns (10 users, 4 weeks)
+2. **Phase 2**: Add complexity gradually (100 users, 4 weeks)
+3. **Phase 3**: Production hardening (500 users, 4 weeks)
+4. **Phase 4**: Full Rails parity (production ready, 4 weeks)
+
+The updated architecture acknowledges that **coordination is the primary challenge**, not individual feature implementation. By building coordination mechanisms first and testing them under failure conditions, we significantly increase the likelihood of a successful deployment that works reliably in production.
