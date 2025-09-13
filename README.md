@@ -1,4 +1,4 @@
-# Campfire Rust Rewrite
+# Campfire on Rust
 
 A coordination-first Rust rewrite of Basecamp's Campfire chat application, designed for 85-90% cost reduction while maintaining complete UI compatibility and production-grade reliability.
 
@@ -17,7 +17,7 @@ This implementation prioritizes **coordination mechanisms** over raw performance
 ## Project Structure
 
 ```
-campfire-rust/
+campfire-on-rust/
 ├── src/                          # Coordination-first Rust backend
 │   ├── coordination/             # Core coordination mechanisms
 │   ├── database/                 # Coordinated database operations
@@ -48,7 +48,7 @@ campfire-rust/
 1. **Clone and setup**:
    ```bash
    git clone <repository-url>
-   cd campfire-rust
+   cd campfire-on-rust
    ```
 
 2. **Install Rust dependencies**:

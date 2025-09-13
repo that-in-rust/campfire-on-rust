@@ -1,5 +1,5 @@
 {
-  "name": "campfire-frontend",
+  "name": "campfire-on-rust-frontend",
   "version": "0.1.0",
   "private": true,
   "dependencies": {

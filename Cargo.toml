@@ -1,5 +1,5 @@
 [package]
-name = "campfire-rust"
+name = "campfire-on-rust"
 version = "0.1.0"
 edition = "2021"
 authors = ["Campfire Team"]
@@ -57,7 +57,7 @@ mockall = "0.12"
 testcontainers = "0.15"
 
 [[bin]]
-name = "campfire-rust"
+name = "campfire-on-rust"
 path = "src/main.rs"
 
 [profile.release]

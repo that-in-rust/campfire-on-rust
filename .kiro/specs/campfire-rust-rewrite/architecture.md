@@ -15,10 +15,10 @@
 ```dockerfile
 # ✅ CORRECT: No database in image
 FROM alpine:latest
-COPY campfire-rust /usr/local/bin/campfire-rust
+COPY campfire-on-rust /usr/local/bin/campfire-on-rust
 # Database will be in mounted volume or persistent filesystem
 EXPOSE $PORT
-CMD ["/usr/local/bin/campfire-rust"]
+CMD ["/usr/local/bin/campfire-on-rust"]
 ```
 
 ### Deployment Strategies by Platform:
@@ -195,9 +195,9 @@ Total Storage: ~314MB
 # Complete UI Container (No Database!)
 FROM alpine:latest
 RUN apk add --no-cache ca-certificates curl
-COPY campfire-rust /usr/local/bin/campfire-rust
+COPY campfire-on-rust /usr/local/bin/campfire-on-rust
 EXPOSE $PORT
-CMD ["/usr/local/bin/campfire-rust"]
+CMD ["/usr/local/bin/campfire-on-rust"]
 ```
 
 ### Feature Flag Configuration
@@ -412,6 +412,86 @@ This **coordination-first architecture** provides the optimal balance of **relia
 - More complex implementation for production-grade fault tolerance
 
 The approach eliminates the common MVP problem of "works in demo but fails in production" while maintaining significant cost benefits over the Rails implementation. Users get a reliable, professional chat experience that continues working under real-world conditions including network issues, concurrent usage, and partial failures.
+
+---
+
+## Implementation Structure Overview
+
+### High-Level Directory Organization
+
+```
+campfire-on-rust/
+├── 🦀 Backend (Rust)              # Coordination-first server implementation
+│   ├── src/coordination/          # Core coordination mechanisms
+│   ├── src/database/              # Coordinated database operations  
+│   ├── src/websocket/             # WebSocket state coordination
+│   ├── src/handlers/              # HTTP API handlers
+│   └── src/models/                # Domain models with type safety
+│
+├── ⚛️ Frontend (React)            # Coordination-aware client
+│   ├── src/components/            # UI components with coordination hooks
+│   ├── src/hooks/                 # Custom coordination hooks
+│   ├── src/stores/                # State management with coordination
+│   └── src/services/              # API services and WebSocket coordination
+│
+├── 🎨 Assets (164 files)          # Original Campfire compatibility
+│   ├── images/ (79 SVG icons)     # Complete UI icon set
+│   ├── sounds/ (59 MP3 files)     # Sound commands (/play bell, etc.)
+│   └── stylesheets/ (26 CSS)      # Complete styling system
+│
+├── 🧪 Tests                       # Coordination testing under failure
+│   ├── coordination/              # Coordination mechanism tests
+│   ├── integration/               # End-to-end coordination tests
+│   └── fixtures/                  # Test data and scenarios
+│
+└── 🐳 Deployment                  # Production deployment
+    ├── docker/                    # Container configuration
+    ├── migrations/                # Database schema evolution
+    └── scripts/                   # Automation and deployment tools
+```
+
+### Core Implementation Priorities
+
+#### Phase 1: Coordination Foundation (Weeks 1-4)
+**Focus**: Prove coordination patterns work under failure conditions
+
+**Key Files to Implement**:
+- `src/coordination/global_coordinator.rs` - Event sequencing and ordering
+- `src/coordination/room_coordinator.rs` - Room-level atomic operations
+- `src/database/coordinated_db.rs` - SQLite coordination with proper locking
+- `src/models/{message,room,user}.rs` - Domain models with coordination support
+- `tests/coordination/` - Comprehensive coordination testing
+
+#### Phase 2: Web Layer Integration (Weeks 5-8)  
+**Focus**: Build web layer on proven coordination foundation
+
+**Key Files to Implement**:
+- `src/handlers/` - HTTP handlers using coordination layer
+- `src/websocket/` - WebSocket coordination with state recovery
+- `frontend/src/hooks/useCoordinated*.ts` - React coordination hooks
+- `src/assets/` - Asset embedding with all original Campfire files
+- `tests/integration/` - End-to-end coordination validation
+
+### Asset Integration Strategy
+
+**Complete Compatibility**: All 164 original Campfire assets are preserved to ensure 100% visual and functional compatibility:
+
+- **Sound System**: 59 MP3 files enable complete `/play` command functionality
+- **Icon System**: 79 SVG icons provide complete UI compatibility  
+- **Style System**: 26 CSS files maintain exact visual appearance
+- **Embedded Serving**: All assets embedded in binary for single-file deployment
+
+### Coordination Testing Strategy
+
+**Failure-First Testing**: Every coordination mechanism must pass tests that simulate real-world failure conditions:
+
+- **Network Partitions**: Test message coordination during network splits
+- **Concurrent Operations**: Validate atomic operations under high concurrency
+- **Component Failures**: Ensure graceful degradation when components fail
+- **State Recovery**: Verify proper state synchronization after failures
+- **Cross-Tab Coordination**: Test browser tab coordination and leader election
+
+This structure ensures that coordination is built into every layer of the application, from the database operations up through the React components, providing a solid foundation for reliable real-time chat functionality.
 
 ---
 

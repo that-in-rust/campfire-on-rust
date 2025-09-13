@@ -17,10 +17,10 @@ This is a fundamental rule that applies to ALL architecture options below:
 ```dockerfile
 # ✅ CORRECT: No database in image
 FROM alpine:latest
-COPY campfire-rust /usr/local/bin/campfire-rust
+COPY campfire-on-rust /usr/local/bin/campfire-on-rust
 # Database will be in mounted volume or persistent filesystem
 EXPOSE $PORT
-CMD ["/usr/local/bin/campfire-rust"]
+CMD ["/usr/local/bin/campfire-on-rust"]
 ```
 
 ### Deployment Strategies by Platform:
@@ -133,9 +133,9 @@ Total Storage: ~3.1GB
 # Container Image (No Database!)
 FROM alpine:latest
 RUN apk add --no-cache ca-certificates
-COPY campfire-rust /usr/local/bin/campfire-rust
+COPY campfire-on-rust /usr/local/bin/campfire-on-rust
 EXPOSE $PORT
-CMD ["/usr/local/bin/campfire-rust"]
+CMD ["/usr/local/bin/campfire-on-rust"]
 ```
 
 #### Deployment Examples:
@@ -144,7 +144,7 @@ CMD ["/usr/local/bin/campfire-rust"]
 docker run -d \
   -v campfire-data:/data \
   -e DATABASE_PATH=/data/campfire.db \
-  -p 80:80 campfire-rust:latest
+  -p 80:80 campfire-on-rust:latest
 
 # Railway/Render
 DATABASE_PATH=/app/data/campfire.db
@@ -362,9 +362,9 @@ Large Team: ~3.1GB total
 # Same as Option 1 - Single Binary
 FROM alpine:latest
 RUN apk add --no-cache ca-certificates
-COPY campfire-rust /usr/local/bin/campfire-rust
+COPY campfire-on-rust /usr/local/bin/campfire-on-rust
 EXPOSE $PORT
-CMD ["/usr/local/bin/campfire-rust"]
+CMD ["/usr/local/bin/campfire-on-rust"]
 ```
 
 ### Performance Targets
@@ -494,9 +494,9 @@ Total Storage: ~314MB
 # Ultra-Minimal Container
 FROM alpine:latest
 RUN apk add --no-cache ca-certificates curl
-COPY campfire-rust /usr/local/bin/campfire-rust
+COPY campfire-on-rust /usr/local/bin/campfire-on-rust
 EXPOSE $PORT
-CMD ["/usr/local/bin/campfire-rust"]
+CMD ["/usr/local/bin/campfire-on-rust"]
 ```
 
 #### Platform Examples:
@@ -624,9 +624,9 @@ No file storage in v1.0
 # Complete UI Container (No Database!)
 FROM alpine:latest
 RUN apk add --no-cache ca-certificates curl
-COPY campfire-rust /usr/local/bin/campfire-rust
+COPY campfire-on-rust /usr/local/bin/campfire-on-rust
 EXPOSE $PORT
-CMD ["/usr/local/bin/campfire-rust"]
+CMD ["/usr/local/bin/campfire-on-rust"]
 ```
 
 #### Feature Flag Configuration:
@@ -897,9 +897,9 @@ RUN cargo build --release
 
 FROM alpine:latest
 RUN apk add --no-cache ca-certificates
-COPY --from=builder /app/target/release/campfire-rust /usr/local/bin/
+COPY --from=builder /app/target/release/campfire-on-rust /usr/local/bin/
 EXPOSE $PORT
-CMD ["/usr/local/bin/campfire-rust"]
+CMD ["/usr/local/bin/campfire-on-rust"]
 ```
 
 #### Render (Professional Deployment)
@@ -907,7 +907,7 @@ CMD ["/usr/local/bin/campfire-rust"]
 # render.yaml
 services:
   - type: web
-    name: campfire-rust
+    name: campfire-on-rust
     env: docker
     dockerfilePath: ./Dockerfile
     envVars:
@@ -924,7 +924,7 @@ services:
 #### Fly.io (Global Edge)
 ```toml
 # fly.toml
-app = "campfire-rust"
+app = "campfire-on-rust"
 primary_region = "ord"
 
 [build]
@@ -959,14 +959,14 @@ primary_region = "ord"
 #### DigitalOcean Apps
 ```yaml
 # .do/app.yaml
-name: campfire-rust
+name: campfire-on-rust
 services:
 - name: web
   source_dir: /
   github:
-    repo: your-username/campfire-rust
+    repo: your-username/campfire-on-rust
     branch: main
-  run_command: /usr/local/bin/campfire-rust
+  run_command: /usr/local/bin/campfire-on-rust
   environment_slug: docker
   instance_count: 1
   instance_size_slug: basic-xxs

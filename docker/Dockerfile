@@ -21,11 +21,11 @@ RUN apt-get update && apt-get install -y \
 RUN useradd -m -u 1001 campfire
 
 # Copy the binary
-COPY --from=builder /app/target/release/campfire-rust /usr/local/bin/campfire-rust
+COPY --from=builder /app/target/release/campfire-on-rust /usr/local/bin/campfire-on-rust
 
 # Set ownership and permissions
-RUN chown campfire:campfire /usr/local/bin/campfire-rust
-RUN chmod +x /usr/local/bin/campfire-rust
+RUN chown campfire:campfire /usr/local/bin/campfire-on-rust
+RUN chmod +x /usr/local/bin/campfire-on-rust
 
 # Switch to app user
 USER campfire
@@ -38,4 +38,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
 
 # Run the application
-CMD ["/usr/local/bin/campfire-rust"]
+CMD ["/usr/local/bin/campfire-on-rust"]

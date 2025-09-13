@@ -1470,7 +1470,7 @@ The key insight is that **coordination is not an afterthought** - it must be bui
 
 ### Current Root Directory Structure
 ```
-campfire-rust/
+campfire-on-rust/
 ├── Cargo.toml                    # Rust project configuration
 ├── .gitignore                    # Git ignore patterns
 ├── README.md                     # Project documentation
@@ -1546,7 +1546,7 @@ CSS files from zzCampfireOriginal/app/assets/stylesheets/:
 
 ```toml
 [package]
-name = "campfire-rust"
+name = "campfire-on-rust"
 version = "0.1.0"
 edition = "2021"
 authors = ["Campfire Team"]
@@ -1611,7 +1611,7 @@ testcontainers = "0.15"
 walkdir = "2.0"
 
 [[bin]]
-name = "campfire-rust"
+name = "campfire-on-rust"
 path = "src/main.rs"
 
 [profile.release]
@@ -4846,3 +4846,412 @@ The architecture now handles all critical failure scenarios:
 - ✅ **Cascade failures**: Isolated failure domains with fallbacks
 
 **This architecture can now confidently be implemented and deployed to production with the expectation that it will handle real-world failure scenarios gracefully while delivering the professional chat experience specified in the requirements.**
+
+---
+
+## Detailed File Structure and Implementation Guide
+
+### Complete Project Structure
+
+```
+campfire-on-rust/
+├── 📁 Root Configuration Files
+│   ├── Cargo.toml                    # Rust project configuration with coordination dependencies
+│   ├── Cargo.lock                    # Dependency lock file (auto-generated)
+│   ├── README.md                     # Project documentation and quick start guide
+│   ├── .gitignore                    # Git ignore patterns for Rust/Node projects
+│   ├── .env.example                  # Environment variable template
+│   └── rust-toolchain.toml           # Rust version specification
+│
+├── 📁 src/                           # Rust Backend Source Code
+│   ├── main.rs                       # Application entry point and server startup
+│   ├── lib.rs                        # Library root with public API exports
+│   │
+│   ├── 📁 config/                    # Configuration Management
+│   │   ├── mod.rs                    # Module exports and configuration loading
+│   │   ├── feature_flags.rs          # Feature flag definitions and coordination
+│   │   ├── app_config.rs             # Application configuration struct
+│   │   ├── database_config.rs        # Database connection configuration
+│   │   └── server_config.rs          # HTTP/WebSocket server configuration
+│   │
+│   ├── 📁 coordination/              # Core Coordination Mechanisms
+│   │   ├── mod.rs                    # Coordination module exports
+│   │   ├── global_coordinator.rs     # Global event sequencing and coordination
+│   │   ├── room_coordinator.rs       # Room-level state coordination
+│   │   ├── connection_manager.rs     # WebSocket connection coordination
+│   │   ├── event_bus.rs              # Event broadcasting and ordering
+│   │   ├── retry_coordinator.rs      # Retry logic and exponential backoff
+│   │   ├── circuit_breaker.rs        # Circuit breaker pattern implementation
+│   │   └── recovery_coordinator.rs   # State recovery and synchronization
+│   │
+│   ├── 📁 database/                  # Database Coordination Layer
+│   │   ├── mod.rs                    # Database module exports
+│   │   ├── coordinated_db.rs         # Coordinated database operations
+│   │   ├── connection_pool.rs        # SQLite connection pool management
+│   │   ├── transaction_coordinator.rs # Transaction coordination and rollback
+│   │   ├── fts_coordinator.rs        # Full-text search coordination
+│   │   ├── migrations.rs             # Database migration management
+│   │   └── schema.rs                 # Database schema definitions
+│   │
+│   ├── 📁 models/                    # Domain Models and Types
+│   │   ├── mod.rs                    # Model exports and common types
+│   │   ├── message.rs                # Message domain model with rich content
+│   │   ├── room.rs                   # Room types (Open, Closed, Direct)
+│   │   ├── user.rs                   # User model with authentication
+│   │   ├── membership.rs             # Room membership and involvement
+│   │   ├── boost.rs                  # Message boost functionality
+│   │   ├── session.rs                # User session management
+│   │   ├── webhook.rs                # Bot webhook configuration
+│   │   └── types.rs                  # Common type definitions (IDs, enums)
+│   │
+│   ├── 📁 handlers/                  # HTTP Request Handlers
+│   │   ├── mod.rs                    # Handler module exports
+│   │   ├── messages.rs               # Message CRUD API handlers
+│   │   ├── rooms.rs                  # Room management API handlers
+│   │   ├── users.rs                  # User management API handlers
+│   │   ├── auth.rs                   # Authentication handlers
+│   │   ├── bots.rs                   # Bot management handlers
+│   │   ├── search.rs                 # Search API handlers
+│   │   ├── health.rs                 # Health check endpoints
+│   │   └── static_files.rs           # Static asset serving
+│   │
+│   ├── 📁 websocket/                 # WebSocket Coordination
+│   │   ├── mod.rs                    # WebSocket module exports
+│   │   ├── connection.rs             # Individual connection management
+│   │   ├── events.rs                 # WebSocket event handling
+│   │   ├── channels.rs               # Channel subscription management
+│   │   ├── presence.rs               # Presence tracking coordination
+│   │   ├── typing.rs                 # Typing notification coordination
+│   │   └── heartbeat.rs              # Connection heartbeat management
+│   │
+│   ├── 📁 services/                  # Business Logic Services
+│   │   ├── mod.rs                    # Service module exports
+│   │   ├── message_service.rs        # Message creation and processing
+│   │   ├── room_service.rs           # Room management business logic
+│   │   ├── user_service.rs           # User management and authentication
+│   │   ├── notification_service.rs   # Push notification handling
+│   │   ├── webhook_service.rs        # Bot webhook delivery
+│   │   └── search_service.rs         # Search functionality
+│   │
+│   ├── 📁 middleware/                # HTTP Middleware
+│   │   ├── mod.rs                    # Middleware exports
+│   │   ├── auth.rs                   # Authentication middleware
+│   │   ├── rate_limit.rs             # Rate limiting middleware
+│   │   ├── cors.rs                   # CORS configuration
+│   │   ├── logging.rs                # Request logging middleware
+│   │   └── error_handler.rs          # Global error handling
+│   │
+│   ├── 📁 assets/                    # Asset Embedding
+│   │   ├── mod.rs                    # Asset module exports
+│   │   ├── sounds.rs                 # Sound file embedding (59 MP3s)
+│   │   ├── images.rs                 # Image asset embedding (79 SVGs)
+│   │   ├── styles.rs                 # CSS file embedding (26 files)
+│   │   └── frontend.rs               # React build artifact embedding
+│   │
+│   ├── 📁 utils/                     # Utility Functions
+│   │   ├── mod.rs                    # Utility exports
+│   │   ├── crypto.rs                 # Cryptographic utilities
+│   │   ├── validation.rs             # Input validation helpers
+│   │   ├── time.rs                   # Time and date utilities
+│   │   ├── html.rs                   # HTML sanitization
+│   │   └── sound_commands.rs         # Sound command parsing
+│   │
+│   └── 📁 errors/                    # Error Handling
+│       ├── mod.rs                    # Error module exports
+│       ├── coordination_error.rs     # Coordination-specific errors
+│       ├── database_error.rs         # Database operation errors
+│       ├── websocket_error.rs        # WebSocket-related errors
+│       └── api_error.rs              # HTTP API error responses
+│
+├── 📁 frontend/                      # React Frontend Application
+│   ├── package.json                  # Node.js dependencies and scripts
+│   ├── package-lock.json             # Dependency lock file
+│   ├── tsconfig.json                 # TypeScript configuration
+│   ├── vite.config.ts                # Vite build configuration
+│   ├── index.html                    # HTML entry point
+│   │
+│   ├── 📁 src/                       # React Source Code
+│   │   ├── main.tsx                  # React application entry point
+│   │   ├── App.tsx                   # Root application component
+│   │   ├── index.css                 # Global CSS imports
+│   │   │
+│   │   ├── 📁 components/            # React Components
+│   │   │   ├── 📁 messages/          # Message-related components
+│   │   │   │   ├── MessageList.tsx   # Message list with coordination
+│   │   │   │   ├── MessageItem.tsx   # Individual message display
+│   │   │   │   ├── MessageComposer.tsx # Message input with optimistic UI
+│   │   │   │   ├── MessageFormatter.tsx # Rich text message formatting
+│   │   │   │   └── TypingIndicator.tsx # Typing notification display
+│   │   │   │
+│   │   │   ├── 📁 rooms/             # Room-related components
+│   │   │   │   ├── RoomList.tsx      # Room sidebar navigation
+│   │   │   │   ├── RoomHeader.tsx    # Room title and controls
+│   │   │   │   ├── RoomSettings.tsx  # Room configuration modal
+│   │   │   │   └── RoomSelector.tsx  # Room switching interface
+│   │   │   │
+│   │   │   ├── 📁 users/             # User-related components
+│   │   │   │   ├── UserList.tsx      # Room member list
+│   │   │   │   ├── UserProfile.tsx   # User profile display
+│   │   │   │   ├── UserAvatar.tsx    # Avatar with text fallback
+│   │   │   │   └── UserPresence.tsx  # Online/offline indicators
+│   │   │   │
+│   │   │   ├── 📁 auth/              # Authentication components
+│   │   │   │   ├── LoginForm.tsx     # User login interface
+│   │   │   │   ├── SignupForm.tsx    # User registration
+│   │   │   │   └── SessionTransfer.tsx # QR code session transfer
+│   │   │   │
+│   │   │   ├── 📁 ui/                # Reusable UI components
+│   │   │   │   ├── Button.tsx        # Styled button component
+│   │   │   │   ├── Modal.tsx         # Modal dialog component
+│   │   │   │   ├── Spinner.tsx       # Loading spinner
+│   │   │   │   ├── ErrorBoundary.tsx # Error boundary wrapper
+│   │   │   │   └── Lightbox.tsx      # Image lightbox (gracefully disabled)
+│   │   │   │
+│   │   │   └── 📁 layout/            # Layout components
+│   │   │       ├── Header.tsx        # Application header
+│   │   │       ├── Sidebar.tsx       # Navigation sidebar
+│   │   │       ├── MainContent.tsx   # Content area wrapper
+│   │   │       └── Footer.tsx        # Application footer
+│   │   │
+│   │   ├── 📁 hooks/                 # Custom React Hooks
+│   │   │   ├── useCoordinatedMessages.ts # Message coordination hook
+│   │   │   ├── useCoordinatedWebSocket.ts # WebSocket coordination
+│   │   │   ├── useCrossTabCoordination.ts # Cross-tab state sync
+│   │   │   ├── usePresenceTracking.ts # User presence coordination
+│   │   │   ├── useTypingIndicators.ts # Typing notification hook
+│   │   │   ├── useOptimisticUI.ts    # Optimistic UI management
+│   │   │   ├── useAuth.ts            # Authentication state
+│   │   │   └── useFeatureFlags.ts    # Feature flag coordination
+│   │   │
+│   │   ├── 📁 stores/                # State Management
+│   │   │   ├── authStore.ts          # Authentication state (Zustand)
+│   │   │   ├── roomStore.ts          # Room state management
+│   │   │   ├── messageStore.ts       # Message state coordination
+│   │   │   ├── notificationStore.ts  # Notification state
+│   │   │   └── featureFlagStore.ts   # Feature flag state
+│   │   │
+│   │   ├── 📁 services/              # API Services
+│   │   │   ├── api.ts                # Base API client configuration
+│   │   │   ├── messageApi.ts         # Message API calls
+│   │   │   ├── roomApi.ts            # Room API calls
+│   │   │   ├── userApi.ts            # User API calls
+│   │   │   ├── authApi.ts            # Authentication API
+│   │   │   └── websocketService.ts   # WebSocket service wrapper
+│   │   │
+│   │   ├── 📁 utils/                 # Frontend Utilities
+│   │   │   ├── coordination.ts       # Coordination helper functions
+│   │   │   ├── formatting.ts         # Text formatting utilities
+│   │   │   ├── validation.ts         # Form validation helpers
+│   │   │   ├── sounds.ts             # Sound playback utilities
+│   │   │   └── constants.ts          # Application constants
+│   │   │
+│   │   └── 📁 types/                 # TypeScript Type Definitions
+│   │       ├── api.ts                # API response types
+│   │       ├── coordination.ts       # Coordination event types
+│   │       ├── message.ts            # Message-related types
+│   │       ├── room.ts               # Room-related types
+│   │       ├── user.ts               # User-related types
+│   │       └── websocket.ts          # WebSocket event types
+│   │
+│   ├── 📁 public/                    # Static Public Assets
+│   │   ├── favicon.ico               # Application favicon
+│   │   ├── manifest.json             # PWA manifest
+│   │   └── sw.js                     # Service worker for PWA
+│   │
+│   └── 📁 dist/                      # Build Output (generated)
+│       ├── index.html                # Built HTML file
+│       ├── assets/                   # Built JS/CSS assets
+│       └── manifest.json             # Built manifest
+│
+├── 📁 assets/                        # Original Campfire Assets
+│   ├── 📁 images/                    # UI Icons and Images (79 files)
+│   │   ├── add.svg                   # Add/plus icon
+│   │   ├── arrow-*.svg               # Directional arrows
+│   │   ├── notification-bell-*.svg   # Bell notification states
+│   │   ├── campfire-icon.png         # Application icon
+│   │   ├── default-avatar.svg        # Default user avatar
+│   │   └── ... (75 more SVG files)   # Complete UI icon set
+│   │
+│   ├── 📁 sounds/                    # Sound Files for /play Commands (59 files)
+│   │   ├── bell.mp3                  # Bell sound
+│   │   ├── trombone.mp3              # Trombone sound
+│   │   ├── nyan.mp3                  # Nyan cat sound
+│   │   ├── tada.mp3                  # Celebration sound
+│   │   └── ... (55 more MP3 files)   # Complete sound library
+│   │
+│   └── 📁 stylesheets/               # CSS Stylesheets (26 files)
+│       ├── base.css                  # Base styling and reset
+│       ├── messages.css              # Message display styling
+│       ├── composer.css              # Message composer styling
+│       ├── sidebar.css               # Navigation sidebar styling
+│       ├── lightbox.css              # Image lightbox styling
+│       └── ... (21 more CSS files)   # Complete styling system
+│
+├── 📁 migrations/                    # Database Migrations
+│   ├── 001_initial_schema.sql        # Initial database schema
+│   ├── 002_add_fts_search.sql        # Full-text search setup
+│   ├── 003_add_feature_flags.sql     # Feature flag storage
+│   └── 004_coordination_tables.sql   # Coordination metadata tables
+│
+├── 📁 tests/                         # Test Suite
+│   ├── 📁 coordination/              # Coordination Testing
+│   │   ├── test_global_coordinator.rs # Global coordination tests
+│   │   ├── test_room_coordinator.rs  # Room coordination tests
+│   │   ├── test_connection_manager.rs # Connection management tests
+│   │   ├── test_network_partition.rs # Network partition simulation
+│   │   └── test_failure_recovery.rs  # Failure recovery tests
+│   │
+│   ├── 📁 integration/               # Integration Testing
+│   │   ├── test_message_flow.rs      # End-to-end message flow
+│   │   ├── test_websocket_coordination.rs # WebSocket coordination
+│   │   ├── test_database_coordination.rs # Database coordination
+│   │   └── test_cross_tab_sync.rs    # Cross-tab synchronization
+│   │
+│   ├── 📁 fixtures/                  # Test Data
+│   │   ├── users.json                # Test user data
+│   │   ├── rooms.json                # Test room data
+│   │   ├── messages.json             # Test message data
+│   │   └── coordination_events.json  # Test coordination events
+│   │
+│   └── 📁 helpers/                   # Test Utilities
+│       ├── test_coordinator.rs       # Test coordination setup
+│       ├── mock_database.rs          # Database mocking utilities
+│       ├── mock_websocket.rs         # WebSocket mocking
+│       └── test_client.rs            # Test client implementation
+│
+├── 📁 docker/                        # Container Configuration
+│   ├── Dockerfile                    # Production container build
+│   ├── Dockerfile.dev                # Development container
+│   ├── docker-compose.yml            # Production deployment
+│   ├── docker-compose.dev.yml        # Development environment
+│   └── .dockerignore                 # Docker ignore patterns
+│
+├── 📁 scripts/                       # Development Scripts
+│   ├── setup.sh                      # Initial project setup
+│   ├── build.sh                      # Production build script
+│   ├── test.sh                       # Test runner script
+│   ├── migrate.sh                    # Database migration runner
+│   └── deploy.sh                     # Deployment automation
+│
+├── 📁 docs/                          # Additional Documentation
+│   ├── API.md                        # API documentation
+│   ├── DEPLOYMENT.md                 # Deployment guide
+│   ├── COORDINATION.md               # Coordination patterns guide
+│   └── TROUBLESHOOTING.md            # Common issues and solutions
+│
+└── 📁 .kiro/                         # Kiro IDE Configuration
+    └── specs/campfire-rust-rewrite/  # Specification documents
+        ├── requirements.md           # Detailed requirements
+        ├── architecture.md           # High-level architecture
+        ├── architecture-L2.md        # Implementation patterns
+        ├── cynical-implementation-analysis.md # Gap analysis
+        ├── future-enhancements-backlog.md # Future features
+        └── analysis-progress.md      # Progress tracking
+```
+
+### Key File Descriptions
+
+#### Core Application Files
+
+**`src/main.rs`** - Application entry point
+- Initializes logging and configuration
+- Sets up database connections and migrations
+- Starts the HTTP server and WebSocket handlers
+- Configures middleware stack and routing
+- Handles graceful shutdown coordination
+
+**`src/lib.rs`** - Library root
+- Exports public API for the application
+- Defines module structure and dependencies
+- Provides coordination trait definitions
+- Exposes testing utilities for integration tests
+
+#### Coordination Layer Files
+
+**`src/coordination/global_coordinator.rs`** - Global event coordination
+- Manages global event sequencing across all rooms
+- Handles event log storage and retrieval for recovery
+- Coordinates client sequence tracking and acknowledgments
+- Implements event broadcasting with ordering guarantees
+
+**`src/coordination/room_coordinator.rs`** - Room-level coordination
+- Manages atomic state updates for individual rooms
+- Coordinates presence tracking and typing indicators
+- Handles message broadcasting within rooms
+- Implements state synchronization for new connections
+
+**`src/coordination/connection_manager.rs`** - WebSocket coordination
+- Manages WebSocket connection lifecycle
+- Implements atomic connection establishment
+- Coordinates cross-tab communication via leader election
+- Handles connection cleanup and recovery
+
+#### Database Layer Files
+
+**`src/database/coordinated_db.rs`** - Coordinated database operations
+- Implements coordinated message creation with atomic transactions
+- Manages SQLite write coordination with semaphore locking
+- Handles transaction rollback and error recovery
+- Coordinates FTS5 search index updates
+
+**`src/database/transaction_coordinator.rs`** - Transaction coordination
+- Tracks active transactions with metadata
+- Implements coordinated transaction commit/rollback
+- Provides transaction timeout and cleanup
+- Handles transaction conflict resolution
+
+#### Model Files
+
+**`src/models/message.rs`** - Message domain model
+- Defines Message struct with rich content processing
+- Implements mention extraction and sound command parsing
+- Handles client message ID coordination
+- Provides message validation and sanitization
+
+**`src/models/room.rs`** - Room types and management
+- Implements Room enum with Open/Closed/Direct variants
+- Handles room membership and access control
+- Provides room state management methods
+- Implements room-specific business logic
+
+#### Frontend Coordination Files
+
+**`frontend/src/hooks/useCoordinatedMessages.ts`** - Message coordination hook
+- Manages optimistic UI with server coordination
+- Handles message retry logic and error states
+- Coordinates message ordering and deduplication
+- Implements cross-tab message synchronization
+
+**`frontend/src/hooks/useCoordinatedWebSocket.ts`** - WebSocket coordination
+- Manages WebSocket connection with leader election
+- Handles connection recovery and state synchronization
+- Implements heartbeat and presence coordination
+- Coordinates event ordering and acknowledgments
+
+**`frontend/src/hooks/useCrossTabCoordination.ts`** - Cross-tab coordination
+- Implements tab leader election using localStorage
+- Coordinates WebSocket connections across tabs
+- Handles state synchronization between tabs
+- Manages tab cleanup and leadership transfer
+
+#### Asset Integration Files
+
+**`src/assets/sounds.rs`** - Sound file embedding
+- Embeds all 59 MP3 files using rust-embed
+- Provides sound command matching and playback
+- Implements sound file serving with proper headers
+- Handles sound command parsing and validation
+
+**`src/assets/images.rs`** - Image asset embedding
+- Embeds all 79 SVG icons using rust-embed
+- Provides image serving with caching headers
+- Implements icon lookup and serving
+- Handles image optimization and compression
+
+**`src/assets/styles.rs`** - CSS file embedding
+- Embeds all 26 CSS files maintaining original structure
+- Provides stylesheet serving with proper MIME types
+- Implements CSS concatenation and minification
+- Handles responsive design and theme coordination
+
+This comprehensive file structure ensures that every aspect of the coordination-first architecture is properly organized and documented, making it easy for developers to understand the purpose and responsibility of each component.*

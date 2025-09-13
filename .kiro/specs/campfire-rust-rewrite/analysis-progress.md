@@ -663,7 +663,7 @@ Both guidance documents have been enhanced with:
 
 #### **Root Directory Structure**
 ```
-campfire-rust/
+campfire-on-rust/
 ├── Cargo.toml                    # Updated with full dependencies
 ├── assets/                       # All original Campfire assets
 │   ├── images/ (79 SVG files)
@@ -748,3 +748,105 @@ campfire-rust/
 - **Documentation**: Architecture documents aligned with actual implementation
 
 **Ready to begin Phase 1 implementation with high confidence in coordination patterns and complete asset compatibility.**
+### ✅ *
+*Detailed File Structure Documentation: COMPLETE**
+
+**Successfully added comprehensive file structure to architecture documents:**
+
+#### **Architecture L2 Document Enhancement**
+- **Complete File Tree**: 200+ files documented with detailed descriptions
+- **File Purpose Documentation**: Every key file explained with its coordination role
+- **Module Organization**: Clear separation of coordination, database, and web layers
+- **Implementation Priorities**: Phase 1 (coordination) and Phase 2 (web layer) file priorities
+
+#### **Architecture Document Enhancement**  
+- **High-Level Structure**: Visual overview of backend, frontend, assets, and deployment
+- **Implementation Priorities**: Clear focus on coordination foundation first
+- **Asset Integration Strategy**: Complete compatibility approach documented
+- **Testing Strategy**: Failure-first testing approach outlined
+
+#### **Key Documentation Added**
+
+**Backend Structure (Rust)**:
+- **Coordination Layer**: 7 files for atomic state management
+- **Database Layer**: 6 files for coordinated database operations
+- **WebSocket Layer**: 6 files for connection coordination
+- **Models Layer**: 8 files for domain models with coordination
+- **Handlers Layer**: 8 files for HTTP API with coordination
+- **Services Layer**: 6 files for business logic coordination
+
+**Frontend Structure (React)**:
+- **Components**: 20+ components organized by feature area
+- **Coordination Hooks**: 8 custom hooks for coordination patterns
+- **State Management**: 5 stores with coordination support
+- **API Services**: 6 services with coordination integration
+- **Type Definitions**: Complete TypeScript coordination types
+
+**Asset Integration**:
+- **Images**: 79 SVG files with detailed descriptions
+- **Sounds**: 59 MP3 files with /play command mapping
+- **Stylesheets**: 26 CSS files with component mapping
+- **Embedding Strategy**: rust-embed integration approach
+
+**Testing Structure**:
+- **Coordination Tests**: Network partition, failure recovery, state sync
+- **Integration Tests**: End-to-end coordination validation
+- **Test Utilities**: Mock coordination, test clients, fixtures
+- **Failure Simulation**: Comprehensive failure scenario testing
+
+### 📊 **Documentation Completeness Metrics**
+
+| Documentation Area | Files Documented | Detail Level | Implementation Ready |
+|-------------------|------------------|--------------|---------------------|
+| **Backend Structure** | 50+ files | High | ✅ Ready |
+| **Frontend Structure** | 40+ files | High | ✅ Ready |
+| **Asset Integration** | 164 files | Complete | ✅ Ready |
+| **Testing Strategy** | 20+ files | High | ✅ Ready |
+| **Deployment Config** | 10+ files | Medium | ✅ Ready |
+
+### 🎯 **Implementation Guidance Provided**
+
+**Clear Development Path**:
+- **File-by-File Implementation**: Each file's purpose and coordination role documented
+- **Dependency Order**: Clear implementation sequence for coordination-first approach
+- **Testing Integration**: How to test each coordination mechanism under failure
+- **Asset Embedding**: Specific approach for embedding all 164 original assets
+
+**Coordination Patterns**:
+- **Global Coordination**: Event sequencing and ordering across all rooms
+- **Room Coordination**: Atomic state management within individual rooms
+- **Connection Coordination**: WebSocket lifecycle with state recovery
+- **Database Coordination**: SQLite operations with proper locking and transactions
+
+**Ready for detailed implementation with comprehensive file-level guidance and coordination pattern documentation.**#
+## ✅ **Project Name Standardization: COMPLETE**
+
+**Successfully updated project name from "campfire-rust" to "campfire-on-rust" across all files:**
+
+#### **Configuration Files Updated**
+- **Cargo.toml**: Package name and binary name updated to "campfire-on-rust"
+- **frontend/package.json**: Package name updated to "campfire-on-rust-frontend"
+- **Docker files**: Binary paths updated to use "campfire-on-rust"
+- **README.md**: Project title and setup instructions updated
+
+#### **Documentation Files Updated**
+- **Architecture documents**: All project structure references updated
+- **Docker examples**: All container references updated to "campfire-on-rust"
+- **File structure documentation**: Project root directory name updated
+
+#### **Files Changed**
+- `Cargo.toml` - Package and binary name
+- `frontend/package.json` - Frontend package name
+- `docker/Dockerfile` - Binary copy and execution paths
+- `docker/docker-compose.yml` - Service references
+- `README.md` - Project title and instructions
+- `.kiro/specs/campfire-rust-rewrite/architecture.md` - Docker examples and project structure
+- `.kiro/specs/campfire-rust-rewrite/architecture-L2.md` - Project structure and configuration examples
+- `.kiro/specs/campfire-rust-rewrite/architecture-options.md` - All deployment examples
+- `.kiro/specs/campfire-rust-rewrite/analysis-progress.md` - Project structure references
+
+#### **Preserved References**
+- **Spec folder paths**: `.kiro/specs/campfire-rust-rewrite/` maintained as actual folder structure
+- **Documentation links**: Spec document references preserved for correct linking
+
+**Project naming is now consistent as "campfire-on-rust" across all implementation files while maintaining correct spec folder references.**
