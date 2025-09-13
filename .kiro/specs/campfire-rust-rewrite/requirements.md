@@ -109,20 +109,20 @@ The existing system has these key components that must be replicated:
 
 ### Requirement 6: Performance Optimization and Resource Efficiency
 
-**User Story:** As a system operator, I want the new implementation to dramatically reduce resource usage while maintaining or improving performance, so that I can reduce hosting costs significantly.
+**User Story:** As a system operator, I want the new implementation to dramatically reduce resource usage while maintaining or improving performance, so that I can reduce hosting costs by 75-90% while improving user experience.
 
 #### Acceptance Criteria
 
-1. WHEN the system handles memory usage THEN it SHALL use <80MB baseline vs Rails ~250MB, with efficient Rust structs instead of Ruby objects and optimized WebSocket connection handling
-2. WHEN concurrent connections are managed THEN it SHALL support 5000+ concurrent WebSocket connections vs Rails ~1000 using async/await and tokio runtime
-3. WHEN the system starts up THEN it SHALL be ready in <2 seconds including SQLite database opening, FTS5 index verification, and embedded asset loading
-4. WHEN HTTP requests are processed THEN response times SHALL be <10ms for message API calls, <5ms for room listings, and <30ms for file uploads with proper async handling
-5. WHEN database operations occur THEN it SHALL use SQLite connection pooling with prepared statements, maintain <2ms query times for message retrieval and room access
-6. WHEN file processing happens THEN it SHALL use async image processing with tokio tasks, generate thumbnails without blocking message delivery, and stream large file uploads
-7. WHEN static assets are served THEN it SHALL embed React build artifacts in binary, use efficient HTTP caching headers, and serve with zero-copy when possible
-8. WHEN WebSocket broadcasting occurs THEN it SHALL use efficient message serialization, batch broadcasts to multiple connections, and minimize memory allocations
-9. WHEN search operations are performed THEN it SHALL leverage SQLite FTS5 with optimized queries, proper indexing, and result caching for common searches
-10. WHEN the system runs continuously THEN it SHALL maintain stable memory usage through proper cleanup, efficient connection pooling, and garbage collection optimization
+1. WHEN the system handles memory usage THEN it SHALL use <2MB baseline vs Rails 50-100MB, with efficient Rust structs and optimized WebSocket connection handling achieving 5-10x memory reduction
+2. WHEN concurrent connections are managed THEN it SHALL support 10,000+ concurrent WebSocket connections vs Rails ~1,000 using async/await and tokio runtime with proper backpressure
+3. WHEN the system starts up THEN it SHALL be ready in <100ms cold start vs Rails several seconds, including SQLite database opening, FTS5 index verification, and embedded asset loading
+4. WHEN HTTP requests are processed THEN it SHALL achieve 10-12k requests/second vs Rails few hundred per core, with <5ms response times for API calls and <10ms for message operations
+5. WHEN database operations occur THEN it SHALL use SQLite connection pooling with prepared statements, maintain <2ms query times with compile-time SQL validation via Diesel
+6. WHEN file processing happens THEN it SHALL use async image processing with tokio::spawn_blocking for CPU-bound tasks, generate thumbnails without blocking message delivery
+7. WHEN static assets are served THEN it SHALL embed React build artifacts in binary creating <50MB Docker images vs Rails several hundred MB, with zero-copy serving
+8. WHEN WebSocket broadcasting occurs THEN it SHALL use efficient message serialization, batch broadcasts to multiple connections, and minimize memory allocations per connection
+9. WHEN search operations are performed THEN it SHALL leverage SQLite FTS5 with optimized queries, proper indexing, and result caching achieving sub-millisecond search times
+10. WHEN measuring cost efficiency THEN it SHALL demonstrate 87% cost reduction example (2 vCPU/4GB → 0.25 vCPU/0.5GB) enabling single instance to replace multiple Rails servers
 
 ### Requirement 7: Data Migration and Schema Compatibility
 
@@ -351,3 +351,88 @@ The existing system has these key components that must be replicated:
 6. WHEN navigation elements are generated THEN it SHALL create proper links, buttons, icons, and accessibility attributes
 7. WHEN form helpers are used THEN it SHALL generate proper form tags, input elements, validation attributes, and CSRF tokens
 8. WHEN utility functions are implemented THEN it SHALL handle string manipulation, URL generation, and data transformation
+
+### Requirement 17: Idiomatic Rust Development Process
+
+**User Story:** As a developer, I want the Rust implementation to follow a structured three-layer idiomatic approach with comprehensive pattern documentation, so that the codebase is maintainable, safe, and follows Rust best practices.
+
+#### Acceptance Criteria
+
+1. WHEN implementing core logic THEN the system SHALL use L1 (Core/no_std) patterns with Result<T,E> for error handling, Option<T> for optional data, and zero unsafe code blocks
+2. WHEN using standard library features THEN the system SHALL apply L2 (std) idioms including RAII for resource management, iterator chains over manual loops, and proper borrowing with &str and &[T]
+3. WHEN integrating external crates THEN the system SHALL follow L3 (ecosystem) patterns using Axum extractors, Serde derive macros, and async/await with tokio::spawn_blocking for CPU-bound tasks
+4. WHEN handling errors THEN the system SHALL use ? operator for propagation, implement From/Into traits for conversions, and avoid .unwrap()/.expect() in production code
+5. WHEN managing state THEN the system SHALL avoid global mutable variables, use Arc<Mutex<T>> for shared state, and pass dependencies via function parameters
+6. WHEN writing async code THEN the system SHALL never block the event loop, use structured concurrency with JoinSet, and implement proper timeout and backpressure strategies
+7. WHEN implementing traits THEN the system SHALL leverage type system for compile-time guarantees, make invalid states unrepresentable, and use builder patterns for complex configuration
+8. WHEN following anti-patterns THEN the system SHALL avoid unnecessary clones, mixing async runtimes, and reinventing functionality provided by well-tested crates
+9. WHEN documenting patterns THEN the system SHALL maintain SIS (Structured Idiom Schema) entries with context, solution snippets, rationale, and anti-pattern examples
+10. WHEN validating code quality THEN the system SHALL pass cargo clippy with zero warnings, use rustfmt for consistent formatting, and achieve compile-first success
+
+### Requirement 18: LLM-Assisted Development Workflow
+
+**User Story:** As a development team, I want to use AI coding agents with structured prompts and validation loops to accelerate the Rails-to-Rust migration while ensuring code quality, so that we can achieve faster development with fewer bugs.
+
+#### Acceptance Criteria
+
+1. WHEN using LLM for code generation THEN the system SHALL provide context-rich prompts including Rails code, architectural mapping guidance, and idiomatic constraints
+2. WHEN generating Rust modules THEN the LLM SHALL produce complete, compilable code with proper use statements, error handling, and documentation comments
+3. WHEN validating LLM output THEN the system SHALL immediately compile with cargo check, resolve errors through iterative feedback, and achieve zero compile errors
+4. WHEN applying code quality checks THEN the system SHALL run cargo clippy with -D warnings, fix all linting issues, and ensure idiomatic patterns are followed
+5. WHEN testing generated code THEN the system SHALL validate behavior through unit tests, integration tests, or manual verification against Rails functionality
+6. WHEN mapping Rails concepts THEN the LLM SHALL convert ActiveRecord to Diesel/SQLx, Rails controllers to Axum handlers, and ERB templates to Askama/Tera
+7. WHEN handling complex logic THEN the system SHALL break down large modules into smaller prompts, validate each piece independently, and integrate systematically
+8. WHEN encountering errors THEN the system SHALL feed compiler messages back to LLM for correction, maintain error context, and learn from common mistakes
+9. WHEN documenting AI decisions THEN the system SHALL record prompt templates, response summaries, and iteration logs in prompts/ directory for traceability
+10. WHEN ensuring consistency THEN the system SHALL use standardized system prompts, maintain idiomatic guidelines, and validate against established patterns
+
+### Requirement 19: Advanced Performance Optimization and Resource Efficiency
+
+**User Story:** As a system operator, I want the Rust implementation to achieve dramatic performance improvements with comprehensive monitoring and optimization strategies, so that I can reduce infrastructure costs by 75-90% while improving user experience.
+
+#### Acceptance Criteria
+
+1. WHEN measuring baseline performance THEN the system SHALL achieve <2MB memory footprint at startup vs Rails 50-100MB, with <100ms cold start time
+2. WHEN handling concurrent connections THEN the system SHALL support 10,000+ WebSocket connections on single instance vs Rails ~1,000, using async/await efficiently
+3. WHEN processing HTTP requests THEN the system SHALL achieve 10-12k requests/second vs Rails few hundred, with <5ms response times for API calls
+4. WHEN managing memory usage THEN the system SHALL maintain stable memory consumption, avoid memory leaks, and use efficient data structures with proper capacity allocation
+5. WHEN optimizing database operations THEN the system SHALL use connection pooling, prepared statements, and achieve <2ms query times with compile-time SQL validation
+6. WHEN handling file operations THEN the system SHALL use async I/O for uploads, stream large files without blocking, and generate thumbnails in background tasks
+7. WHEN implementing caching THEN the system SHALL use in-memory caches with Arc<Mutex<T>>, implement proper TTL, and avoid cache stampedes
+8. WHEN monitoring performance THEN the system SHALL expose Prometheus metrics, track request latency, memory usage, and connection counts
+9. WHEN scaling under load THEN the system SHALL handle traffic spikes gracefully, implement circuit breakers, and maintain low latency under high concurrency
+10. WHEN optimizing for cost THEN the system SHALL achieve 5-10x resource efficiency improvement, enabling single instance to replace multiple Rails servers
+
+### Requirement 20: Comprehensive Development Tooling and Governance
+
+**User Story:** As a development team, I want sophisticated tooling for code quality, automated checks, and governance processes, so that we can maintain high standards and continuous improvement throughout the project lifecycle.
+
+#### Acceptance Criteria
+
+1. WHEN setting up development environment THEN the system SHALL provide Rust workspace with proper crate organization, dependency management, and IDE integration
+2. WHEN implementing continuous integration THEN the system SHALL run cargo check, cargo test, cargo clippy, and rustfmt on every commit with zero tolerance for warnings
+3. WHEN enforcing code quality THEN the system SHALL implement custom lints for idiom compliance, security checks, and performance anti-patterns
+4. WHEN managing dependencies THEN the system SHALL use cargo audit for security vulnerabilities, maintain minimal dependency tree, and prefer well-maintained crates
+5. WHEN documenting architecture THEN the system SHALL maintain ARCHITECTURE.md with Mermaid diagrams, design decisions, and component relationships
+6. WHEN tracking idiom usage THEN the system SHALL maintain IDIOMS_USED.md with pattern references, code locations, and rationale documentation
+7. WHEN governing code changes THEN the system SHALL require PR reviews, idiom compliance checks, and architectural alignment validation
+8. WHEN evolving patterns THEN the system SHALL use RFC-style process for new idioms, peer review for pattern validation, and versioned idiom archive
+9. WHEN onboarding developers THEN the system SHALL provide training materials, idiom documentation, and hands-on workshops for Rust best practices
+10. WHEN measuring success THEN the system SHALL track compile-first success rate, bug reduction metrics, and development velocity improvements
+
+### Requirement 21: Alternative Deployment Architectures
+
+**User Story:** As a system architect, I want to evaluate and potentially implement WebAssembly-based deployment options for maximum cost efficiency and scalability, so that I can optimize for different usage patterns and multi-tenancy scenarios.
+
+#### Acceptance Criteria
+
+1. WHEN considering serverless deployment THEN the system SHALL evaluate Fermyon Spin for scale-to-zero functionality with <1ms cold starts and per-request pricing
+2. WHEN implementing WASM services THEN the system SHALL use WasmEdge runtime for containerized deployment with improved resource density and security isolation
+3. WHEN designing for high concurrency THEN the system SHALL consider Lunatic actor model for millions of concurrent connections with fault isolation
+4. WHEN optimizing for multi-tenancy THEN the system SHALL leverage WASM sandboxing for secure isolation between customer instances on shared infrastructure
+5. WHEN handling variable load THEN the system SHALL implement hybrid architecture with core services in native Rust and auxiliary functions in WASM
+6. WHEN deploying to edge THEN the system SHALL use Cloudflare Workers or similar for static content and simple API calls close to users
+7. WHEN managing microservices THEN the system SHALL break application into WASM functions that scale independently based on usage patterns
+8. WHEN ensuring compatibility THEN the system SHALL maintain Docker support with WASM runtime shims for container orchestration platforms
+9. WHEN monitoring WASM performance THEN the system SHALL track instance startup times, memory usage per sandbox, and execution overhead vs native
+10. WHEN choosing deployment strategy THEN the system SHALL evaluate cost-benefit analysis between native Rust, WASM serverless, and hybrid approaches based on usage patterns
