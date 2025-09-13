@@ -201,110 +201,124 @@ campfire-on-rust/
 - **Total Implementation**: ~50 files (vs 200+ in coordination architecture)
 - **Complexity Reduction**: 75% fewer files to implement and maintain
 
-### 2. Atomic Coordination Principles
+### 2. Anti-Coordination Implementation Principles
 
-#### 2.1 The Coordination Hierarchy
+#### 2.1 Direct Operations (No Coordination Layer)
 ```rust
-// Level 1: Single-system atomic operations
-async fn atomic_message_create(db: &Database, message: Message) -> Result<Message, MessageError> {
+// ✅ COMPLIANT: Simple message creation with direct SQLite operations
+async fn create_message_simple(db: &SqlitePool, message: Message) -> Result<Message, MessageError> {
+    // Single database transaction - no coordination layer
     let mut tx = db.begin().await?;
     
-    // All operations in single transaction
-    let stored = sqlx::query_as!(Message, "INSERT INTO messages (...) VALUES (...) RETURNING *", ...)
-        .fetch_one(&mut *tx).await?;
+    // Direct INSERT operation
+    let stored = sqlx::query_as!(
+        Message, 
+        "INSERT INTO messages (id, content, room_id, creator_id, client_message_id, created_at, updated_at) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
+        message.id.0,
+        message.content,
+        message.room_id.0,
+        message.creator_id.0,
+        message.client_message_id,
+        message.created_at,
+        message.updated_at
+    ).fetch_one(&mut *tx).await?;
     
-    sqlx::query!("UPDATE rooms SET last_message_at = $1 WHERE id = $2", Utc::now(), message.room_id)
-        .execute(&mut *tx).await?;
+    // Update room timestamp in same transaction
+    sqlx::query!(
+        "UPDATE rooms SET last_message_at = $1, updated_at = $1 WHERE id = $2",
+        message.created_at,
+        message.room_id.0
+    ).execute(&mut *tx).await?;
     
     tx.commit().await?;
     Ok(stored)
 }
 
-// Level 2: Cross-system coordination with compensation
-async fn coordinated_message_broadcast(
-    db: &Database,
-    broadcaster: &MessageBroadcaster,
-    message: Message,
-) -> Result<Message, CoordinationError> {
-    // Step 1: Atomic database operation
-    let stored_message = atomic_message_create(db, message).await
-        .map_err(CoordinationError::Database)?;
+// ✅ COMPLIANT: Simple WebSocket broadcasting (Rails ActionCable style)
+async fn broadcast_message_simple(
+    connections: &HashMap<UserId, WebSocketSender>,
+    room_members: &[UserId],
+    message: &Message,
+) -> Result<(), BroadcastError> {
+    let message_json = serde_json::to_string(message)?;
     
-    // Step 2: Broadcast with compensation on failure
-    match broadcaster.broadcast_message(&stored_message).await {
-        Ok(()) => Ok(stored_message),
-        Err(broadcast_error) => {
-            // Compensation: Mark message as "broadcast_failed" for retry
-            let _ = mark_message_broadcast_failed(db, stored_message.id).await;
-            Err(CoordinationError::BroadcastFailed {
-                message_id: stored_message.id,
-                error: broadcast_error,
-            })
+    // Direct broadcast to room members - no coordination
+    for user_id in room_members {
+        if let Some(sender) = connections.get(user_id) {
+            // Best effort delivery - no retry coordination
+            let _ = sender.send(Message::Text(message_json.clone())).await;
         }
     }
+    
+    Ok(())
 }
 
-// Level 3: Multi-client coordination with conflict resolution
-async fn coordinated_optimistic_message(
-    coordinator: &MessageCoordinator,
-    client_id: Uuid,
-    content: String,
-    room_id: RoomId,
-    creator_id: UserId,
-) -> Result<Message, CoordinationError> {
-    // Check for duplicate client_message_id first
-    if let Some(existing) = coordinator.get_by_client_id(client_id).await? {
-        return Ok(existing); // Idempotent operation
-    }
+// ✅ COMPLIANT: Simple duplicate prevention (Rails-style)
+async fn handle_duplicate_client_message_id(
+    db: &SqlitePool,
+    client_message_id: Uuid,
+) -> Result<Option<Message>, MessageError> {
+    // Simple SELECT to check for existing message
+    let existing = sqlx::query_as!(
+        Message,
+        "SELECT * FROM messages WHERE client_message_id = $1",
+        client_message_id
+    ).fetch_optional(db).await?;
     
-    // Proceed with coordinated creation
-    coordinated_message_broadcast(
-        &coordinator.db,
-        &coordinator.broadcaster,
-        Message::new(client_id, content, room_id, creator_id)
-    ).await
+    Ok(existing)
 }
 ```
 
-#### 2.2 Coordination Error Recovery
+#### 2.2 Simple Error Handling (No Coordination Recovery)
 ```rust
+// ✅ COMPLIANT: Basic error types (no coordination errors)
 #[derive(Debug, thiserror::Error)]
-pub enum CoordinationError {
+pub enum MessageError {
     #[error("Database operation failed: {0}")]
     Database(#[from] sqlx::Error),
     
-    #[error("Broadcast failed for message {message_id}: {error}")]
-    BroadcastFailed { message_id: MessageId, error: String },
+    #[error("Invalid message content: {reason}")]
+    InvalidContent { reason: String },
     
-    #[error("State synchronization failed: {details}")]
-    StateSyncFailed { details: String },
+    #[error("Room not found: {room_id}")]
+    RoomNotFound { room_id: RoomId },
     
-    #[error("Coordination timeout after {timeout_ms}ms")]
-    Timeout { timeout_ms: u64 },
+    #[error("User not authorized for room: {room_id}")]
+    NotAuthorized { room_id: RoomId },
 }
 
-// Automatic retry with exponential backoff for coordination failures
-pub struct CoordinationRetry {
+#[derive(Debug, thiserror::Error)]
+pub enum BroadcastError {
+    #[error("WebSocket send failed: {0}")]
+    WebSocketSend(String),
+    
+    #[error("Message serialization failed: {0}")]
+    Serialization(#[from] serde_json::Error),
+}
+
+// ✅ COMPLIANT: Simple retry logic (basic exponential backoff)
+pub struct SimpleRetry {
     max_attempts: u32,
-    base_delay: Duration,
+    base_delay_ms: u64,
 }
 
-impl CoordinationRetry {
-    pub async fn execute<F, T, E>(&self, operation: F) -> Result<T, E>
+impl SimpleRetry {
+    pub async fn execute<F, T, E>(&self, mut operation: F) -> Result<T, E>
     where
-        F: Fn() -> Pin<Box<dyn Future<Output = Result<T, E>> + Send>>,
+        F: FnMut() -> Pin<Box<dyn Future<Output = Result<T, E>> + Send>>,
         E: std::fmt::Debug,
     {
         let mut attempts = 0;
-        let mut delay = self.base_delay;
+        let mut delay_ms = self.base_delay_ms;
         
         loop {
             match operation().await {
                 Ok(result) => return Ok(result),
                 Err(error) if attempts >= self.max_attempts => return Err(error),
                 Err(_) => {
-                    tokio::time::sleep(delay).await;
-                    delay *= 2;
+                    tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                    delay_ms = std::cmp::min(delay_ms * 2, 16000); // Cap at 16 seconds
                     attempts += 1;
                 }
             }
@@ -315,88 +329,83 @@ impl CoordinationRetry {
 
 ---
 
-## Atomic State Coordination Patterns
+## Simple Implementation Patterns (Anti-Coordination Compliant)
 
-### 1. WebSocket Connection State Coordination
+### 1. Basic WebSocket Connection Management
 
-**Problem Addressed**: Race conditions in connection management, message ordering, and presence tracking.
+**Approach**: Simple connection tracking without coordination complexity.
 
-#### 1.1 Atomic Connection Establishment
+#### 1.1 Simple Connection Management
 ```rust
-use tokio::sync::{RwLock, Mutex};
 use std::collections::HashMap;
+use tokio::sync::RwLock;
 
-pub struct AtomicConnectionManager {
-    // Connection state with atomic operations
-    connections: Arc<RwLock<HashMap<UserId, Vec<ConnectionHandle>>>>,
-    // Per-room coordination
-    room_coordinators: Arc<RwLock<HashMap<RoomId, Arc<RoomCoordinator>>>>,
-    // Global sequence number for message ordering
-    global_sequence: Arc<Mutex<u64>>,
+// ✅ COMPLIANT: Simple connection storage (no coordination)
+pub struct SimpleConnectionManager {
+    // Basic connection storage - no coordination layer
+    connections: Arc<RwLock<HashMap<UserId, WebSocketSender>>>,
+    // Room membership lookup - direct database queries
+    db: SqlitePool,
 }
 
 #[derive(Debug, Clone)]
-pub struct ConnectionHandle {
-    id: ConnectionId,
+pub struct SimpleConnection {
     user_id: UserId,
-    room_id: RoomId,
-    sender: mpsc::UnboundedSender<CoordinatedMessage>,
-    // Connection state tracking
-    established_at: Instant,
-    last_heartbeat: Arc<Mutex<Instant>>,
-    sequence_number: Arc<Mutex<u64>>,
+    sender: WebSocketSender,
+    connected_at: Instant,
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct CoordinatedMessage {
-    sequence: u64,
-    timestamp: DateTime<Utc>,
-    event: RoomEvent,
-    // Coordination metadata
-    requires_ack: bool,
-    retry_count: u8,
+pub struct SimpleMessage {
+    id: MessageId,
+    content: String,
+    room_id: RoomId,
+    creator_id: UserId,
+    created_at: DateTime<Utc>,
+    // No coordination metadata - keep it simple
 }
 
-impl AtomicConnectionManager {
-    pub async fn establish_connection(
+impl SimpleConnectionManager {
+    // ✅ COMPLIANT: Simple connection establishment (no coordination)
+    pub async fn add_connection(
         &self,
         user_id: UserId,
-        room_id: RoomId,
         websocket: WebSocket,
-    ) -> Result<ConnectionHandle, CoordinationError> {
-        // Step 1: Get or create room coordinator
-        let room_coordinator = self.get_or_create_room_coordinator(room_id).await;
+    ) -> Result<(), ConnectionError> {
+        let (sender, mut receiver) = websocket.split();
+        let sender = WebSocketSender::new(sender);
         
-        // Step 2: Atomic connection establishment
-        let connection_id = ConnectionId(Uuid::new_v4());
-        let (tx, rx) = mpsc::unbounded_channel();
-        
-        let handle = ConnectionHandle {
-            id: connection_id,
-            user_id,
-            room_id,
-            sender: tx,
-            established_at: Instant::now(),
-            last_heartbeat: Arc::new(Mutex::new(Instant::now())),
-            sequence_number: Arc::new(Mutex::new(0)),
-        };
-        
-        // Step 3: Atomic state updates
+        // Simple connection storage
         {
             let mut connections = self.connections.write().await;
-            connections.entry(user_id).or_default().push(handle.clone());
+            connections.insert(user_id, sender.clone());
         }
         
-        // Step 4: Subscribe to room with state synchronization
-        let mut event_stream = room_coordinator.subscribe_with_state_sync(user_id).await?;
+        // Simple message handling loop - no coordination
+        tokio::spawn(async move {
+            while let Some(msg) = receiver.next().await {
+                match msg {
+                    Ok(Message::Text(text)) => {
+                        // Handle incoming message - direct processing
+                        if let Err(e) = handle_incoming_message(user_id, text).await {
+                            tracing::error!("Message handling failed: {}", e);
+                        }
+                    }
+                    Ok(Message::Close(_)) => break,
+                    Err(e) => {
+                        tracing::error!("WebSocket error: {}", e);
+                        break;
+                    }
+                    _ => {} // Ignore other message types
+                }
+            }
+            
+            // Simple cleanup - remove connection
+            let mut connections = self.connections.write().await;
+            connections.remove(&user_id);
+        });
         
-        // Step 5: Start connection handler with coordination
-        self.spawn_coordinated_connection_handler(handle.clone(), websocket, event_stream).await;
-        
-        // Step 6: Broadcast join event AFTER connection is fully established
-        room_coordinator.coordinate_user_joined(user_id, connection_id).await?;
-        
-        Ok(handle)
+        Ok(())
     }
     
     async fn spawn_coordinated_connection_handler(
@@ -497,121 +506,87 @@ impl AtomicConnectionManager {
 }
 ```
 
-#### 1.2 Room-Level Coordination
+#### 1.2 Simple Room Management
 ```rust
-pub struct RoomCoordinator {
-    room_id: RoomId,
-    // Atomic state management
-    state: Arc<RwLock<RoomState>>,
-    // Event ordering
-    event_sequence: Arc<Mutex<u64>>,
-    // Message broadcasting with ordering guarantees
-    event_broadcaster: broadcast::Sender<CoordinatedMessage>,
-    // Presence coordination
-    presence_tracker: Arc<PresenceCoordinator>,
+// ✅ COMPLIANT: Simple room management (no coordination)
+pub struct SimpleRoomManager {
+    db: SqlitePool,
+    connections: Arc<RwLock<HashMap<UserId, WebSocketSender>>>,
 }
 
-#[derive(Debug, Clone)]
-pub struct RoomState {
-    active_connections: HashMap<UserId, Vec<ConnectionId>>,
-    typing_users: HashMap<UserId, Instant>,
-    last_message_sequence: u64,
-    // State version for conflict resolution
-    version: u64,
-}
-
-impl RoomCoordinator {
-    pub async fn coordinate_user_joined(
+impl SimpleRoomManager {
+    // ✅ COMPLIANT: Simple user join (direct database update)
+    pub async fn handle_user_joined(
         &self,
         user_id: UserId,
-        connection_id: ConnectionId,
-    ) -> Result<(), CoordinationError> {
-        // Atomic state update
-        let (new_version, was_first_connection) = {
-            let mut state = self.state.write().await;
-            let connections = state.active_connections.entry(user_id).or_default();
-            let was_first = connections.is_empty();
-            connections.push(connection_id);
-            state.version += 1;
-            (state.version, was_first)
-        };
+        room_id: RoomId,
+    ) -> Result<(), RoomError> {
+        // Direct database update - no coordination
+        sqlx::query!(
+            "UPDATE memberships SET connected_at = $1 WHERE user_id = $2 AND room_id = $3",
+            Utc::now(),
+            user_id.0,
+            room_id.0
+        ).execute(&self.db).await?;
         
-        // Only broadcast if this is the first connection for the user
-        if was_first_connection {
-            self.broadcast_coordinated_event(RoomEvent::UserJoined(user_id), true).await?;
-        }
+        // Simple broadcast to room members
+        let members = self.get_room_members(room_id).await?;
+        let join_message = serde_json::json!({
+            "type": "user_joined",
+            "user_id": user_id,
+            "room_id": room_id,
+            "timestamp": Utc::now()
+        });
         
-        // Update presence coordination
-        self.presence_tracker.coordinate_user_present(user_id).await?;
+        self.broadcast_to_members(&members, &join_message.to_string()).await?;
         
         Ok(())
     }
     
-    pub async fn coordinate_message_creation(
+    // ✅ COMPLIANT: Simple message broadcasting (Rails ActionCable style)
+    pub async fn broadcast_message(
         &self,
-        message: Message,
-    ) -> Result<(), CoordinationError> {
-        // Get next sequence number atomically
-        let sequence = {
-            let mut seq = self.event_sequence.lock().await;
-            *seq += 1;
-            *seq
-        };
+        room_id: RoomId,
+        message: &Message,
+    ) -> Result<(), RoomError> {
+        // Get room members from database
+        let members = self.get_room_members(room_id).await?;
         
-        // Update room state atomically
-        {
-            let mut state = self.state.write().await;
-            state.last_message_sequence = sequence;
-            state.version += 1;
-        }
+        // Simple JSON serialization
+        let message_json = serde_json::to_string(message)?;
         
-        // Broadcast with coordination
-        let coordinated_msg = CoordinatedMessage {
-            sequence,
-            timestamp: Utc::now(),
-            event: RoomEvent::MessageCreated(message),
-            requires_ack: true, // Messages require acknowledgment
-            retry_count: 0,
-        };
-        
-        // Broadcast to all room subscribers
-        self.event_broadcaster.send(coordinated_msg)
-            .map_err(|_| CoordinationError::StateSyncFailed {
-                details: "Failed to broadcast message event".to_string()
-            })?;
+        // Direct broadcast - no coordination
+        self.broadcast_to_members(&members, &message_json).await?;
         
         Ok(())
     }
     
-    pub async fn subscribe_with_state_sync(
+    // ✅ COMPLIANT: Simple member lookup (direct SQL query)
+    async fn get_room_members(&self, room_id: RoomId) -> Result<Vec<UserId>, RoomError> {
+        let members = sqlx::query_scalar!(
+            "SELECT user_id FROM memberships WHERE room_id = $1 AND involvement != 'invisible'",
+            room_id.0
+        ).fetch_all(&self.db).await?;
+        
+        Ok(members.into_iter().map(UserId).collect())
+    }
+    
+    // ✅ COMPLIANT: Simple broadcast helper
+    async fn broadcast_to_members(
         &self,
-        user_id: UserId,
-    ) -> Result<broadcast::Receiver<CoordinatedMessage>, CoordinationError> {
-        let receiver = self.event_broadcaster.subscribe();
+        members: &[UserId],
+        message: &str,
+    ) -> Result<(), RoomError> {
+        let connections = self.connections.read().await;
         
-        // Send current state to new subscriber
-        let current_state = {
-            let state = self.state.read().await;
-            state.clone()
-        };
+        for user_id in members {
+            if let Some(sender) = connections.get(user_id) {
+                // Best effort delivery - no retry coordination
+                let _ = sender.send(Message::Text(message.to_string())).await;
+            }
+        }
         
-        // Send state synchronization message
-        let sync_msg = CoordinatedMessage {
-            sequence: current_state.last_message_sequence,
-            timestamp: Utc::now(),
-            event: RoomEvent::StateSync {
-                version: current_state.version,
-                active_users: current_state.active_connections.keys().cloned().collect(),
-                typing_users: current_state.typing_users.keys().cloned().collect(),
-            },
-            requires_ack: true,
-            retry_count: 0,
-        };
-        
-        // Note: In real implementation, we'd send this directly to the specific user
-        // rather than broadcasting to all subscribers
-        
-        Ok(receiver)
+        Ok(())
     }
 }
 
