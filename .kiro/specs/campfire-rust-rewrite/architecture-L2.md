@@ -2,47 +2,204 @@
 
 ## Overview
 
-This document provides a comprehensive L2 (Implementation Layer) architecture that addresses the **47 critical coordination gaps** identified in the cynical analysis. Rather than focusing solely on individual features, this architecture prioritizes **coordination mechanisms** that ensure distributed state consistency across WebSocket connections, database transactions, and real-time events.
+This document provides a comprehensive L2 (Implementation Layer) architecture that implements **Rails-inspired pragmatic patterns** using idiomatic Rust and React code. Rather than complex coordination mechanisms, this architecture prioritizes **simple, proven patterns** that replicate Rails ActionCable behavior with Rust performance benefits.
 
-**Core Philosophy**: Build coordination patterns first, then features. Every component is designed with **atomic coordination** and **graceful degradation** as primary concerns, using Test-Driven Development to validate coordination under failure scenarios.
+**Core Philosophy**: Build the simplest thing that works first, using Rails as evidence for what coordination is actually necessary. Every component uses **proven Rails patterns** implemented with **idiomatic Rust/React code**, focusing on practical success over theoretical perfection.
 
-**Key Insight**: The challenge is not implementing individual features, but ensuring they work together reliably under real-world conditions including network partitions, concurrent operations, and partial failures.
+**Key Insight**: Rails already solved the chat coordination problem. Instead of inventing new coordination mechanisms, replicate Rails patterns in Rust to get performance benefits without coordination complexity.
 
 ---
 
 ## Table of Contents
 
-1. [Coordination-First Architecture Principles](#coordination-first-architecture-principles)
-2. [Atomic State Coordination Patterns](#atomic-state-coordination-patterns)
-3. [WebSocket State Synchronization Solutions](#websocket-state-synchronization-solutions)
-4. [Database Transaction Coordination](#database-transaction-coordination)
-5. [Real-time Event Ordering and Recovery](#real-time-event-ordering-and-recovery)
-6. [Feature Flag State Machine Coordination](#feature-flag-state-machine-coordination)
-7. [Graceful Degradation and Circuit Breakers](#graceful-degradation-and-circuit-breakers)
-8. [Rust Backend Coordination Patterns](#rust-backend-coordination-patterns)
-9. [React Frontend Coordination Patterns](#react-frontend-coordination-patterns)
-10. [Testing Coordination Under Failure](#testing-coordination-under-failure)
+1. [Rails-Inspired Architecture Principles](#rails-inspired-architecture-principles)
+2. [Simplified Project Structure](#simplified-project-structure)
+3. [Database Layer: Direct SQLite Operations](#database-layer-direct-sqlite-operations)
+4. [WebSocket Layer: ActionCable-Style Broadcasting](#websocket-layer-actioncable-style-broadcasting)
+5. [API Layer: Rails-Style Handlers](#api-layer-rails-style-handlers)
+6. [Frontend Layer: Simple React Patterns](#frontend-layer-simple-react-patterns)
+7. [Asset Integration: Embedded Resources](#asset-integration-embedded-resources)
+8. [Testing Strategy: Unit and Integration](#testing-strategy-unit-and-integration)
+9. [Deployment: Single Binary](#deployment-single-binary)
+10. [Implementation Phases](#implementation-phases)
 
 ---
 
-## Coordination-First Architecture Principles
+## Rails-Inspired Architecture Principles
 
-### 1. Coordination-First Development Workflow
+### 1. Pragmatic Development Workflow
 
-Every component follows the coordination-aware TDD cycle:
+Every component follows the Rails-inspired TDD cycle:
 
 ```
-RED → GREEN → REFACTOR → COORDINATE → INTEGRATE
- ↓      ↓        ↓          ↓          ↓
-Write  Minimal   Extract    Test       Pattern
-Test   Code      Patterns   Coord.     Library
+RED → GREEN → REFACTOR → RAILS-CHECK → INTEGRATE
+ ↓      ↓        ↓          ↓            ↓
+Write  Minimal   Extract    Verify       Pattern
+Test   Code      Patterns   Rails        Library
 ```
 
-**Coordination Testing**: Every component must pass coordination tests that simulate:
-- Network partitions during operations
-- Concurrent access from multiple clients
-- Partial failures in multi-step operations
-- Recovery from inconsistent states
+**Rails Compatibility Testing**: Every component should replicate Rails behavior:
+- ActionCable-equivalent WebSocket broadcasting
+- Rails-style session management and authentication
+- Direct database operations like Rails ActiveRecord
+- Simple error handling and recovery patterns
+
+---
+
+## Simplified Project Structure
+
+### Complete Project Structure (~50 files vs 200+)
+
+```
+campfire-on-rust/
+├── 📁 Root Configuration Files
+│   ├── Cargo.toml                    # Rust project configuration (simplified dependencies)
+│   ├── Cargo.lock                    # Dependency lock file (auto-generated)
+│   ├── README.md                     # Project documentation and quick start guide
+│   ├── .gitignore                    # Git ignore patterns for Rust/Node projects
+│   └── .env.example                  # Environment variable template
+│
+├── 📁 src/                           # Rust Backend Source Code (~35 files)
+│   ├── main.rs                       # Application entry point and server startup
+│   ├── lib.rs                        # Library root with public API exports
+│   │
+│   ├── 📁 models/                    # Domain Models (5 files)
+│   │   ├── mod.rs                    # Model exports
+│   │   ├── message.rs                # Message model with rich content
+│   │   ├── room.rs                   # Room types (Open, Closed, Direct)
+│   │   ├── user.rs                   # User model with authentication
+│   │   └── session.rs                # Session management
+│   │
+│   ├── 📁 database/                  # Direct Database Operations (3 files)
+│   │   ├── mod.rs                    # Database module exports
+│   │   ├── connection.rs             # SQLite connection pool
+│   │   └── migrations.rs             # Database schema migrations
+│   │
+│   ├── 📁 handlers/                  # HTTP API Handlers (8 files)
+│   │   ├── mod.rs                    # Handler exports
+│   │   ├── messages.rs               # Message CRUD API
+│   │   ├── rooms.rs                  # Room management API
+│   │   ├── users.rs                  # User management API
+│   │   ├── auth.rs                   # Authentication endpoints
+│   │   ├── websocket.rs              # WebSocket upgrade handler
+│   │   ├── health.rs                 # Health check endpoint
+│   │   └── assets.rs                 # Static asset serving
+│   │
+│   ├── 📁 websocket/                 # ActionCable-Style Broadcasting (2 files)
+│   │   ├── mod.rs                    # WebSocket exports
+│   │   └── broadcaster.rs            # Room-based message broadcasting
+│   │
+│   ├── 📁 services/                  # Business Logic Services (6 files)
+│   │   ├── mod.rs                    # Service exports
+│   │   ├── message_service.rs        # Message creation and processing
+│   │   ├── room_service.rs           # Room management logic
+│   │   ├── auth_service.rs           # Authentication logic
+│   │   ├── notification_service.rs   # Push notification handling
+│   │   └── webhook_service.rs        # Bot webhook delivery
+│   │
+│   ├── 📁 middleware/                # HTTP Middleware (5 files)
+│   │   ├── mod.rs                    # Middleware exports
+│   │   ├── auth.rs                   # Authentication middleware
+│   │   ├── cors.rs                   # CORS configuration
+│   │   ├── logging.rs                # Request logging
+│   │   └── rate_limit.rs             # Basic rate limiting
+│   │
+│   ├── 📁 assets/                    # Asset Embedding (3 files)
+│   │   ├── mod.rs                    # Asset exports
+│   │   ├── embedded.rs               # Rust-embed asset serving
+│   │   └── sounds.rs                 # Sound command handling
+│   │
+│   └── 📁 utils/                     # Utility Functions (3 files)
+│       ├── mod.rs                    # Utility exports
+│       ├── validation.rs             # Input validation helpers
+│       └── config.rs                 # Configuration management
+│
+├── 📁 frontend/                      # React Frontend Application (~15 files)
+│   ├── package.json                  # Node.js dependencies (simplified)
+│   ├── vite.config.ts                # Vite build configuration
+│   ├── index.html                    # HTML entry point
+│   │
+│   └── 📁 src/                       # React Source Code
+│       ├── main.tsx                  # React application entry point
+│       ├── App.tsx                   # Root application component
+│       │
+│       ├── 📁 components/            # React Components (8 files)
+│       │   ├── MessageList.tsx       # Message list with simple state
+│       │   ├── MessageComposer.tsx   # Message input with basic optimistic UI
+│       │   ├── RoomList.tsx          # Room sidebar navigation
+│       │   ├── UserList.tsx          # Room member list
+│       │   ├── LoginForm.tsx         # Authentication form
+│       │   ├── Layout.tsx            # Application layout
+│       │   ├── ErrorBoundary.tsx     # Error handling
+│       │   └── LoadingSpinner.tsx    # Loading states
+│       │
+│       ├── 📁 hooks/                 # Custom React Hooks (3 files)
+│       │   ├── useWebSocket.ts       # Simple WebSocket connection
+│       │   ├── useAuth.ts            # Authentication state
+│       │   └── useMessages.ts        # Message state management
+│       │
+│       ├── 📁 services/              # API Services (2 files)
+│       │   ├── api.ts                # HTTP API client
+│       │   └── websocket.ts          # WebSocket service
+│       │
+│       └── 📁 types/                 # TypeScript Types (2 files)
+│           ├── api.ts                # API response types
+│           └── models.ts             # Domain model types
+│
+├── 📁 assets/                        # Original Campfire Assets (164 files - unchanged)
+│   ├── 📁 images/                    # UI Icons and Images (79 SVG files)
+│   ├── 📁 sounds/                    # Sound Files (59 MP3 files)
+│   └── 📁 stylesheets/               # CSS Stylesheets (26 CSS files)
+│
+├── 📁 migrations/                    # Database Migrations (4 files)
+│   ├── 001_initial_schema.sql        # Basic schema
+│   ├── 002_add_fts_search.sql        # Full-text search
+│   ├── 003_add_sessions.sql          # Session management
+│   └── 004_add_webhooks.sql          # Bot webhooks
+│
+├── 📁 tests/                         # Test Suite (10 files)
+│   ├── 📁 unit/                      # Unit Tests (5 files)
+│   │   ├── test_models.rs            # Model unit tests
+│   │   ├── test_services.rs          # Service unit tests
+│   │   ├── test_handlers.rs          # Handler unit tests
+│   │   ├── test_websocket.rs         # WebSocket unit tests
+│   │   └── test_utils.rs             # Utility unit tests
+│   │
+│   ├── 📁 integration/               # Integration Tests (3 files)
+│   │   ├── test_message_flow.rs      # End-to-end message flow
+│   │   ├── test_auth_flow.rs         # Authentication flow
+│   │   └── test_websocket_flow.rs    # WebSocket integration
+│   │
+│   └── 📁 fixtures/                  # Test Data (2 files)
+│       ├── test_data.json            # Test fixtures
+│       └── helpers.rs                # Test helper functions
+│
+└── 📁 docker/                        # Container Configuration (2 files)
+    ├── Dockerfile                    # Production container
+    └── docker-compose.yml            # Development environment
+```
+
+### Key Simplifications
+
+#### **Eliminated Complexity**
+- ❌ **Coordination Layer** (7 files) - No global coordinators, room coordinators, or event buses
+- ❌ **Complex Transaction Management** - Direct SQLite operations instead of coordination
+- ❌ **Cross-Tab Coordination** - Simple single-tab WebSocket connections
+- ❌ **Circuit Breakers and Retry Logic** - Basic error handling instead
+- ❌ **Event Sourcing and Recovery** - Simple state management
+
+#### **Rails-Inspired Additions**
+- ✅ **Service Objects** - Rails-style business logic organization
+- ✅ **Direct Database Operations** - ActiveRecord-style direct queries
+- ✅ **ActionCable-Style Broadcasting** - Room-based WebSocket channels
+- ✅ **Rails-Style Middleware** - Authentication, CORS, logging
+- ✅ **Convention Over Configuration** - Sensible defaults, minimal config
+
+#### **File Count Reduction**
+- **Backend**: 35 files (vs 150+ in coordination approach)
+- **Frontend**: 15 files (vs 50+ with complex coordination hooks)
+- **Total Implementation**: ~50 files (vs 200+ in coordination architecture)
+- **Complexity Reduction**: 75% fewer files to implement and maintain
 
 ### 2. Atomic Coordination Principles
 

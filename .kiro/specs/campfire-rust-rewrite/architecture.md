@@ -29,113 +29,245 @@ CMD ["/usr/local/bin/campfire-on-rust"]
 
 ---
 
-## Architecture Overview: "UI-Complete, Files-Disabled MVP" 🎯
+## Project Structure Overview
+
+### Simplified Directory Organization (~50 files)
+
+```
+campfire-on-rust/
+├── 📁 Root Configuration
+│   ├── Cargo.toml                    # Rust project configuration
+│   ├── README.md                     # Project documentation
+│   ├── .env.example                  # Environment variables template
+│   └── docker-compose.yml            # Development environment
+│
+├── 🦀 src/ (Backend - 35 files)      # Rails-inspired Rust server
+│   ├── main.rs                       # Application entry point
+│   ├── lib.rs                        # Library exports
+│   │
+│   ├── 📁 models/ (5 files)          # Domain models
+│   │   ├── message.rs                # Message with rich content
+│   │   ├── room.rs                   # Room types (Open/Closed/Direct)
+│   │   ├── user.rs                   # User authentication
+│   │   ├── session.rs                # Session management
+│   │   └── mod.rs                    # Model exports
+│   │
+│   ├── 📁 database/ (3 files)        # Direct SQLite operations
+│   │   ├── connection.rs             # Connection pool
+│   │   ├── migrations.rs             # Schema migrations
+│   │   └── mod.rs                    # Database exports
+│   │
+│   ├── 📁 handlers/ (8 files)        # HTTP API endpoints
+│   │   ├── messages.rs               # Message CRUD API
+│   │   ├── rooms.rs                  # Room management
+│   │   ├── users.rs                  # User management
+│   │   ├── auth.rs                   # Authentication
+│   │   ├── websocket.rs              # WebSocket upgrade
+│   │   ├── health.rs                 # Health checks
+│   │   ├── assets.rs                 # Static assets
+│   │   └── mod.rs                    # Handler exports
+│   │
+│   ├── 📁 websocket/ (2 files)       # ActionCable-style broadcasting
+│   │   ├── broadcaster.rs            # Room-based broadcasting
+│   │   └── mod.rs                    # WebSocket exports
+│   │
+│   ├── 📁 services/ (6 files)        # Business logic (Rails-style)
+│   │   ├── message_service.rs        # Message processing
+│   │   ├── room_service.rs           # Room management
+│   │   ├── auth_service.rs           # Authentication logic
+│   │   ├── notification_service.rs   # Push notifications
+│   │   ├── webhook_service.rs        # Bot webhooks
+│   │   └── mod.rs                    # Service exports
+│   │
+│   ├── 📁 middleware/ (5 files)      # HTTP middleware
+│   │   ├── auth.rs                   # Authentication
+│   │   ├── cors.rs                   # CORS headers
+│   │   ├── logging.rs                # Request logging
+│   │   ├── rate_limit.rs             # Rate limiting
+│   │   └── mod.rs                    # Middleware exports
+│   │
+│   ├── 📁 assets/ (3 files)          # Asset embedding
+│   │   ├── embedded.rs               # Rust-embed integration
+│   │   ├── sounds.rs                 # Sound command handling
+│   │   └── mod.rs                    # Asset exports
+│   │
+│   └── 📁 utils/ (3 files)           # Utilities
+│       ├── validation.rs             # Input validation
+│       ├── config.rs                 # Configuration
+│       └── mod.rs                    # Utility exports
+│
+├── ⚛️ frontend/ (React - 15 files)   # Simple React frontend
+│   ├── package.json                  # Dependencies (simplified)
+│   ├── vite.config.ts                # Build configuration
+│   ├── index.html                    # Entry point
+│   │
+│   └── 📁 src/
+│       ├── main.tsx                  # React entry point
+│       ├── App.tsx                   # Root component
+│       │
+│       ├── 📁 components/ (8 files)  # UI components
+│       │   ├── MessageList.tsx       # Message display
+│       │   ├── MessageComposer.tsx   # Message input
+│       │   ├── RoomList.tsx          # Room navigation
+│       │   ├── UserList.tsx          # Member list
+│       │   ├── LoginForm.tsx         # Authentication
+│       │   ├── Layout.tsx            # App layout
+│       │   ├── ErrorBoundary.tsx     # Error handling
+│       │   └── LoadingSpinner.tsx    # Loading states
+│       │
+│       ├── 📁 hooks/ (3 files)       # Custom hooks
+│       │   ├── useWebSocket.ts       # WebSocket connection
+│       │   ├── useAuth.ts            # Authentication state
+│       │   └── useMessages.ts        # Message state
+│       │
+│       ├── 📁 services/ (2 files)    # API services
+│       │   ├── api.ts                # HTTP client
+│       │   └── websocket.ts          # WebSocket service
+│       │
+│       └── 📁 types/ (2 files)       # TypeScript types
+│           ├── api.ts                # API types
+│           └── models.ts             # Domain types
+│
+├── 🎨 assets/ (164 files)            # Original Campfire assets
+│   ├── 📁 images/ (79 SVG files)     # Complete UI icons
+│   ├── 📁 sounds/ (59 MP3 files)     # /play command sounds
+│   └── 📁 stylesheets/ (26 CSS)      # Complete styling
+│
+├── 🗄️ migrations/ (4 files)          # Database schema
+│   ├── 001_initial_schema.sql        # Core tables
+│   ├── 002_add_fts_search.sql        # Full-text search
+│   ├── 003_add_sessions.sql          # Session management
+│   └── 004_add_webhooks.sql          # Bot integration
+│
+├── 🧪 tests/ (10 files)              # Test suite
+│   ├── 📁 unit/ (5 files)            # Unit tests
+│   ├── 📁 integration/ (3 files)     # Integration tests
+│   └── 📁 fixtures/ (2 files)        # Test data
+│
+└── 🐳 docker/ (2 files)              # Deployment
+    ├── Dockerfile                    # Production container
+    └── docker-compose.yml            # Development setup
+```
+
+### Key Architectural Decisions
+
+#### **Simplification Strategy**
+- **75% File Reduction**: 50 files vs 200+ in coordination approach
+- **No Coordination Layer**: Direct operations instead of complex coordination
+- **Rails-Inspired Patterns**: Proven ActionCable and ActiveRecord equivalents
+- **Linear Dependencies**: Simple dependency chain instead of coordination web
+
+#### **Rails Compatibility Focus**
+- **ActionCable Broadcasting**: Room-based WebSocket channels
+- **Service Objects**: Rails-style business logic organization
+- **Direct Database Operations**: ActiveRecord-equivalent queries
+- **Middleware Stack**: Rails-style request processing
+
+---
+
+## Architecture Overview: Rails-Inspired Pragmatic MVP 🎯
 
 ### Philosophy
-Build the complete user interface and experience while disabling only the heavy file processing backend, achieving ultra-low costs with zero UI redesign needed for future upgrades.
+Build a simple, working chat application that replicates Rails ActionCable behavior using idiomatic Rust patterns. Focus on proven Rails patterns rather than theoretical coordination improvements.
 
 ### Core Architecture
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                Single Rust Binary (~30MB)                   │
+│                Single Rust Binary (~25MB)                   │
 ├─────────────────────────────────────────────────────────────┤
-│  Complete React UI (Full Rails Parity)                     │
+│  Complete React UI (Rails Parity)                          │
 │  ├─── All Components (File Upload, Lightbox, Avatars)      │
-│  ├─── Complete CSS/Styling (25+ stylesheets)               │
-│  ├─── Sound Assets (Embedded Audio Files)                  │
+│  ├─── Complete CSS/Styling (26 stylesheets)                │
+│  ├─── Sound Assets (59 MP3 files)                          │
 │  ├─── Graceful Degradation (Disabled Features)             │
-│  ├─── Optimistic UI with Client Message IDs                │
+│  ├─── Simple State Management (No Cross-Tab Coordination)  │
 │  └─── Service Worker (PWA, Push Notifications)             │
 ├─────────────────────────────────────────────────────────────┤
 │  Axum Web Server (HTTP + WebSocket)                        │
-│  ├─── REST API Handlers (Stubbed File Endpoints)          │
-│  ├─── WebSocket Connection Manager with State Sync         │
-│  ├─── Session-based Authentication with WS Integration     │
-│  └─── Rate Limiting & Security Middleware                  │
+│  ├─── REST API Handlers (Rails-style routing)             │
+│  ├─── ActionCable-Inspired WebSocket Broadcasting          │
+│  ├─── Rails-Style Session Authentication                   │
+│  └─── Basic Security Middleware                            │
 ├─────────────────────────────────────────────────────────────┤
-│  Coordinated Real-time Engine                              │
-│  ├─── Message Coordinator (Optimistic UI + Persistence)    │
-│  ├─── Room State Manager (Distributed Actors)             │
-│  ├─── Presence Tracker with Connection Cleanup             │
-│  ├─── Event Bus (Message/Presence/Typing Coordination)     │
-│  └─── Feature Flag Broadcaster (Real-time Config Updates)  │
+│  Simple Real-time Layer                                    │
+│  ├─── Direct Message Broadcasting (No Global Coordination) │
+│  ├─── Basic Presence Tracking (Rails-style)               │
+│  ├─── Simple Typing Notifications                          │
+│  └─── Feature Flag Support (Static Configuration)          │
 ├─────────────────────────────────────────────────────────────┤
-│  Prioritized Task Queue                                     │
-│  ├─── High Priority: Message Processing                    │
-│  ├─── Medium Priority: Webhook Delivery                    │
-│  ├─── Low Priority: Presence Updates, Cleanup             │
-│  └─── Feature Processing (Disabled/Stubbed)               │
+│  Basic Task Processing                                      │
+│  ├─── Async Webhook Delivery                               │
+│  ├─── Push Notification Sending                            │
+│  └─── Simple Background Tasks                              │
 ├─────────────────────────────────────────────────────────────┤
-│  Optimized SQLite Database (10-300MB)                      │
-│  ├─── Write-Ahead Logging (WAL) with Checkpointing        │
-│  ├─── Dedicated Writer Task (DWT) Pattern                 │
-│  ├─── FTS5 Search Index with Async Updates                │
-│  ├─── Connection Pool with Priority Queuing               │
-│  └─── Migration System with Feature Flag Schema           │
+│  Direct SQLite Operations (10-200MB)                       │
+│  ├─── Write-Ahead Logging (WAL) Mode                      │
+│  ├─── Direct Database Queries (No Coordination Layer)      │
+│  ├─── FTS5 Search Index (Simple Updates)                  │
+│  ├─── Basic Connection Pooling                             │
+│  └─── Rails-Compatible Schema                              │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### Technical Stack
-- **Web Framework**: Axum (complete API, stubbed file endpoints)
-- **Database**: SQLite (text-only backend, ready for files)
-- **Real-time**: Actor pattern (complete implementation)
-- **Frontend**: Complete React UI (all components built)
-- **Task Queue**: Tokio tasks (feature-flagged file processing)
-- **Authentication**: Full session management
-- **Deployment**: Complete UI with minimal backend
+- **Web Framework**: Axum (Rails-inspired routing and middleware)
+- **Database**: SQLite (direct operations, Rails-compatible schema)
+- **Real-time**: ActionCable-inspired WebSocket broadcasting
+- **Frontend**: Complete React UI (simple state management)
+- **Task Queue**: Basic tokio tasks (webhook delivery, push notifications)
+- **Authentication**: Rails-style session management
+- **Deployment**: Single binary with embedded assets
 
 ---
 
-## Critical Coordination Mechanisms
+## Simple Rails-Inspired Patterns
 
-**Based on Cynical Analysis**: The architecture has been redesigned to address 47 critical coordination gaps that would prevent the system from working correctly on first deployment.
+**Based on Strategic Pivot**: The architecture has been simplified to use proven Rails patterns rather than complex coordination mechanisms.
 
-### 1. Atomic Coordination Message Flow
+### 1. Simple Message Flow
 ```
-Client                    Coordinator                Database                 Event Bus
-  │                        │                          │                        │
-  ├─ Send Message ────────▶│                          │                        │
-  │  (client_message_id)   │                          │                        │
-  │                        │                          │                        │
-  ├─ Optimistic UI ────────┤                          │                        │
-  │  (show pending)        │                          │                        │
-  │                        │                          │                        │
-  │                        ├─ Atomic Transaction ────▶│                        │
-  │                        │  (msg + room + unread)   │                        │
-  │                        │                          │                        │
-  │                        ├─ Get Sequence Number ───────────────────────────▶│
-  │                        │                          │                        │
-  │                        ├─ Coordinated Broadcast ─────────────────────────▶│
-  │                        │  (with sequence + ack)   │                        │
-  │                        │                          │                        │
-  ├─ Replace Optimistic ◀──┤                          │                        │
-  │  (match client_id)     │                          │                        │
+Client                    API Handler              Database                WebSocket
+  │                        │                        │                       │
+  ├─ Send Message ────────▶│                        │                       │
+  │  (basic HTTP POST)     │                        │                       │
+  │                        │                        │                       │
+  ├─ Optimistic UI ────────┤                        │                       │
+  │  (show pending)        │                        │                       │
+  │                        │                        │                       │
+  │                        ├─ Insert Message ─────▶│                       │
+  │                        │  (simple SQL INSERT)   │                       │
+  │                        │                        │                       │
+  │                        ├─ Broadcast Message ───────────────────────────▶│
+  │                        │  (ActionCable-style)   │                       │
+  │                        │                        │                       │
+  ├─ Receive Broadcast ◀───────────────────────────────────────────────────┤
+  │  (WebSocket message)   │                        │                       │
 ```
 
-### 2. Coordination-First State Management
-- **Global Event Sequencing**: All events get sequence numbers to prevent out-of-order delivery
-- **Atomic State Transitions**: Multi-step operations use coordinated transactions with compensation
-- **Connection State Coordination**: WebSocket connections established atomically with presence tracking
-- **Cross-Tab Coordination**: Browser tabs elect leader to prevent duplicate WebSocket connections
-- **Recovery Coordination**: State synchronization on reconnection with missed event replay
+### 2. Rails-Style State Management
+- **Direct Database Operations**: Simple SQL queries, no coordination layer
+- **ActionCable-Style Broadcasting**: Room-based WebSocket channels like Rails
+- **Basic Presence Tracking**: Simple connection counting without complex coordination
+- **Simple Session Management**: Rails-style session cookies and authentication
+- **Straightforward Error Handling**: Basic error responses, no complex recovery
 
-### 3. Database Coordination Patterns
-- **Write Coordination**: SQLite WAL mode with single-writer semaphore to prevent contention
-- **Transaction Boundaries**: Clear separation between atomic database operations and external effects
-- **FTS5 Coordination**: Asynchronous search index updates with eventual consistency guarantees
-- **Connection Pooling**: Coordinated database access with priority queuing for critical operations
+### 3. Database Patterns
+- **Direct SQLite Operations**: No coordination layer, direct SQL queries
+- **WAL Mode**: Simple write-ahead logging for basic concurrency
+- **FTS5 Search**: Direct search queries, no async coordination
+- **Connection Pooling**: Basic SQLite connection pool
 
-### 4. Real-time Coordination Architecture
-- **Room-Level Coordinators**: Each room has dedicated coordinator for atomic state management
-- **Presence Coordination**: Atomic connection counting with heartbeat-based cleanup
-- **Typing Coordination**: Throttled notifications with automatic cleanup for abandoned sessions
-- **Message Ordering**: Global sequence numbers ensure consistent message ordering across clients
+### 4. Real-time Architecture
+- **Room Channels**: ActionCable-inspired room-based broadcasting
+- **Simple Presence**: Basic online/offline tracking
+- **Typing Notifications**: Simple start/stop notifications
+- **Message Broadcasting**: Direct WebSocket sends to room subscribers
 
-### 5. Fault Tolerance and Recovery Coordination
-- **Circuit Breakers**: Prevent cascade failures with automatic recovery detection
-- **Retry Coordination**: Exponential backoff with persistent queues for failed operations
-- **Graceful Degradation**: System continues with reduced functionality during partial failures
-- **State Recovery**: Comprehensive recovery mechanisms for network partitions and server restarts
+### 5. Basic Reliability Patterns
+- **Simple Retry**: Basic retry logic for failed operations
+- **Error Logging**: Log errors for debugging, no complex recovery
+- **Health Checks**: Basic /health endpoint
+- **Graceful Shutdown**: Clean server shutdown handling
 
 ---
 
@@ -235,36 +367,36 @@ SENTRY_DSN=your-sentry-dsn
 
 ## Performance Targets
 
-### MVP Phase 1 Targets (Coordination-Aware)
-- **Memory**: 30-60MB total (includes coordination overhead, retry queues, event logs)
-- **Connections**: 500+ concurrent WebSocket (realistic with coordination overhead)
-- **Startup**: <500ms cold start (includes coordination setup and state recovery)
-- **Throughput**: 1K+ req/sec sustainable (with full coordination and retry mechanisms)
-- **Storage**: 20MB-500MB (text-only + coordination metadata + event logs)
-- **Cost Reduction**: 85-90% vs Rails (coordination adds overhead but still significant savings)
+### Simplified MVP Targets (Rails-Inspired)
+- **Memory**: 20-40MB total (simple operations, no coordination overhead)
+- **Connections**: 200+ concurrent WebSocket (realistic for simple broadcasting)
+- **Startup**: <100ms cold start (simple initialization, embedded assets)
+- **Throughput**: 2K+ req/sec sustainable (direct operations, no coordination bottleneck)
+- **Storage**: 10MB-300MB (text-only messages, simple schema)
+- **Cost Reduction**: 85-90% vs Rails (Rust efficiency without coordination complexity)
 
-### Response Time Targets (Coordination-Realistic)
-- **API Calls**: <50ms (includes coordination overhead and atomic operations)
-- **Message Operations**: <200ms (optimistic UI + coordination + retry logic)
-- **Static Assets**: <5ms (includes coordination health checks)
-- **WebSocket Messages**: <20ms routing (includes sequencing and state coordination)
-- **Database Queries**: <20ms (includes coordination locks and transaction overhead)
+### Response Time Targets (Simple Operations)
+- **API Calls**: <10ms (direct database operations, simple handlers)
+- **Message Operations**: <50ms (direct insert + broadcast, optimistic UI)
+- **Static Assets**: <1ms (embedded assets, efficient serving)
+- **WebSocket Messages**: <5ms routing (direct broadcasting to room subscribers)
+- **Database Queries**: <5ms (direct SQLite operations, no coordination)
 
-### Reliability Targets (Coordination-Validated)
-- **Availability**: 99.5% uptime (43.8 hours downtime per year, realistic for coordination complexity)
-- **Message Delivery**: 99.9% success rate (with coordination and retry mechanisms)
-- **Data Consistency**: 99.99% (atomic coordination prevents most corruption)
-- **Recovery Time**: <60 seconds for coordination re-establishment
-- **State Sync**: <10 seconds for full WebSocket reconnection with state recovery
+### Reliability Targets (Pragmatic)
+- **Availability**: 99% uptime (87.6 hours downtime per year, realistic for simple system)
+- **Message Delivery**: 99% success rate (simple retry logic, basic error handling)
+- **Data Consistency**: 95% (eventual consistency, Rails-level reliability)
+- **Recovery Time**: <10 seconds for simple reconnection
+- **State Sync**: <2 seconds for WebSocket reconnection
 
-### Scalability Limits (Coordination-Constrained)
-- **Single Room**: 100 concurrent users (coordination overhead limits scalability)
-- **Total Rooms**: 50 active rooms (coordination memory and processing limits)
-- **Message Rate**: 50 messages/second system-wide (coordination bottleneck)
-- **Coordination Queue**: 5,000 pending operations maximum
-- **Event Log**: 50MB maximum before oldest events are discarded
+### Scalability Limits (Simple Architecture)
+- **Single Room**: 50 concurrent users (realistic for simple broadcasting)
+- **Total Rooms**: 25 active rooms (memory and processing realistic limits)
+- **Message Rate**: 100 messages/second system-wide (direct operations)
+- **Database Size**: 500MB maximum for MVP (text-only content)
+- **Asset Memory**: 50MB for embedded assets (all sounds, images, CSS)
 
-**Note**: These targets reflect the realistic overhead of proper coordination mechanisms. The trade-off is lower raw performance for significantly higher reliability and consistency.
+**Note**: These targets reflect Rails-equivalent performance with Rust efficiency gains. Focus on "good enough" reliability rather than theoretical perfection.
 
 ---
 
@@ -415,83 +547,67 @@ The approach eliminates the common MVP problem of "works in demo but fails in pr
 
 ---
 
-## Implementation Structure Overview
+## Implementation Phases
 
-### High-Level Directory Organization
-
-```
-campfire-on-rust/
-├── 🦀 Backend (Rust)              # Coordination-first server implementation
-│   ├── src/coordination/          # Core coordination mechanisms
-│   ├── src/database/              # Coordinated database operations  
-│   ├── src/websocket/             # WebSocket state coordination
-│   ├── src/handlers/              # HTTP API handlers
-│   └── src/models/                # Domain models with type safety
-│
-├── ⚛️ Frontend (React)            # Coordination-aware client
-│   ├── src/components/            # UI components with coordination hooks
-│   ├── src/hooks/                 # Custom coordination hooks
-│   ├── src/stores/                # State management with coordination
-│   └── src/services/              # API services and WebSocket coordination
-│
-├── 🎨 Assets (164 files)          # Original Campfire compatibility
-│   ├── images/ (79 SVG icons)     # Complete UI icon set
-│   ├── sounds/ (59 MP3 files)     # Sound commands (/play bell, etc.)
-│   └── stylesheets/ (26 CSS)      # Complete styling system
-│
-├── 🧪 Tests                       # Coordination testing under failure
-│   ├── coordination/              # Coordination mechanism tests
-│   ├── integration/               # End-to-end coordination tests
-│   └── fixtures/                  # Test data and scenarios
-│
-└── 🐳 Deployment                  # Production deployment
-    ├── docker/                    # Container configuration
-    ├── migrations/                # Database schema evolution
-    └── scripts/                   # Automation and deployment tools
-```
-
-### Core Implementation Priorities
-
-#### Phase 1: Coordination Foundation (Weeks 1-4)
-**Focus**: Prove coordination patterns work under failure conditions
+### Phase 1: Simple Monolith (Weeks 1-4)
+**Goal**: Working chat app with basic features
 
 **Key Files to Implement**:
-- `src/coordination/global_coordinator.rs` - Event sequencing and ordering
-- `src/coordination/room_coordinator.rs` - Room-level atomic operations
-- `src/database/coordinated_db.rs` - SQLite coordination with proper locking
-- `src/models/{message,room,user}.rs` - Domain models with coordination support
-- `tests/coordination/` - Comprehensive coordination testing
+- `src/models/{message,room,user}.rs` - Basic domain models
+- `src/database/connection.rs` - Direct SQLite operations
+- `src/handlers/{messages,rooms,auth}.rs` - Basic API endpoints
+- `src/websocket/broadcaster.rs` - Simple room broadcasting
+- `frontend/src/components/MessageList.tsx` - Basic message display
 
-#### Phase 2: Web Layer Integration (Weeks 5-8)  
-**Focus**: Build web layer on proven coordination foundation
+**Success Criteria**: 5 users can chat in real-time without complex coordination
 
-**Key Files to Implement**:
-- `src/handlers/` - HTTP handlers using coordination layer
-- `src/websocket/` - WebSocket coordination with state recovery
-- `frontend/src/hooks/useCoordinated*.ts` - React coordination hooks
-- `src/assets/` - Asset embedding with all original Campfire files
-- `tests/integration/` - End-to-end coordination validation
+### Phase 2: Rails Pattern Study (Weeks 5-6)
+**Goal**: Understand what coordination Rails actually uses
+
+**Method**: Deep dive into ActionCable implementation, identify minimal necessary patterns
+**Output**: Evidence-based list of required coordination patterns
+
+### Phase 3: Targeted Rails Compatibility (Weeks 7-10)
+**Goal**: Add only coordination patterns Rails proves necessary
+
+**Key Files to Enhance**:
+- `src/services/` - Add Rails-style service objects
+- `src/middleware/` - Add Rails-equivalent middleware
+- Enhanced WebSocket broadcasting to match ActionCable behavior
+- Simple presence tracking and typing notifications
+
+**Success Criteria**: Behavior matches Rails ActionCable in real-world scenarios
+
+### Phase 4: Production Polish (Weeks 11-12)
+**Goal**: Production-ready deployment with monitoring
+
+**Key Additions**:
+- Health checks and monitoring
+- Error logging and debugging
+- Performance optimization
+- Docker deployment configuration
+
+**Success Criteria**: Stable deployment handling real user load
 
 ### Asset Integration Strategy
 
-**Complete Compatibility**: All 164 original Campfire assets are preserved to ensure 100% visual and functional compatibility:
+**Complete Compatibility**: All 164 original Campfire assets preserved:
 
 - **Sound System**: 59 MP3 files enable complete `/play` command functionality
 - **Icon System**: 79 SVG icons provide complete UI compatibility  
 - **Style System**: 26 CSS files maintain exact visual appearance
 - **Embedded Serving**: All assets embedded in binary for single-file deployment
 
-### Coordination Testing Strategy
+### Testing Strategy
 
-**Failure-First Testing**: Every coordination mechanism must pass tests that simulate real-world failure conditions:
+**Simple, Effective Testing**: Focus on practical testing that ensures reliability:
 
-- **Network Partitions**: Test message coordination during network splits
-- **Concurrent Operations**: Validate atomic operations under high concurrency
-- **Component Failures**: Ensure graceful degradation when components fail
-- **State Recovery**: Verify proper state synchronization after failures
-- **Cross-Tab Coordination**: Test browser tab coordination and leader election
+- **Unit Tests**: Test individual components and services
+- **Integration Tests**: Test API endpoints and WebSocket functionality
+- **End-to-End Tests**: Test complete user workflows
+- **Rails Compatibility Tests**: Verify behavior matches Rails ActionCable
 
-This structure ensures that coordination is built into every layer of the application, from the database operations up through the React components, providing a solid foundation for reliable real-time chat functionality.
+This structure prioritizes practical success over theoretical perfection, using Rails as the proven blueprint for what coordination is actually necessary.
 
 ---
 
