@@ -1,8 +1,47 @@
 # Campfire Rust Rewrite - Architecture Options Analysis
 
+## ⚠️ Critical Database Deployment Rule
+
+**NEVER INCLUDE DATABASE FILES IN CONTAINER IMAGES**
+
+This is a fundamental rule that applies to ALL architecture options below:
+
+### Why This Rule Exists:
+- **Data Loss Risk**: Container updates/restarts can wipe database
+- **No Persistence**: Accidental container deletion = complete data loss  
+- **Backup Impossible**: Can't backup database independently
+- **Scaling Issues**: Can't run multiple instances
+- **Recovery Problems**: Must restore entire container for data recovery
+
+### Correct Approach for All Options:
+```dockerfile
+# ✅ CORRECT: No database in image
+FROM alpine:latest
+COPY campfire-rust /usr/local/bin/campfire-rust
+# Database will be in mounted volume or persistent filesystem
+EXPOSE $PORT
+CMD ["/usr/local/bin/campfire-rust"]
+```
+
+```dockerfile
+# ❌ WRONG: Database in image
+FROM alpine:latest
+COPY campfire-rust /usr/local/bin/campfire-rust
+COPY campfire.db /app/campfire.db  # NEVER DO THIS!
+CMD ["/usr/local/bin/campfire-rust"]
+```
+
+### Deployment Strategies by Platform:
+- **Docker/VPS**: Use volume mounts (`-v campfire-data:/data`)
+- **Railway/Render**: Use persistent filesystem (`/app/data/`)
+- **AWS/GCP**: Use managed volumes (EFS/Persistent Disks)
+- **Kubernetes**: Use PersistentVolumeClaims
+
+---
+
 ## Overview
 
-This document presents three distinct high-level architecture approaches for the Campfire Rust rewrite, each balancing different priorities while meeting the core requirements for 87% cost reduction, <2MB memory usage, and 100% feature parity with the Rails implementation.
+This document presents four distinct high-level architecture approaches for the Campfire Rust rewrite, each balancing different priorities while meeting the core requirements for 87% cost reduction, <2MB memory usage, and 100% feature parity with the Rails implementation.
 
 ## Requirements Context
 
@@ -67,6 +106,41 @@ Single-binary deployment with embedded components, optimized for the 87% cost re
 - **File Processing**: libvips-rs with async spawn_blocking
 - **Authentication**: Session-based with secure tokens
 - **Deployment**: Single binary with embedded assets
+
+### Deployment Architecture
+```dockerfile
+# Container Image (No Database!)
+FROM alpine:latest
+RUN apk add --no-cache ca-certificates
+COPY campfire-rust /usr/local/bin/campfire-rust
+EXPOSE $PORT
+CMD ["/usr/local/bin/campfire-rust"]
+```
+
+#### Deployment Options:
+**Docker/VPS:**
+```bash
+docker run -d \
+  -v campfire-data:/data \
+  -e DATABASE_PATH=/data/campfire.db \
+  -p 80:80 campfire-rust:latest
+```
+
+**Railway/Render:**
+```bash
+# Uses persistent /app filesystem
+DATABASE_PATH=/app/data/campfire.db
+```
+
+**Kubernetes:**
+```yaml
+volumeMounts:
+- name: campfire-data
+  mountPath: /data
+env:
+- name: DATABASE_PATH
+  value: /data/campfire.db
+```
 
 ### Key Benefits
 - **Ultra-low resource usage**: <2MB memory, single process
@@ -231,6 +305,31 @@ Modular monolith with clear internal boundaries and optional service extraction,
 - **Shared types**: Common domain types across modules
 - **Testing isolation**: Each module can be tested independently
 
+### Deployment Architecture
+```dockerfile
+# Container Image (No Database!)
+FROM alpine:latest
+RUN apk add --no-cache ca-certificates
+COPY campfire-rust /usr/local/bin/campfire-rust
+EXPOSE $PORT
+CMD ["/usr/local/bin/campfire-rust"]
+```
+
+#### Deployment with Persistent Storage:
+```bash
+# Docker Compose
+version: '3.8'
+services:
+  campfire:
+    image: campfire-rust:latest
+    volumes:
+      - campfire-data:/data
+    environment:
+      - DATABASE_PATH=/data/campfire.db
+volumes:
+  campfire-data:
+```
+
 ### Key Benefits
 - **Clear boundaries**: Well-defined modules with explicit interfaces
 - **Extraction ready**: Modules can become services later if needed
@@ -255,39 +354,78 @@ Modular monolith with clear internal boundaries and optional service extraction,
 
 ---
 
+## Database Deployment Best Practices Summary
+
+### ✅ Correct Deployment Patterns:
+```bash
+# Docker with Volume Mount
+docker run -v campfire-data:/data -e DATABASE_PATH=/data/campfire.db campfire-rust
+
+# Railway with Persistent Filesystem  
+DATABASE_PATH=/app/data/campfire.db
+
+# Kubernetes with PVC
+volumeMounts:
+- name: db-storage
+  mountPath: /data
+```
+
+### ❌ Anti-Patterns to Avoid:
+```dockerfile
+# NEVER: Database in image
+COPY campfire.db /app/  # Data loss on updates!
+
+# NEVER: Database in ephemeral storage
+DATABASE_PATH=/tmp/campfire.db  # Lost on restart!
+
+# NEVER: No backup strategy
+# Always implement automated backups
+```
+
+### Backup Requirements for All Options:
+1. **Automated backups**: Scheduled database exports
+2. **External storage**: Backups stored outside container
+3. **Restore testing**: Regular backup validation
+4. **Migration plan**: Clear data portability strategy
+
+---
+
 ## Comparative Analysis
 
 ### Performance Requirements Alignment
 
-| Requirement | Option 1 (Monolith) | Option 2 (Microservices) | Option 3 (Modular) |
-|-------------|---------------------|---------------------------|---------------------|
-| <2MB Memory | ✅ Excellent (1-2MB) | ❌ Poor (30-60MB) | ✅ Good (2-5MB) |
-| 10K+ WebSocket | ✅ Excellent | ⚠️ Complex (service mesh) | ✅ Excellent |
-| <100ms Startup | ✅ Excellent | ❌ Poor (service deps) | ✅ Good |
-| 87% Cost Reduction | ✅ Excellent | ❌ Poor (overhead) | ✅ Good |
-| Single Binary Deploy | ✅ Perfect | ❌ N/A | ✅ Perfect |
-| 10-12K req/sec | ✅ Excellent | ⚠️ Network overhead | ✅ Excellent |
+| Requirement | Option 1 (Monolith) | Option 2 (Microservices) | Option 3 (Modular) | Option 4 (Text-Only) |
+|-------------|---------------------|---------------------------|---------------------|----------------------|
+| <2MB Memory | ✅ Excellent (1-2MB) | ❌ Poor (30-60MB) | ✅ Good (2-5MB) | ✅ Excellent (10-30MB) |
+| 10K+ WebSocket | ✅ Excellent | ⚠️ Complex (service mesh) | ✅ Excellent | ✅ Excellent |
+| <100ms Startup | ✅ Excellent | ❌ Poor (service deps) | ✅ Good | ✅ Excellent (<50ms) |
+| 87% Cost Reduction | ✅ Excellent | ❌ Poor (overhead) | ✅ Good | ✅ Excellent (90-95%) |
+| Single Binary Deploy | ✅ Perfect | ❌ N/A | ✅ Perfect | ✅ Perfect |
+| 10-12K req/sec | ✅ Excellent | ⚠️ Network overhead | ✅ Excellent | ✅ Excellent (15K+) |
+| Data Safety | ✅ Volume Mount | ⚠️ Distributed | ✅ Volume Mount | ✅ Volume + Backup |
 
 ### Development & Maintenance
 
-| Aspect | Option 1 | Option 2 | Option 3 |
-|--------|----------|----------|----------|
-| Initial Development Speed | ✅ Fast | ❌ Slow | ✅ Medium |
-| Team Scaling | ⚠️ Limited | ✅ Excellent | ✅ Good |
-| Debugging Complexity | ✅ Simple | ❌ Complex | ✅ Good |
-| Testing Complexity | ✅ Simple | ❌ Complex | ✅ Good |
-| Deployment Complexity | ✅ Simple | ❌ Complex | ✅ Simple |
-| Operational Overhead | ✅ Minimal | ❌ High | ✅ Low |
+| Aspect | Option 1 | Option 2 | Option 3 | Option 4 |
+|--------|----------|----------|----------|----------|
+| Initial Development Speed | ✅ Fast | ❌ Slow | ✅ Medium | ✅ Fastest |
+| Team Scaling | ⚠️ Limited | ✅ Excellent | ✅ Good | ⚠️ Limited |
+| Debugging Complexity | ✅ Simple | ❌ Complex | ✅ Good | ✅ Simplest |
+| Testing Complexity | ✅ Simple | ❌ Complex | ✅ Good | ✅ Simplest |
+| Deployment Complexity | ✅ Simple | ❌ Complex | ✅ Simple | ✅ Simplest |
+| Operational Overhead | ✅ Minimal | ❌ High | ✅ Low | ✅ Minimal |
+| Backup Strategy | ✅ Volume Backup | ❌ Distributed | ✅ Volume Backup | ✅ Built-in + External |
 
 ### Scalability & Evolution
 
-| Aspect | Option 1 | Option 2 | Option 3 |
-|--------|----------|----------|----------|
-| Horizontal Scaling | ⚠️ Limited | ✅ Excellent | ⚠️ Limited |
-| Component Independence | ❌ Coupled | ✅ Independent | ⚠️ Bounded |
-| Technology Diversity | ❌ Single stack | ✅ Per-service | ⚠️ Single stack |
-| Future Evolution | ⚠️ Rewrite needed | ✅ Already distributed | ✅ Extract services |
-| Resource Efficiency | ✅ Maximum | ❌ Overhead | ✅ Good |
+| Aspect | Option 1 | Option 2 | Option 3 | Option 4 |
+|--------|----------|----------|----------|----------|
+| Horizontal Scaling | ⚠️ Limited | ✅ Excellent | ⚠️ Limited | ⚠️ Limited |
+| Component Independence | ❌ Coupled | ✅ Independent | ⚠️ Bounded | ❌ Coupled |
+| Technology Diversity | ❌ Single stack | ✅ Per-service | ⚠️ Single stack | ❌ Single stack |
+| Future Evolution | ⚠️ Rewrite needed | ✅ Already distributed | ✅ Extract services | ✅ Clear upgrade path |
+| Resource Efficiency | ✅ Maximum | ❌ Overhead | ✅ Good | ✅ Maximum |
+| Data Portability | ✅ SQLite file | ❌ Complex | ✅ SQLite file | ✅ SQLite + Backups |
 
 ---
 
@@ -435,6 +573,53 @@ Storage: 1GB (vs 50GB+ Rails)
 Bandwidth: Minimal (text-only)
 ```
 
+### Deployment Architecture (Text-Only)
+```dockerfile
+# Ultra-Minimal Container (No Database!)
+FROM alpine:latest
+RUN apk add --no-cache ca-certificates curl
+COPY campfire-rust /usr/local/bin/campfire-rust
+EXPOSE $PORT
+CMD ["/usr/local/bin/campfire-rust"]
+```
+
+#### Platform-Specific Deployment:
+
+**Railway.app (Recommended for MVP):**
+```toml
+# railway.toml
+[build]
+builder = "DOCKERFILE"
+
+[deploy]
+startCommand = "/usr/local/bin/campfire-rust"
+healthcheckPath = "/up"
+
+[environments.production]
+DATABASE_PATH = "/app/data/campfire.db"  # Railway persistent filesystem
+BACKUP_URL = "${{BACKUP_WEBHOOK_URL}}"
+```
+
+**Docker/VPS:**
+```bash
+docker run -d \
+  --name campfire-app \
+  -v /opt/campfire/data:/data \
+  -e DATABASE_PATH=/data/campfire.db \
+  -p 80:80 campfire-rust:latest
+```
+
+**Fly.io:**
+```toml
+# fly.toml
+[mounts]
+source = "campfire_data"
+destination = "/data"
+
+[env]
+DATABASE_PATH = "/data/campfire.db"
+```
+
 ### Key Benefits
 
 #### **Ultra-Minimal Resource Usage**
@@ -486,27 +671,53 @@ Bandwidth: Minimal (text-only)
 - **Data migration**: Moving from text-only to media support
 - **API changes**: Adding file upload endpoints later
 
+### Backup Strategy for Text-Only MVP
+
+#### Built-in Backup System:
+```rust
+// Automatic backup scheduler
+pub async fn start_backup_scheduler(db_path: &str) {
+    let mut interval = tokio::time::interval(Duration::from_secs(3600)); // 1 hour
+    
+    loop {
+        interval.tick().await;
+        
+        if let Ok(backup_url) = env::var("BACKUP_URL") {
+            backup_database_to_webhook(&db_path, &backup_url).await;
+        }
+    }
+}
+```
+
+#### Platform-Specific Backup:
+- **Railway**: Webhook backups to external service
+- **Docker**: Volume backups with cron jobs
+- **Cloud**: Managed backup services (AWS Backup, etc.)
+
 ### Evolution Strategy
 
 #### Phase 1: Text-Only MVP (Months 1-3)
-- Deploy ultra-lightweight version
+- Deploy ultra-lightweight version with persistent storage
+- Implement automatic backup system
 - Validate core chat functionality
 - Build user base and feedback
 
 #### Phase 2: External File Integration (Months 4-5)
 - Add support for external image links
 - Implement link preview for known services
-- Maintain text-only storage
+- Maintain text-only storage with backup continuity
 
 #### Phase 3: Native File Support (Months 6-9)
 - Add file upload API
 - Implement cloud storage (S3/R2)
 - Keep SQLite for metadata, files external
+- Extend backup system for file metadata
 
 #### Phase 4: Full Feature Parity (Months 10-12)
 - Complete Rails feature set
 - Advanced file processing
 - Video/document support
+- Comprehensive backup/restore system
 
 ### Use Cases Perfect for Option 4
 
@@ -617,11 +828,13 @@ If scaling demands eventually require distribution:
 
 ### When to Choose Option 4 (Ultra-Lightweight MVP)
 - **MVP/Proof of concept** development
-- **Extreme cost optimization** required
+- **Extreme cost optimization** required ($3-5/month hosting)
 - **Text-focused use cases** (developer teams, documentation)
 - **Edge/embedded deployments** with resource constraints
 - **Rapid iteration** and validation needed
 - **GitHub/single-binary distribution** preferred
+- **Railway/Render deployment** for simplicity
+- **No file upload requirements** initially
 
 ---
 
@@ -636,6 +849,18 @@ If scaling demands eventually require distribution:
 - **Perfect validation tool**: Proves core value proposition quickly
 - **Clear evolution strategy**: Add file support in Phase 2 if needed
 
+**Critical Deployment Requirements for All Options:**
+1. **Never include database in container image** - Use persistent volumes/filesystems
+2. **Implement automated backup system** - External backup storage required
+3. **Test backup/restore procedures** - Validate data recovery regularly
+4. **Plan for data migration** - Clear strategy for platform changes
+
 **Fallback Strategy**: If file uploads are absolutely required for MVP, use Option 1 (Monolithic Efficiency) which still achieves the 87% cost reduction goal while providing full Rails feature parity.
 
-The text-only approach provides the fastest path to market with maximum cost savings, allowing rapid validation of the core chat experience before investing in file handling infrastructure.
+**Recommended Deployment Platforms by Option:**
+- **Option 4 (Text-Only MVP)**: Railway.app, Render, Fly.io (persistent filesystem)
+- **Option 1 (Full Features)**: Docker/VPS, AWS ECS, Kubernetes (volume mounts)
+- **Option 2 (Microservices)**: Kubernetes, Docker Swarm (orchestrated volumes)
+- **Option 3 (Modular)**: Any platform with persistent storage
+
+The text-only approach provides the fastest path to market with maximum cost savings, allowing rapid validation of the core chat experience before investing in file handling infrastructure, while maintaining proper data safety through persistent storage and automated backups.
