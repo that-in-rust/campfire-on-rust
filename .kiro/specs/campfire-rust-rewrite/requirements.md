@@ -1,45 +1,56 @@
-# Requirements Document
+# Requirements Document - MVP Phase 1
 
 ## Introduction
 
-This document outlines the requirements for rewriting the existing Ruby on Rails Campfire chat application to use a Rust backend with a React frontend. The primary goal is to reduce cloud hosting costs while maintaining 100% feature parity and preserving the existing user interface and user experience.
+This document outlines the requirements for the **MVP Phase 1** of rewriting the existing Ruby on Rails Campfire chat application to use a Rust backend with a React frontend. This phase implements **Option 5: "UI-Complete, Files-Disabled MVP"** - building the complete user interface and experience while implementing only text-based backend functionality.
 
-Campfire is a web-based chat application that supports multiple rooms with access controls, direct messages, file attachments with previews, search, notifications via Web Push, @mentions, and API support for bot integrations. It is single-tenant where public rooms are accessible by all users in the system.
+**Primary Goals:**
+- **90-95% cost reduction** (vs current Rails deployment)
+- **Complete user interface** with professional appearance
+- **Text-based chat functionality** with rich messaging features
+- **Zero UI redesign risk** for future file feature rollout
+- **Feature-flagged architecture** for gradual capability expansion
 
-The current Rails implementation uses SQLite with FTS5 full-text search, ActionCable for WebSocket connections, Active Storage for file handling, Turbo Streams for real-time updates, and includes 50+ sound effects, Progressive Web App support, OpenGraph link unfurling, and sophisticated presence tracking.
+**MVP Scope:** Campfire is a web-based chat application that supports multiple rooms with access controls, direct messages, rich text messaging, search, notifications via Web Push, @mentions, and API support for bot integrations. File attachments, avatars, and OpenGraph previews are **gracefully disabled** with clear upgrade messaging.
+
+**Architecture Approach:** Single Rust binary with embedded React SPA, SQLite database (text-only), and feature flags for future file support enablement.
 
 ## Technical Architecture Context
 
-The existing system has these key components that must be replicated:
-- **Database**: SQLite with FTS5 virtual table for message search, 12 main tables with complex relationships
-- **Real-time**: ActionCable channels (RoomChannel, PresenceChannel, TypingNotificationsChannel, etc.)
-- **File Storage**: Active Storage with blob storage, image/video thumbnail generation, VIPS image processing
+The MVP implementation includes these core components:
+- **Database**: SQLite with FTS5 virtual table for message search, text-only schema
+- **Real-time**: WebSocket channels (RoomChannel, PresenceChannel, TypingNotificationsChannel)
 - **Authentication**: Session-based auth with secure tokens, bot API keys, CSRF protection
-- **Push Notifications**: Web Push with VAPID keys, thread pool for delivery (50 threads, 150 HTTP connections)
-- **Frontend**: Stimulus controllers with complex JavaScript models for message formatting, autocomplete, presence
-- **Background Jobs**: Webhook delivery, push notification sending, file processing
-- **Security**: Rate limiting, private network guards for OpenGraph, content sanitization
+- **Push Notifications**: Web Push with VAPID keys for message notifications
+- **Frontend**: Complete React UI with all components (file features gracefully disabled)
+- **Background Jobs**: Webhook delivery (text responses), push notification sending
+- **Security**: Rate limiting, input validation, content sanitization
+
+**Deferred to Future Phases:**
+- File Storage: Active Storage with blob storage, image/video processing
+- Avatar uploads and image processing
+- OpenGraph link unfurling and preview generation
 
 ## Requirements
 
-### Requirement 1: Message System and Rich Content
+### Requirement 1: Rich Text Message System (MVP Phase 1)
 
-**User Story:** As a chat user, I want all message functionality to work identically including rich text, attachments, sounds, and boosts, so that I have the complete chat experience.
+**User Story:** As a chat user, I want rich text messaging functionality with sounds and boosts, plus complete UI for future file features, so that I have a professional chat experience with clear upgrade path.
 
 #### Acceptance Criteria
 
-1. WHEN a user sends a message THEN the system SHALL store it with client_message_id (UUID format), creator_id, room_id, created_at/updated_at timestamps and broadcast via Turbo Streams within 100ms using turbo_stream_from @room, :messages
-2. WHEN a message contains rich text THEN the system SHALL store it in action_text_rich_texts table with HTML body, support Trix editor formatting with bold/italics/blockquotes/hyperlinks, and render with proper sanitization
-3. WHEN a user uploads a file attachment THEN the system SHALL store it in active_storage_blobs with key, filename, content_type, byte_size, checksum, and service_name fields, supporting drag-and-drop, clipboard paste, and file picker
-4. WHEN an image/video is uploaded THEN the system SHALL generate thumbnails with max dimensions 1200x800 using VIPS-compatible processing, create variant records, and display client-side previews during upload
-5. WHEN a user plays a sound command (/play soundname) THEN the system SHALL recognize 50+ predefined sounds (56k, bell, bezos, bueller, trombone, etc.) and render special UI element for sound playback instead of plain text
-6. WHEN a user boosts a message THEN the system SHALL create boost record with message_id, booster_id, content (max 16 chars emoji), timestamps, and broadcast via Turbo Streams to append/remove boost from message
+1. WHEN a user sends a message THEN the system SHALL store it with client_message_id (UUID format), creator_id, room_id, created_at/updated_at timestamps and broadcast via WebSocket within 100ms
+2. WHEN a message contains rich text THEN the system SHALL store it with HTML body, support Trix editor formatting with bold/italics/blockquotes/hyperlinks, and render with proper sanitization
+3. WHEN a user attempts file upload THEN the system SHALL display complete upload UI with graceful "Coming in v2.0" message, maintain drag-and-drop zones for future functionality, and provide clear upgrade messaging
+4. WHEN file upload areas are displayed THEN the system SHALL show professional placeholder UI, maintain all CSS styling and components, display "File sharing available in v2.0" messaging, and collect user feedback on desired file types
+5. WHEN a user plays a sound command (/play soundname) THEN the system SHALL recognize 50+ predefined sounds (56k, bell, bezos, bueller, trombone, etc.), render special UI element for sound playback, and play embedded audio files
+6. WHEN a user boosts a message THEN the system SHALL create boost record with message_id, booster_id, content (max 16 chars emoji), timestamps, and broadcast updates to all connected clients
 7. WHEN messages are paginated THEN the system SHALL support before/after parameters, page_around functionality, last_page method, and maintain scroll position with proper threading using intersection observers
-8. WHEN a message is edited/deleted THEN the system SHALL broadcast updates via Turbo Streams using replace/remove actions, maintain message integrity, and require creator or administrator permissions
+8. WHEN a message is edited/deleted THEN the system SHALL broadcast updates using WebSocket messages, maintain message integrity, and require creator or administrator permissions
 9. WHEN emoji-only messages are detected THEN the system SHALL apply message--emoji CSS class using Unicode emoji detection regex and enlarge display appropriately
 10. WHEN code blocks are present THEN the system SHALL apply syntax highlighting using highlight.js for plain text code blocks with language detection and proper formatting
-11. WHEN @mentions are processed THEN the system SHALL use <action-text-attachment> tags with Signed Global ID (SGID), trigger rich_autocomplete_controller.js with 300ms debounce, and send notifications to mentioned users
-12. WHEN optimistic UI updates occur THEN the system SHALL generate temporary client_message_id (UUID), create pending message UI, show upload progress for files, and replace with confirmed message using same client_message_id
+11. WHEN @mentions are processed THEN the system SHALL use mention tags, trigger autocomplete with 300ms debounce, send notifications to mentioned users, and maintain complete mention UI
+12. WHEN optimistic UI updates occur THEN the system SHALL generate temporary client_message_id (UUID), create pending message UI, show complete interface feedback, and replace with confirmed message using same client_message_id
 
 ### Requirement 2: Room Types and Membership Management
 
@@ -71,7 +82,7 @@ The existing system has these key components that must be replicated:
 3. WHEN a user logs in THEN the system SHALL perform browser compatibility check via AllowBrowser concern, authenticate via User.authenticate_by(email_address, password), create Session record with secure token, set httponly SameSite=Lax session_token cookie, and redirect to last visited room
 4. WHEN login attempts exceed limits THEN the system SHALL rate limit to 10 attempts per 3 minutes via SessionsController rate limiting, return :too_many_requests status, and log security events
 5. WHEN sessions are managed THEN the system SHALL track token, ip_address, user_agent, last_active_at with 1-hour refresh rate, implement automatic cleanup, and support concurrent sessions per user
-6. WHEN user avatars are handled THEN the system SHALL use has_one_attached :avatar with Active Storage, generate signed avatar tokens for security, serve with proper caching headers, and support multiple formats
+6. WHEN user avatars are displayed THEN the system SHALL show text-based initials with professional styling, display complete avatar upload UI with "Coming in v2.0" messaging, maintain avatar components for future functionality, and provide consistent user identification
 7. WHEN user roles are managed THEN the system SHALL support role enum (member: 0, administrator: 1, bot: 2), implement can_administer? method checking role OR record ownership, and use ensure_can_administer before_action for protected operations
 8. WHEN users are deactivated THEN the system SHALL execute User#deactivate method to close_remote_connections, delete non-direct memberships, anonymize email with UUID suffix, set active=false, and delete sessions
 9. WHEN bot authentication occurs THEN the system SHALL parse bot_key format "id-token", authenticate via User.authenticate_bot with bot_token (SecureRandom.alphanumeric(12)), skip CSRF protection via allow_bot_access, and restrict to designated controllers
@@ -117,60 +128,60 @@ The existing system has these key components that must be replicated:
 11. WHEN bot permissions are enforced THEN the system SHALL restrict bots to programmatic functions only, prevent access to standard user interface, allow only designated API endpoints, and maintain strict separation from user workflows
 12. WHEN webhook failures occur THEN the system SHALL log delivery failures, implement retry logic for transient errors, handle bot service unavailability gracefully, and provide administrator visibility into webhook status
 
-### Requirement 6: Performance Optimization and Resource Efficiency
+### Requirement 6: Performance Optimization and Resource Efficiency (MVP Phase 1)
 
-**User Story:** As a system operator, I want the new implementation to dramatically reduce resource usage while maintaining or improving performance, so that I can reduce hosting costs by 75-90% while improving user experience.
+**User Story:** As a system operator, I want the MVP implementation to achieve 90-95% cost reduction with text-only functionality while maintaining excellent performance, so that I can validate the approach with minimal hosting costs.
 
 #### Acceptance Criteria
 
-1. WHEN the system handles memory usage THEN it SHALL use <2MB baseline vs Rails 50-100MB, implement efficient Rust structs with zero-cost abstractions, optimize WebSocket connection handling with minimal per-connection overhead, and achieve 5-10x memory reduction through careful resource management
+1. WHEN the system handles memory usage THEN it SHALL use 10-30MB total vs Rails 50-100MB, implement efficient Rust structs with zero-cost abstractions, optimize WebSocket connection handling with minimal per-connection overhead, and achieve 3-5x memory reduction for text-only operations
 2. WHEN concurrent connections are managed THEN it SHALL support 10,000+ concurrent WebSocket connections vs Rails ~1,000 using async/await with tokio runtime, implement proper backpressure handling, use connection pooling, and maintain sub-millisecond message routing
-3. WHEN the system starts up THEN it SHALL achieve <100ms cold start vs Rails several seconds, perform SQLite database opening with WAL mode, verify FTS5 index integrity, load embedded assets into memory, and initialize tokio runtime efficiently
-4. WHEN HTTP requests are processed THEN it SHALL achieve 10-12k requests/second vs Rails few hundred per core using hyper/axum framework, maintain <5ms response times for API calls, <10ms for message operations, and <1ms for static asset serving
-5. WHEN database operations occur THEN it SHALL use SQLite connection pooling with configurable limits, implement prepared statements with compile-time SQL validation via Diesel ORM, maintain <2ms query times, and use WAL mode for concurrent read/write performance
-6. WHEN file processing happens THEN it SHALL use async image processing with tokio::spawn_blocking for CPU-bound VIPS operations, generate thumbnails without blocking message delivery, implement streaming for large files, and use efficient memory management
-7. WHEN static assets are served THEN it SHALL embed React build artifacts using include_bytes! macro, create <50MB Docker images vs Rails several hundred MB, implement zero-copy serving with proper caching headers, and compress responses efficiently
+3. WHEN the system starts up THEN it SHALL achieve <50ms cold start vs Rails several seconds, perform SQLite database opening with WAL mode, verify FTS5 index integrity, load embedded assets into memory, and initialize tokio runtime efficiently
+4. WHEN HTTP requests are processed THEN it SHALL achieve 15K+ requests/second vs Rails few hundred per core using hyper/axum framework, maintain <2ms response times for API calls, <5ms for message operations, and <1ms for static asset serving
+5. WHEN database operations occur THEN it SHALL use SQLite connection pooling with configurable limits, implement prepared statements with compile-time SQL validation, maintain <2ms query times, and use WAL mode for concurrent read/write performance
+6. WHEN file processing is deferred THEN it SHALL provide feature-flagged stubs for future file processing, maintain complete UI components, show graceful upgrade messaging, and prepare architecture for future file support
+7. WHEN static assets are served THEN it SHALL embed React build artifacts using include_bytes! macro, create <30MB Docker images, implement zero-copy serving with proper caching headers, and compress responses efficiently
 8. WHEN WebSocket broadcasting occurs THEN it SHALL use efficient message serialization with serde, batch broadcasts to multiple connections, minimize memory allocations per connection, implement message queuing for offline users, and use broadcast channels for scalability
-9. WHEN search operations are performed THEN it SHALL leverage SQLite FTS5 with Porter stemming, implement optimized queries with proper indexing strategies, use result caching with TTL, achieve sub-millisecond search times, and handle large message volumes efficiently
-10. WHEN measuring cost efficiency THEN it SHALL demonstrate 87% cost reduction (2 vCPU/4GB → 0.25 vCPU/0.5GB), enable single instance to replace multiple Rails servers, reduce Docker image size by 80%+, and achieve 10x better resource utilization
-11. WHEN system scaling occurs THEN it SHALL handle horizontal scaling through stateless design, implement efficient load balancing for WebSocket connections, use shared SQLite database with proper locking, and maintain performance under high load
+9. WHEN search operations are performed THEN it SHALL leverage SQLite FTS5 with Porter stemming, implement optimized queries with proper indexing strategies, use result caching with TTL, achieve sub-millisecond search times, and handle text-only message volumes efficiently
+10. WHEN measuring cost efficiency THEN it SHALL demonstrate 90-95% cost reduction (2 vCPU/4GB → 0.25 vCPU/0.5GB), enable single instance deployment, reduce Docker image size by 85%+, and achieve 10x better resource utilization for text operations
+11. WHEN system scaling occurs THEN it SHALL handle horizontal scaling through stateless design, implement efficient load balancing for WebSocket connections, use shared SQLite database with proper locking, and maintain performance under text-heavy load
 12. WHEN resource monitoring is active THEN it SHALL provide Prometheus metrics for memory usage, connection counts, request latency, database performance, and system resource utilization with minimal overhead
 
-### Requirement 7: Data Migration and Schema Compatibility
+### Requirement 7: Data Migration and Text-Only Schema (MVP Phase 1)
 
-**User Story:** As a system administrator, I want comprehensive data migration from the Rails SQLite database with full schema compatibility, so that no data is lost and all existing functionality continues working.
+**User Story:** As a system administrator, I want comprehensive data migration from the Rails SQLite database with text-only content preserved, so that all messages and user data are retained while file attachments are gracefully handled.
 
 #### Acceptance Criteria
 
-1. WHEN the migration runs THEN it SHALL transfer all 12 tables: accounts, users, rooms, messages, memberships, boosts, sessions, webhooks, push_subscriptions, searches, action_text_rich_texts, active_storage_blobs/attachments
+1. WHEN the migration runs THEN it SHALL transfer core tables: accounts, users, rooms, messages, memberships, boosts, sessions, webhooks, push_subscriptions, searches, action_text_rich_texts (excluding active_storage_blobs/attachments for MVP)
 2. WHEN schema is migrated THEN it SHALL preserve exact column types, constraints, and indexes including unique indexes on sessions.token, users.email_address, users.bot_token
-3. WHEN Active Storage is migrated THEN it SHALL transfer blobs with key, filename, content_type, metadata, service_name, byte_size, checksum and maintain attachment relationships
-4. WHEN ActionText content is migrated THEN it SHALL preserve rich_texts records with name, body, record_type, record_id relationships and HTML formatting
-5. WHEN FTS5 search index is migrated THEN it SHALL rebuild message_search_index virtual table with identical tokenization (Porter stemming) and search capabilities
+3. WHEN file attachments are encountered THEN it SHALL create placeholder messages indicating "File attachment available in v2.0", preserve attachment metadata for future migration, and maintain message threading
+4. WHEN ActionText content is migrated THEN it SHALL preserve rich_texts records with name, body, record_type, record_id relationships and HTML formatting, stripping file attachment references
+5. WHEN FTS5 search index is migrated THEN it SHALL rebuild message_search_index virtual table with identical tokenization (Porter stemming) and search capabilities for text content
 6. WHEN password hashes are migrated THEN it SHALL maintain bcrypt compatibility for existing password_digest values and session authentication
 7. WHEN foreign key relationships are preserved THEN it SHALL maintain all associations: room->messages, user->memberships, message->boosts, user->sessions, user->webhooks
 8. WHEN enumerated values are migrated THEN it SHALL preserve user.role (member/administrator/bot), membership.involvement (invisible/nothing/mentions/everything) mappings
 9. WHEN timestamps are migrated THEN it SHALL preserve created_at, updated_at, last_active_at, connected_at, unread_at with proper timezone handling
-10. WHEN data integrity is validated THEN it SHALL verify foreign key constraints, check for orphaned records, validate enum values, and report migration statistics
+10. WHEN data integrity is validated THEN it SHALL verify foreign key constraints, check for orphaned records, validate enum values, report migration statistics, and log file attachment count for future migration
 
-### Requirement 8: Frontend React Implementation with Stimulus Parity
+### Requirement 8: Complete React UI with Graceful Feature Degradation (MVP Phase 1)
 
-**User Story:** As an existing user, I want the new React frontend to replicate every Stimulus controller behavior and CSS styling exactly, so that the interface is indistinguishable from the current implementation.
+**User Story:** As an existing user, I want the new React frontend to provide the complete professional interface with all components present, gracefully indicating which features are coming in future versions, so that I have a polished experience with clear expectations.
 
 #### Acceptance Criteria
 
-1. WHEN CSS is implemented THEN it SHALL include all 25+ stylesheets: base, messages, composer, avatars, buttons, code, lightbox, nav, panels, sidebar, signup, etc. with identical styling
+1. WHEN CSS is implemented THEN it SHALL include all 25+ stylesheets: base, messages, composer, avatars, buttons, code, lightbox, nav, panels, sidebar, signup, etc. with identical styling and complete visual parity
 2. WHEN message formatting occurs THEN it SHALL replicate MessageFormatter with threading (5-minute window), first-of-day detection, emoji-only detection, mention highlighting, and code syntax highlighting
-3. WHEN the composer is used THEN it SHALL replicate ComposerController with toolbar toggle, file upload (drag/drop/paste), keyboard shortcuts (Enter/Cmd+Enter), and client message rendering
+3. WHEN the composer is used THEN it SHALL replicate ComposerController with toolbar toggle, complete file upload UI (gracefully disabled), keyboard shortcuts (Enter/Cmd+Enter), and client message rendering
 4. WHEN presence is tracked THEN it SHALL replicate PresenceController with 50-second refresh timer, 5-second visibility delay, WebSocket connection management, and proper state tracking
 5. WHEN autocomplete is used THEN it SHALL replicate AutocompleteController with 300ms debounce, fuzzy user search, keyboard navigation, and selection management
 6. WHEN typing notifications occur THEN it SHALL replicate TypingNotificationsController with throttled sending, user tracking, and proper display/hiding logic
 7. WHEN scroll management happens THEN it SHALL replicate ScrollManager with auto-scroll threshold (100px), keep-scroll positioning, and pending operation queuing
 8. WHEN notifications are handled THEN it SHALL replicate NotificationsController with service worker registration, VAPID subscription, permission handling, and bell pulsing
-9. WHEN lightbox is used THEN it SHALL replicate LightboxController with image/video display, keyboard navigation, and proper modal behavior
+9. WHEN lightbox is accessed THEN it SHALL display complete lightbox component with "Image viewing available in v2.0" messaging, maintain keyboard navigation, and show upgrade timeline
 10. WHEN client messages are rendered THEN it SHALL replicate ClientMessage with emoji detection regex, sound command parsing, rich text handling, and template substitution
 11. WHEN message pagination occurs THEN it SHALL replicate MessagePaginator with intersection observer, excess message trimming, and proper loading states
-12. WHEN routes are handled THEN it SHALL support all Rails routes including /rooms/:id, /rooms/:id/@:message_id, /users/:id, /join/:join_code, and API endpoints
+12. WHEN routes are handled THEN it SHALL support all Rails routes including /rooms/:id, /rooms/:id/@:message_id, /users/:id, /join/:join_code, and API endpoints with complete navigation
 
 ### Requirement 9: Deployment Architecture and Operations
 
@@ -198,8 +209,8 @@ The existing system has these key components that must be replicated:
 1. WHEN password authentication occurs THEN it SHALL use bcrypt with proper cost factor, secure session tokens via has_secure_token equivalent, and httponly SameSite=Lax cookies
 2. WHEN rate limiting is applied THEN it SHALL limit login attempts to 10 per 3 minutes per IP, implement exponential backoff, and log security events
 3. WHEN content is sanitized THEN it SHALL use HTML sanitization equivalent to Rails sanitize helper, strip dangerous tags, and prevent XSS in rich text content
-4. WHEN file uploads are processed THEN it SHALL validate MIME types, enforce size limits (5MB for OpenGraph), scan for malicious content, and use secure blob storage
-5. WHEN OpenGraph fetching occurs THEN it SHALL use RestrictedHTTP::PrivateNetworkGuard to prevent SSRF attacks, limit redirects to 10, and validate URLs
+4. WHEN file upload attempts occur THEN it SHALL gracefully reject uploads with clear "Available in v2.0" messaging, validate UI interactions, and maintain security boundaries
+5. WHEN OpenGraph functionality is accessed THEN it SHALL display "Link previews coming in v2.0" messaging, maintain link functionality, and prepare for future SSRF protection implementation
 6. WHEN CSRF protection is implemented THEN it SHALL generate and validate CSRF tokens for web forms, skip for bot API requests, and use secure token generation
 7. WHEN database queries are executed THEN it SHALL use parameterized queries/prepared statements, validate all inputs, and prevent SQL injection attacks
 8. WHEN WebSocket connections are managed THEN it SHALL authenticate via session cookies, validate room access permissions, and prevent unauthorized subscriptions
@@ -217,26 +228,43 @@ The existing system has these key components that must be replicated:
 3. WHEN push payloads are delivered THEN it SHALL include title, body, path, badge (unread count), icon (account logo), and handle subscription expiration/invalidation
 4. WHEN QR codes are generated THEN it SHALL create cacheable SVG QR codes for room sharing and session transfer with proper Base64 URL encoding
 5. WHEN search functionality is used THEN it SHALL maintain user search history (limit 10), provide FTS5 full-text search with Porter stemming, and highlight results
-6. WHEN OpenGraph unfurling occurs THEN it SHALL fetch metadata with security restrictions, validate image URLs, sanitize content, and cache results appropriately
+6. WHEN OpenGraph links are encountered THEN it SHALL display links as clickable text with "Preview coming in v2.0" indicator, maintain link functionality, and prepare UI for future unfurling
 7. WHEN sound effects are played THEN it SHALL support all 50+ sounds with proper asset serving, recognize /play commands, and display appropriate text/image responses
 8. WHEN session transfers occur THEN it SHALL generate secure transfer tokens, support cross-device authentication, and maintain security during transfers
 9. WHEN custom account styles are applied THEN it SHALL sanitize CSS content, apply custom styles safely, and maintain interface integrity
 10. WHEN notification permissions are managed THEN it SHALL handle browser permission states (granted/denied/default), show appropriate UI feedback, and manage subscription lifecycle
 
-### Requirement 12: Account Management and Administrative Features
+### Requirement 12: Account Management and Administrative Features (MVP Phase 1)
 
-**User Story:** As an account administrator, I want comprehensive account management with branding, user administration, and system configuration, so that I can fully customize and control the Campfire instance.
+**User Story:** As an account administrator, I want comprehensive account management with text-based branding and user administration, so that I can fully control the Campfire instance while understanding which features are coming in future versions.
 
 #### Acceptance Criteria
 
-1. WHEN accounts are managed THEN it SHALL support single-tenant architecture with account name, join_code (regeneratable), custom_styles text field, and logo attachment
+1. WHEN accounts are managed THEN it SHALL support single-tenant architecture with account name, join_code (regeneratable), custom_styles text field, and prepare for future logo attachment
 2. WHEN first run occurs THEN it SHALL create default account "Campfire" with first room "All Talk", set first user as administrator, and establish proper memberships
 3. WHEN join codes are used THEN it SHALL validate against Current.account.join_code, allow regeneration by administrators, and control new user registration access
-4. WHEN account logos are handled THEN it SHALL use has_one_attached :logo, process with VIPS-compatible image handling, serve with caching headers and fresh_account_logo helper
+4. WHEN account logos are accessed THEN it SHALL display complete logo upload UI with "Custom logos available in v2.0" messaging, use default Campfire branding, and maintain logo components for future functionality
 5. WHEN custom styles are applied THEN it SHALL store CSS in custom_styles field, sanitize for security, apply to interface, and allow administrator-only editing
 6. WHEN user administration occurs THEN it SHALL support user listing with pagination (500 per page), role management, activation/deactivation, and profile editing by administrators
-7. WHEN account settings change THEN it SHALL broadcast updates via Turbo Streams, update cached account data, and reflect changes across all connected clients
-8. WHEN account branding is displayed THEN it SHALL show account name in interface, use custom logo in notifications and PWA manifest, and apply custom styles globally
+7. WHEN account settings change THEN it SHALL broadcast updates via WebSocket, update cached account data, and reflect changes across all connected clients
+8. WHEN account branding is displayed THEN it SHALL show account name in interface, use default branding in notifications and PWA manifest, and apply custom styles globally
+
+### Requirement 13: MVP Feature Flag System and Graceful Degradation
+
+**User Story:** As a user and administrator, I want a professional interface that clearly communicates which features are available now versus coming in future versions, so that I have appropriate expectations and can plan for feature rollout.
+
+#### Acceptance Criteria
+
+1. WHEN feature flags are configured THEN the system SHALL support files_enabled: false, avatars_enabled: false, opengraph_enabled: false with clear configuration management
+2. WHEN disabled features are accessed THEN the system SHALL display complete UI components with professional "Available in v2.0" messaging, maintain visual consistency, and collect user interest feedback
+3. WHEN file upload areas are shown THEN the system SHALL render drag-and-drop zones, upload buttons, and progress indicators with clear upgrade messaging and timeline information
+4. WHEN avatar upload is attempted THEN the system SHALL show complete avatar management UI, display text-based initials as fallback, and provide "Avatar uploads coming in v2.0" messaging
+5. WHEN OpenGraph links are encountered THEN the system SHALL display clickable links with "Link previews coming in v2.0" indicator, maintain link functionality, and prepare UI for future unfurling
+6. WHEN lightbox is accessed THEN the system SHALL show complete modal interface with "Image viewing available in v2.0" messaging, maintain keyboard navigation, and display upgrade timeline
+7. WHEN upgrade messaging is displayed THEN the system SHALL use consistent styling, professional tone, clear timelines, and optional feedback collection for feature prioritization
+8. WHEN feature rollout occurs THEN the system SHALL support gradual enablement (Phase 2: avatars, Phase 3: documents, Phase 4: full files) with configuration-driven activation
+9. WHEN user feedback is collected THEN the system SHALL track feature interest, usage patterns, and user requests to inform development prioritization
+10. WHEN administrative controls are provided THEN the system SHALL allow administrators to view feature roadmap, understand current limitations, and prepare for future capabilities
 9. WHEN administrative permissions are checked THEN it SHALL use ensure_can_administer before_action, verify Current.user.can_administer?, and restrict sensitive operations
 10. WHEN account data is accessed THEN it SHALL use Current.account pattern, maintain account context throughout requests, and ensure proper tenant isolation
 

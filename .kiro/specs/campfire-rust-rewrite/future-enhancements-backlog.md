@@ -1,344 +1,313 @@
-# Campfire Rust Rewrite - Future Enhancements Backlog
+# Future Enhancements Backlog
 
 ## Overview
 
-This document captures all enhancement ideas, architectural improvements, and advanced features that are not required for the initial MVP (Option 5: UI-Complete, Files-Disabled MVP) but should be considered for future iterations. Items are organized by priority and implementation phase.
+This document contains features and requirements that are **deferred from MVP Phase 1** to future development phases. These features were moved from the main requirements document to focus the MVP on **Option 5: "UI-Complete, Files-Disabled MVP"** approach.
+
+**MVP Phase 1 Focus:** Complete professional UI with text-only backend functionality
+**Future Phases:** Gradual rollout of file-related features with feature flags
 
 ---
 
-## Phase 2: Production Readiness Enhancements (Months 3-6)
+## Phase 2: Avatar Support (Month 3)
 
-### API Strategy & Contract Management
+### File Upload Infrastructure Foundation
 
-#### High Priority
-- **OpenAPI Contract-First Development**
-  - Implement `utoipa` for auto-generating OpenAPI specs from Rust code
-  - Add TypeScript client generation using `@hey-api/openapi-ts`
-  - Set up CI/CD gates to prevent API contract breaking changes
-  - Version API endpoints for backward compatibility
+**User Story:** As a system operator, I want basic file upload infrastructure with avatar support, so that users can personalize their profiles while keeping costs manageable.
 
-- **Backend-for-Frontend (BFF) Pattern**
-  - Implement BFF layer to aggregate data for React frontend
-  - Reduce over-fetching and under-fetching of data
-  - Tailor API responses specifically for UI needs
-  - Handle authentication token management centrally
+#### Deferred Requirements:
+1. **Avatar Image Processing**
+   - VIPS-compatible image processing for avatar thumbnails
+   - Multiple format support (JPEG, PNG, WebP)
+   - Automatic resizing and optimization
+   - Signed URL generation for secure serving
 
-#### Medium Priority
-- **API Gateway Implementation**
-  - Add lightweight API Gateway (Kong or AWS API Gateway)
-  - Implement traffic shadowing for safe deployments
-  - Enable canary releases and feature flag routing
-  - Add rate limiting and request/response transformation
+2. **Basic File Storage**
+   - Active Storage blob compatibility layer
+   - File metadata storage (filename, content_type, byte_size, checksum)
+   - Secure file serving with proper caching headers
+   - File cleanup and garbage collection
 
-- **GraphQL Alternative**
-  - Evaluate GraphQL for complex data aggregation needs
-  - Implement GraphQL schema with code generation
-  - Compare performance vs REST for specific use cases
-
-### Observability & Monitoring
-
-#### High Priority
-- **Structured Logging with Tracing**
-  - Implement `tracing` crate for structured logging
-  - Add request IDs and correlation tracking
-  - Set up log aggregation (ELK stack or similar)
-  - Add performance span tracking
-
-- **Metrics & Health Monitoring**
-  - Implement Prometheus metrics collection
-  - Add custom business metrics (message counts, user activity)
-  - Create comprehensive health check endpoints
-  - Set up alerting for critical system metrics
-
-- **OpenTelemetry Integration**
-  - Add distributed tracing capabilities
-  - Implement trace correlation across components
-  - Set up Jaeger or similar for trace visualization
-  - Monitor database query performance
-
-#### Medium Priority
-- **Error Monitoring & Alerting**
-  - Integrate Sentry for error tracking and alerting
-  - Set up automated incident response workflows
-  - Add performance regression detection
-  - Implement SLA/SLO monitoring dashboards
-
-### Security Architecture Enhancements
-
-#### High Priority
-- **OAuth2/OIDC Integration**
-  - Implement proper OAuth2 Authorization Code Flow with PKCE
-  - Add support for external identity providers (Auth0, Okta)
-  - Implement secure token refresh mechanisms
-  - Add multi-factor authentication support
-
-- **Security Headers & CORS**
-  - Implement comprehensive CORS configuration
-  - Add security headers (CSP, HSTS, X-Frame-Options)
-  - Set up CSRF protection for state-changing operations
-  - Add input validation and sanitization layers
-
-#### Medium Priority
-- **Advanced Authorization**
-  - Implement Role-Based Access Control (RBAC)
-  - Add Attribute-Based Access Control (ABAC) with OPA/Cedar
-  - Support for fine-grained permissions
-  - Multi-tenant security isolation
-
-- **Security Auditing**
-  - Add comprehensive audit logging
-  - Implement security event monitoring
-  - Set up vulnerability scanning in CI/CD
-  - Add penetration testing automation
-
-### Testing Strategy Implementation
-
-#### High Priority
-- **Comprehensive Test Suite**
-  - Unit tests for all business logic modules
-  - Integration tests using `testcontainers-rs`
-  - Property-based testing with `proptest`
-  - Performance regression testing
-
-- **Contract Testing**
-  - Implement Pact testing between frontend and backend
-  - Add API contract validation in CI/CD
-  - Set up consumer-driven contract testing
-  - Automated compatibility testing
-
-#### Medium Priority
-- **End-to-End Testing**
-  - Browser automation testing with Playwright/Cypress
-  - Real user scenario testing
-  - Cross-browser compatibility testing
-  - Mobile responsiveness testing
+3. **Avatar Management UI**
+   - Complete avatar upload workflow
+   - Drag-and-drop avatar upload
+   - Avatar preview and cropping
+   - Fallback to text initials when no avatar
 
 ---
 
-## Phase 3: Scalability & Advanced Features (Months 6-12)
+## Phase 3: Document Sharing (Month 4)
 
-### Architecture Evolution
+### Document Upload and Management
 
-#### High Priority
-- **Modular Monolith Refactoring**
-  - Implement Domain-Driven Design (DDD) boundaries
-  - Create clear module interfaces and contracts
-  - Add hexagonal architecture layers (ports & adapters)
-  - Prepare for potential microservices extraction
+**User Story:** As a team member, I want to share documents and files in chat rooms, so that I can collaborate effectively with my team.
 
-- **Database Optimization**
-  - Implement database connection pooling optimization
-  - Add read replicas for scaling read operations
-  - Implement database migration rollback strategies
-  - Add backup and disaster recovery procedures
+#### Deferred Requirements:
+1. **Document File Support**
+   - PDF, DOC, DOCX, TXT file upload support
+   - File size limits and validation (up to 10MB)
+   - Document preview generation where possible
+   - Secure document serving and access control
 
-#### Medium Priority
-- **Microservices Extraction**
-  - Extract user management service
-  - Extract notification service
-  - Extract search service
-  - Implement service mesh (Linkerd/Istio) if needed
+2. **File Attachment System**
+   - Message attachment relationships
+   - File attachment UI in composer
+   - Attachment display in message threads
+   - File download and sharing controls
 
-- **Event-Driven Architecture**
-  - Implement Change Data Capture (CDC) with Debezium
-  - Add event sourcing for audit trails
-  - Implement CQRS pattern for read/write separation
-  - Add message queuing with Kafka/NATS
-
-### Performance Optimization
-
-#### High Priority
-- **Caching Strategy**
-  - Implement Redis for session and application caching
-  - Add CDN for static asset delivery
-  - Implement database query result caching
-  - Add intelligent cache invalidation strategies
-
-- **Database Performance**
-  - Optimize database indices for query patterns
-  - Implement database query performance monitoring
-  - Add database connection pooling tuning
-  - Consider PostgreSQL migration for advanced features
-
-#### Medium Priority
-- **Advanced Performance Features**
-  - Implement WebSocket connection pooling
-  - Add message broadcasting optimization
-  - Implement horizontal scaling strategies
-  - Add load balancing and auto-scaling
-
-### Advanced Real-Time Features
-
-#### Medium Priority
-- **Enhanced WebSocket Features**
-  - Implement WebSocket connection recovery
-  - Add message queuing for offline users
-  - Implement presence heartbeat optimization
-  - Add typing indicator debouncing
-
-- **Push Notification Enhancements**
-  - Add rich push notification support
-  - Implement notification preferences management
-  - Add email notification fallback
-  - Support for mobile push notifications
+3. **Enhanced File Processing**
+   - Async file processing with tokio::spawn_blocking
+   - File processing queues and status tracking
+   - Error handling for file processing failures
+   - File processing progress indicators
 
 ---
 
-## Phase 4: Enterprise & Advanced Features (Months 12-18)
+## Phase 4: Complete File Support (Months 5-6)
 
-### Enterprise Features
+### Full Rails Parity File Features
 
-#### Medium Priority
-- **Multi-Tenancy Support**
-  - Implement tenant isolation
-  - Add tenant-specific configuration
-  - Support for custom branding per tenant
-  - Implement tenant-level analytics
+**User Story:** As a user, I want complete file sharing capabilities including images, videos, and rich previews, so that I have the full Campfire experience.
 
-- **Advanced User Management**
-  - Single Sign-On (SSO) integration
-  - LDAP/Active Directory integration
-  - Advanced user provisioning and deprovisioning
-  - User lifecycle management
+#### Deferred Requirements:
 
-#### Low Priority
-- **Compliance & Governance**
-  - GDPR compliance features (data export, deletion)
-  - SOC 2 compliance implementation
-  - Advanced audit logging and reporting
-  - Data retention policy enforcement
+### Image and Video Support
+1. **Image Processing**
+   - VIPS image processing for thumbnails (max 1200x800)
+   - Multiple image format support (JPEG, PNG, GIF, WebP)
+   - Image variant generation and caching
+   - Client-side image preview during upload
+   - Image optimization and compression
 
-### Advanced Integration Features
+2. **Video Processing**
+   - Video thumbnail generation
+   - Video format validation and conversion
+   - Video streaming and progressive download
+   - Video preview in lightbox interface
 
-#### Medium Priority
-- **API Ecosystem**
-  - Public API for third-party integrations
-  - Webhook system for external notifications
-  - Plugin architecture for extensions
-  - Marketplace for community plugins
+3. **Advanced Lightbox**
+   - Full image/video display with navigation
+   - Zoom and pan functionality
+   - Download and share controls
+   - Keyboard navigation and accessibility
 
-- **External Service Integrations**
-  - Slack/Teams integration
-  - Email service integration
-  - Calendar integration
-  - File storage service integration (S3, Google Drive)
+### OpenGraph Link Unfurling
+1. **Link Preview System**
+   - Automatic OpenGraph metadata extraction
+   - Link preview generation and caching
+   - Image URL validation and security
+   - Preview card UI components
 
-#### Low Priority
-- **AI/ML Features**
-  - Message sentiment analysis
-  - Automated content moderation
-  - Smart notification filtering
-  - Conversation summarization
+2. **Security Implementation**
+   - RestrictedHTTP::PrivateNetworkGuard for SSRF protection
+   - URL validation and sanitization
+   - Redirect limit enforcement (max 10)
+   - Content security and validation
 
-### Advanced Deployment & Operations
+3. **Content Processing**
+   - HTML metadata parsing with security
+   - Image proxy for external content
+   - Preview caching and TTL management
+   - Fallback handling for failed previews
 
-#### Medium Priority
-- **Kubernetes Deployment**
-  - Helm charts for Kubernetes deployment
-  - Horizontal Pod Autoscaling (HPA)
-  - Service mesh integration
-  - GitOps deployment workflows
+### Advanced File Features
+1. **File Processing Pipeline**
+   - Background job system for file processing
+   - File processing status tracking
+   - Retry logic for failed processing
+   - File processing metrics and monitoring
 
-- **Advanced Monitoring**
-  - Custom business metrics dashboards
-  - Predictive scaling based on usage patterns
-  - Advanced alerting with machine learning
-  - Cost optimization monitoring
+2. **Storage Optimization**
+   - File deduplication by checksum
+   - Storage cleanup and archival
+   - CDN integration for file serving
+   - Storage usage monitoring and limits
 
-#### Low Priority
-- **Multi-Region Deployment**
-  - Global load balancing
-  - Data replication across regions
-  - Disaster recovery automation
-  - Edge computing deployment
-
----
-
-## Technical Debt & Refactoring Backlog
-
-### Code Quality Improvements
-- **Rust Code Optimization**
-  - Implement more efficient data structures
-  - Optimize memory allocation patterns
-  - Add compile-time optimizations
-  - Implement zero-copy serialization where possible
-
-- **Frontend Performance**
-  - Implement virtual scrolling for large message lists
-  - Add service worker caching strategies
-  - Optimize bundle size with tree shaking
-  - Implement progressive loading
-
-### Developer Experience
-- **Development Tooling**
-  - Hot reload for Rust development
-  - Automated code formatting and linting
-  - Development environment containerization
-  - Automated dependency updates
-
-- **Documentation & Onboarding**
-  - Comprehensive API documentation
-  - Developer onboarding guides
-  - Architecture decision records (ADRs)
-  - Code contribution guidelines
+3. **Enhanced Upload Experience**
+   - Multiple file upload support
+   - Upload progress tracking with XMLHttpRequest
+   - Drag-and-drop for multiple files
+   - Clipboard paste for images
+   - Upload queue management
 
 ---
 
-## Research & Exploration Items
+## Phase 5: Advanced Features (Months 7+)
 
-### Technology Evaluation
-- **Alternative Databases**
-  - Evaluate PostgreSQL for advanced features
-  - Research distributed databases (CockroachDB, TiDB)
-  - Investigate time-series databases for analytics
-  - Explore graph databases for relationship modeling
+### Performance and Scaling Enhancements
 
-- **Alternative Frameworks**
-  - Evaluate Loco.rs for Rails-like development experience
-  - Research Tauri for desktop application
-  - Investigate WebAssembly for client-side processing
-  - Explore Deno for alternative JavaScript runtime
+#### Deferred Requirements:
 
-### Experimental Features
-- **Cutting-Edge Technologies**
-  - WebRTC for peer-to-peer communication
-  - Blockchain integration for message integrity
-  - Edge computing for global performance
-  - Quantum-resistant cryptography preparation
+### Advanced Performance Optimization
+1. **File Serving Optimization**
+   - Zero-copy file serving
+   - Range request support for large files
+   - Efficient streaming for video content
+   - CDN integration and edge caching
 
----
+2. **Memory Management**
+   - Efficient file processing buffers
+   - Memory usage optimization for large files
+   - Garbage collection for temporary files
+   - Memory monitoring and alerting
 
-## Prioritization Framework
+3. **Scaling Features**
+   - Horizontal scaling for file processing
+   - Distributed file storage support
+   - Load balancing for file serving
+   - Multi-instance coordination
 
-### Priority Levels
-- **P0 (Critical)**: Required for production readiness
-- **P1 (High)**: Important for user experience and reliability
-- **P2 (Medium)**: Nice to have, improves system capabilities
-- **P3 (Low)**: Future considerations, experimental features
+### Advanced UI Components
+1. **Sophisticated File Management**
+   - File browser and organization
+   - File search and filtering
+   - Bulk file operations
+   - File sharing permissions
 
-### Decision Criteria
-1. **User Impact**: How much does this improve user experience?
-2. **Business Value**: What's the ROI of implementing this feature?
-3. **Technical Risk**: How complex is the implementation?
-4. **Resource Requirements**: How much time and effort is needed?
-5. **Dependencies**: What other features does this depend on?
+2. **Enhanced Lightbox Features**
+   - Image editing capabilities
+   - Annotation and markup tools
+   - Collaborative image review
+   - Version history for images
 
-### Review Process
-- **Monthly Backlog Review**: Reassess priorities based on user feedback
-- **Quarterly Planning**: Select items for upcoming development cycles
-- **Annual Strategy Review**: Align backlog with long-term business goals
-
----
-
-## Notes
-
-- This backlog should be reviewed and updated regularly based on user feedback and changing requirements
-- Items can be promoted or demoted in priority based on business needs
-- New items should be added as they are identified during development
-- Consider user feedback and analytics data when prioritizing features
-- Maintain balance between new features and technical debt reduction
+3. **Advanced Upload Features**
+   - Resume interrupted uploads
+   - Upload scheduling and queuing
+   - Batch upload processing
+   - Upload analytics and reporting
 
 ---
 
-*Last Updated: January 2025*
-*Next Review: February 2025*
+## Technical Debt and Infrastructure
+
+### Database Schema Evolution
+1. **File Storage Schema**
+   - active_storage_blobs table implementation
+   - active_storage_attachments relationships
+   - File metadata indexing and optimization
+   - Migration from text-only to full schema
+
+2. **Performance Schema Updates**
+   - File processing job tables
+   - File access logging and analytics
+   - Storage usage tracking
+   - File cleanup scheduling
+
+### Security Enhancements
+1. **Advanced File Security**
+   - Malware scanning integration
+   - Content-based file validation
+   - Access control and permissions
+   - Audit logging for file operations
+
+2. **Network Security**
+   - Advanced SSRF protection
+   - Content Security Policy for files
+   - File serving security headers
+   - Rate limiting for file operations
+
+---
+
+## Migration Strategy
+
+### Data Migration for File Features
+1. **Existing File Recovery**
+   - Rails Active Storage blob migration
+   - File attachment relationship restoration
+   - File metadata preservation
+   - Broken attachment handling
+
+2. **Gradual Feature Enablement**
+   - Feature flag configuration management
+   - Phased rollout coordination
+   - User communication and training
+   - Rollback procedures for issues
+
+### Deployment Considerations
+1. **Storage Requirements**
+   - Volume mount configuration for files
+   - Backup strategy for file storage
+   - Storage monitoring and alerting
+   - Capacity planning for file growth
+
+2. **Performance Impact**
+   - Memory usage increase with file processing
+   - CPU usage for image/video processing
+   - Network bandwidth for file serving
+   - Database size growth with file metadata
+
+---
+
+## Success Metrics
+
+### Phase 2 Success Criteria
+- Avatar upload success rate > 95%
+- Avatar processing time < 5 seconds
+- Memory usage increase < 50MB
+- User satisfaction with avatar features
+
+### Phase 3 Success Criteria
+- Document upload success rate > 98%
+- File processing queue latency < 30 seconds
+- Storage usage within projected limits
+- Team collaboration improvement metrics
+
+### Phase 4 Success Criteria
+- Complete Rails feature parity achieved
+- Image/video processing performance targets met
+- OpenGraph preview success rate > 90%
+- User experience indistinguishable from Rails
+
+### Phase 5 Success Criteria
+- Advanced features adoption > 60%
+- Performance improvements over Rails maintained
+- Scaling requirements met
+- Technical debt minimized
+
+---
+
+## Risk Assessment
+
+### High Risk Items
+- **File Processing Complexity**: Image/video processing implementation
+- **Storage Costs**: File storage may increase hosting costs significantly
+- **Security Vulnerabilities**: File upload and OpenGraph SSRF risks
+- **Performance Impact**: File processing may affect real-time chat performance
+
+### Medium Risk Items
+- **User Expectations**: Managing expectations during phased rollout
+- **Data Migration**: Existing file attachment recovery complexity
+- **Feature Flag Management**: Coordinating gradual feature enablement
+- **Storage Scaling**: Planning for file storage growth
+
+### Low Risk Items
+- **Avatar Implementation**: Relatively straightforward image processing
+- **Document Upload**: Standard file upload patterns
+- **UI Components**: Complete UI already built in MVP
+- **Feature Messaging**: Clear communication strategy established
+
+---
+
+## Decision Log
+
+### Why These Features Were Deferred
+1. **Cost Optimization**: MVP focuses on 90-95% cost reduction
+2. **Complexity Reduction**: File processing adds significant implementation complexity
+3. **Risk Mitigation**: Gradual rollout reduces technical and business risk
+4. **User Validation**: Text-only MVP validates core chat functionality first
+5. **Professional Appearance**: Complete UI maintains professional look
+
+### Future Decision Points
+1. **Phase 2 Timing**: Based on MVP user feedback and adoption
+2. **Storage Strategy**: Choose between local storage, S3, or hybrid approach
+3. **Processing Architecture**: Decide on sync vs async file processing
+4. **Security Implementation**: Choose security libraries and approaches
+5. **Performance Targets**: Set specific performance goals for each phase
+
+---
+
+## Conclusion
+
+This backlog ensures that no functionality is lost from the original requirements while allowing the MVP to focus on core chat functionality with maximum cost efficiency. The phased approach provides a clear roadmap for feature development while maintaining the complete professional UI that users expect.
+
+The feature flag architecture built into the MVP ensures that enabling these features will be straightforward and won't require UI redesign, making the evolution path smooth and predictable.
