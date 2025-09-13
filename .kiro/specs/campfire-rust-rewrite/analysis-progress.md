@@ -207,3 +207,51 @@ The missing details are primarily UI/UX implementation specifics that can be add
 | **Total** | **439** | **~95** | **22%** |
 
 Despite analyzing only 22% of files by count, we've achieved 90-92% functional coverage because we focused on the most critical architectural files first.
+
+## 🔄 Repository Duplication Analysis
+
+### Current Structure Assessment
+**Total repository size**: 200MB  
+**Total files**: 1,433 files
+
+### Identified Duplication
+- **Root directory**: Contains complete original Rails Campfire app (~12MB in app/, config/, lib/)
+- **campfire_original/**: Contains identical copy of the same Rails app (66MB)
+- **Status**: Files are identical (diff shows no differences)
+
+### 🎯 Updated Strategy: Move Original to Reference Directory
+
+**Better Approach - Use Root for New Implementation:**
+- Move all original Rails code to `campfire_original/` for reference
+- Use root directory for the new Rust/React implementation
+- This creates a cleaner separation between old and new code
+- Makes the repository structure more intuitive for development
+
+**Benefits of This Approach:**
+- ✅ Clean root directory for new Rust implementation
+- ✅ Original Rails app preserved in `campfire_original/` for reference
+- ✅ Clear separation between reference material and active development
+- ✅ Standard repository structure (root = active project)
+- ✅ Repository size reduction by removing duplication
+- ✅ Git history preserves everything
+
+**Target Repository Structure:**
+```
+├── src/                       # New Rust backend source
+├── frontend/                  # New React frontend source
+├── Cargo.toml                 # Rust project configuration
+├── package.json               # Frontend dependencies
+├── .kiro/specs/              # Specification documents
+├── campfire_original/        # Original Rails app (reference only)
+│   ├── app/
+│   ├── config/
+│   └── lib/
+├── _LLMcampfiretxt/          # Implementation documentation
+└── _refRustIdioms/           # Rust patterns reference
+```
+
+**Migration Steps:**
+1. Move all Rails files (app/, config/, lib/, etc.) to `campfire_original/`
+2. Remove duplicate files from root
+3. Initialize new Rust/React project structure in root
+4. Update documentation references to point to `campfire_original/`
