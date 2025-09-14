@@ -66,6 +66,7 @@ assert_eq!(rails_behavior(), our_behavior());
 
 #### Gap #2: WebSocket Reconnection State Sync
 
+**Reconnection Decision Flow**:
 ```mermaid
 graph TD
     A[Client reconnects] --> B{Auth valid?}
@@ -75,11 +76,53 @@ graph TD
     D -->|Yes| F[Query messages since last_seen]
     F --> G{Messages found?}
     G -->|No| H[Send empty array]
-    G -->|Yes| I[Send missed messages]
+    G -->|Yes| I[Send missed messages in chronological order]
     I --> J[Update connection state]
     E --> J
     H --> J
     J --> K[Resume normal broadcasting]
+    
+    style A fill:#e1f5fe
+    style C fill:#ffebee
+    style I fill:#e8f5e8
+    style K fill:#e8f5e8
+```
+
+**Detailed Reconnection Sequence**:
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    participant DB as Database
+    participant R as Room Subscribers
+    
+    Note over C,R: Connection lost scenario
+    C--xS: Network interruption
+    Note over C: Client stores last_seen_id: 100
+    
+    Note over S,R: Messages continue while client offline
+    S->>DB: INSERT message (id: 101)
+    S->>R: Broadcast to other clients
+    S->>DB: INSERT message (id: 102)
+    S->>R: Broadcast to other clients
+    
+    Note over C,R: Client reconnection begins
+    C->>S: WebSocket reconnect
+    S->>S: Validate session token
+    C->>S: Send last_seen_id: 100
+    
+    S->>DB: SELECT * FROM messages WHERE id > 100 AND room_id = ?
+    DB-->>S: Return [message_101, message_102]
+    
+    S->>C: Deliver missed messages
+    Note over C: Client receives: [101, 102]
+    C->>C: Update UI with missed messages
+    C->>C: Set last_seen_id: 102
+    
+    Note over C,R: Resume normal operation
+    S->>C: New message (id: 103)
+    C->>C: Display new message
+    C->>C: Update last_seen_id: 103
 ```
 
 **Test Assertions**:
@@ -189,6 +232,92 @@ pub trait MessageService: Send + Sync {
         booster_id: UserId,
         emoji_content: String,     // Max 16 chars, Unicode validation
     ) -> Result<Boost, MessageError>;
+}
+```
+
+#### TDD Implementation Cycle for MessageService
+
+**RED Phase (Failing Tests)**:
+```rust
+#[tokio::test]
+async fn test_create_message_deduplication_fails_initially() {
+    let service = MockMessageService::new();
+    let client_id = Uuid::new_v4();
+    
+    // First message should succeed
+    let msg1 = service.create_message_with_deduplication(
+        "Hello".to_string(), room_id, user_id, client_id
+    ).await.unwrap();
+    
+    // Second message with same client_id should return existing
+    let msg2 = service.create_message_with_deduplication(
+        "Different content".to_string(), room_id, user_id, client_id
+    ).await.unwrap();
+    
+    // This will FAIL until we implement deduplication
+    assert_eq!(msg1.id, msg2.id);
+    assert_eq!(msg1.content, "Hello"); // Original content preserved
+}
+```
+
+**GREEN Phase (Minimal Implementation)**:
+```rust
+impl MessageService for RealMessageService {
+    async fn create_message_with_deduplication(
+        &self,
+        content: String,
+        room_id: RoomId,
+        creator_id: UserId,
+        client_message_id: Uuid,
+    ) -> Result<Message<Persisted>, MessageError> {
+        // Check for existing message first (Rails pattern)
+        if let Some(existing) = self.find_by_client_id(client_message_id).await? {
+            return Ok(existing);
+        }
+        
+        // Try INSERT with UNIQUE constraint
+        match self.insert_message(content, room_id, creator_id, client_message_id).await {
+            Ok(message) => Ok(message),
+            Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => {
+                // Race condition: fetch existing message
+                self.find_by_client_id(client_message_id).await?
+                    .ok_or(MessageError::NotFound { message_id: MessageId(0) })
+            }
+            Err(e) => Err(e.into()),
+        }
+    }
+}
+```
+
+**REFACTOR Phase (Property-Based Invariants)**:
+```rust
+proptest! {
+    #[test]
+    fn prop_message_deduplication_idempotent(
+        content1 in ".*",
+        content2 in ".*", 
+        room_id in any::<u64>().prop_map(RoomId),
+        user_id in any::<u64>().prop_map(UserId),
+        client_id in any::<Uuid>(),
+    ) {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let service = setup_test_service().await;
+            
+            let msg1 = service.create_message_with_deduplication(
+                content1, room_id, user_id, client_id
+            ).await.unwrap();
+            
+            let msg2 = service.create_message_with_deduplication(
+                content2, room_id, user_id, client_id  // Same client_id
+            ).await.unwrap();
+            
+            // INVARIANT: Same client_id always returns same message
+            prop_assert_eq!(msg1.id, msg2.id);
+            prop_assert_eq!(msg1.content, msg2.content); // Original preserved
+            prop_assert_eq!(msg1.client_message_id, msg2.client_message_id);
+        });
+    }
 }
 ```
 
@@ -377,6 +506,113 @@ pub enum DatabaseError {
     #[error("Constraint violation: {constraint}")]
     ConstraintViolation { constraint: String },
 }
+```
+
+## Data Model & Relationships
+
+**Entity Relationship Diagram**:
+```mermaid
+erDiagram
+    USERS {
+        i64 id PK
+        string email_address UK
+        string name
+        string password_digest
+        enum role
+        boolean active
+        string bot_token UK
+        string webhook_url
+        datetime created_at
+        datetime updated_at
+    }
+    
+    ROOMS {
+        i64 id PK
+        string name
+        enum room_type
+        i64 creator_id FK
+        datetime last_message_at
+        datetime created_at
+        datetime updated_at
+    }
+    
+    MESSAGES {
+        i64 id PK
+        uuid client_message_id UK
+        text content
+        i64 room_id FK
+        i64 creator_id FK
+        datetime created_at
+        datetime updated_at
+    }
+    
+    MEMBERSHIPS {
+        i64 id PK
+        i64 user_id FK
+        i64 room_id FK
+        enum involvement
+        i32 connections
+        datetime connected_at
+        datetime unread_at
+        datetime created_at
+        datetime updated_at
+    }
+    
+    SESSIONS {
+        i64 id PK
+        i64 user_id FK
+        string token UK
+        string ip_address
+        string user_agent
+        datetime last_active_at
+        datetime expires_at
+        datetime created_at
+    }
+    
+    BOOSTS {
+        i64 id PK
+        i64 message_id FK
+        i64 booster_id FK
+        string content
+        datetime created_at
+    }
+    
+    USERS ||--o{ ROOMS : creates
+    USERS ||--o{ MESSAGES : creates
+    USERS ||--o{ MEMBERSHIPS : has
+    USERS ||--o{ SESSIONS : has
+    USERS ||--o{ BOOSTS : creates
+    ROOMS ||--o{ MESSAGES : contains
+    ROOMS ||--o{ MEMBERSHIPS : has
+    MESSAGES ||--o{ BOOSTS : receives
+```
+
+**Critical Constraints & Indexes**:
+```mermaid
+graph LR
+    subgraph "UNIQUE Constraints (Critical Gap #1)"
+        A[messages.client_message_id + room_id]
+        B[users.email_address]
+        C[users.bot_token]
+        D[sessions.token]
+    end
+    
+    subgraph "Performance Indexes"
+        E[messages.room_id + created_at]
+        F[memberships.user_id + room_id]
+        G[sessions.user_id + expires_at]
+        H[boosts.message_id]
+    end
+    
+    subgraph "FTS5 Search Index"
+        I[message_search_index]
+        J[Porter Stemming]
+        K[Content + Room Permissions]
+    end
+    
+    A --> E
+    E --> I
+    F --> G
 ```
 
 ## Core Domain Types

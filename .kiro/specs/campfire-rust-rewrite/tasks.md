@@ -1496,3 +1496,308 @@ Once implementation is complete, run the verification harness to confirm:
 5. **User Journey Completion**: All 12 user journeys work end-to-end
 
 **Expected Outcome**: 99% one-shot implementation success with 4x faster development (3 weeks vs 12 weeks) due to comprehensive upfront specification and test-driven validation.
+
+---
+
+## Enhanced Verification Harness (Minto-Inspired)
+
+### Governing Thought
+**Complete verification pipeline that validates every layer**: Property tests prove mathematical invariants, integration tests verify service boundaries, E2E tests confirm user journeys, and Rails parity tests ensure behavioral equivalence.
+
+### TDD Implementation Flow
+
+**Complete Development Workflow**:
+```mermaid
+flowchart TD
+    A[Phase 0: TDD Foundation] --> B[Define Type Contracts]
+    B --> C[Write Property Tests]
+    C --> D[Create Integration Stubs]
+    D --> E[Phase 1: Core Infrastructure]
+    
+    E --> F[Implement Database Layer]
+    F --> G[Critical Gap #3: Write Serialization]
+    G --> H[Implement HTTP Server]
+    H --> I[Critical Gap #4: Session Security]
+    
+    I --> J[Phase 2: Core Chat Functionality]
+    J --> K[Implement MessageService]
+    K --> L[Critical Gap #1: Deduplication]
+    L --> M[Implement WebSocket Broadcasting]
+    M --> N[Critical Gap #2: Reconnection]
+    
+    N --> O[Phase 3: Real-time Features]
+    O --> P[Implement Presence Tracking]
+    P --> Q[Critical Gap #5: Presence TTL]
+    Q --> R[Implement Typing Notifications]
+    
+    R --> S[Phase 4: Frontend Integration]
+    S --> T[Complete React UI]
+    T --> U[E2E User Journeys]
+    
+    U --> V[Phase 5: Additional Features]
+    V --> W[Bot Integration]
+    W --> X[Search & Notifications]
+    X --> Y[Verification Harness]
+    
+    Y --> Z{All Tests Pass?}
+    Z -->|Yes| AA[🎉 One-Shot Success!]
+    Z -->|No| BB[Fix Issues & Retry]
+    BB --> Y
+    
+    style A fill:#e3f2fd
+    style G fill:#ffebee
+    style I fill:#ffebee
+    style L fill:#ffebee
+    style N fill:#ffebee
+    style Q fill:#ffebee
+    style AA fill:#e8f5e8
+```
+
+**Critical Gap Implementation Priority**:
+```mermaid
+gantt
+    title Critical Gap Implementation Timeline
+    dateFormat  YYYY-MM-DD
+    section Week 1: Foundation
+    Type Contracts           :done, contracts, 2024-01-01, 2d
+    Property Tests          :done, props, after contracts, 2d
+    Database Setup          :active, db, after props, 3d
+    
+    section Week 2: Core Gaps
+    Gap #3: Write Serialization :crit, gap3, 2024-01-08, 2d
+    Gap #1: Deduplication      :crit, gap1, after gap3, 2d
+    Gap #4: Session Security   :crit, gap4, after gap1, 2d
+    WebSocket Foundation       :after gap4, 1d
+    
+    section Week 3: Real-time
+    Gap #2: Reconnection       :crit, gap2, 2024-01-15, 3d
+    Gap #5: Presence Tracking  :crit, gap5, after gap2, 2d
+    Typing Notifications       :after gap5, 2d
+    
+    section Week 4: Integration
+    React UI Complete          :2024-01-22, 4d
+    E2E Journey Tests         :after gap5, 3d
+    
+    section Week 5: Polish
+    Bot Integration           :2024-01-29, 2d
+    Search & Notifications    :after gap5, 2d
+    Final Verification        :milestone, verify, 2024-02-02, 0d
+```
+
+### Verification Execution Pipeline
+
+```bash
+#!/bin/bash
+# Enhanced TDD Verification Harness - Inspired by Minto Pyramid
+
+echo "🔺 Starting Minto-Structured Verification Pipeline..."
+
+# APEX: Core Logic Verification (Property Tests)
+echo "📊 APEX: Running property tests for mathematical invariants..."
+cargo test --lib prop_ --release --verbose
+PROP_EXIT_CODE=$?
+if [ $PROP_EXIT_CODE -eq 0 ]; then
+    echo "✅ Property tests: All invariants hold"
+else
+    echo "❌ Property tests: Invariants violated - implementation not ready"
+fi
+
+# KEY LINE 1: Service Boundary Verification (Integration Tests)
+echo "🔗 KEY LINE 1: Running integration tests for service boundaries..."
+cargo test --test integration --release --verbose
+INTEGRATION_EXIT_CODE=$?
+if [ $INTEGRATION_EXIT_CODE -eq 0 ]; then
+    echo "✅ Integration tests: All service boundaries verified"
+else
+    echo "❌ Integration tests: Service boundary failures detected"
+fi
+
+# KEY LINE 2: User Experience Verification (E2E Tests)
+echo "🎭 KEY LINE 2: Running E2E tests for user journeys..."
+npm test -- --testNamePattern="JOURNEY_" --verbose
+JOURNEY_EXIT_CODE=$?
+if [ $JOURNEY_EXIT_CODE -eq 0 ]; then
+    echo "✅ E2E tests: All user journeys pass"
+else
+    echo "❌ E2E tests: User journey failures detected"
+fi
+
+# KEY LINE 3: Rails Behavioral Verification (Parity Tests)
+echo "⚖️ KEY LINE 3: Running Rails parity validation..."
+cargo test --test rails_parity --release --verbose
+PARITY_EXIT_CODE=$?
+if [ $PARITY_EXIT_CODE -eq 0 ]; then
+    echo "✅ Rails parity: Behavioral equivalence confirmed"
+else
+    echo "❌ Rails parity: Behavioral differences detected"
+fi
+
+# DETAILS: Anti-Coordination Compliance (Guard Tests)
+echo "🚫 DETAILS: Running anti-coordination guards..."
+cargo test --test anti_coordination_guards --release --verbose
+GUARD_EXIT_CODE=$?
+if [ $GUARD_EXIT_CODE -eq 0 ]; then
+    echo "✅ Anti-coordination: No forbidden patterns detected"
+else
+    echo "❌ Anti-coordination: Forbidden patterns found"
+fi
+
+# DETAILS: Performance Regression (Benchmark Tests)
+echo "⚡ DETAILS: Running performance benchmarks..."
+cargo bench --baseline=rails
+BENCH_EXIT_CODE=$?
+if [ $BENCH_EXIT_CODE -eq 0 ]; then
+    echo "✅ Performance: Within Rails parity bounds"
+else
+    echo "⚠️ Performance: Regression detected (may be acceptable)"
+fi
+
+# Minto Summary: Pyramid Validation Results
+echo ""
+echo "🔺 MINTO PYRAMID VALIDATION SUMMARY:"
+echo "   APEX (Property Tests): $([ $PROP_EXIT_CODE -eq 0 ] && echo "✅ PASS" || echo "❌ FAIL")"
+echo "   KEY LINE 1 (Integration): $([ $INTEGRATION_EXIT_CODE -eq 0 ] && echo "✅ PASS" || echo "❌ FAIL")"
+echo "   KEY LINE 2 (E2E Journeys): $([ $JOURNEY_EXIT_CODE -eq 0 ] && echo "✅ PASS" || echo "❌ FAIL")"
+echo "   KEY LINE 3 (Rails Parity): $([ $PARITY_EXIT_CODE -eq 0 ] && echo "✅ PASS" || echo "❌ FAIL")"
+echo "   DETAILS (Guards): $([ $GUARD_EXIT_CODE -eq 0 ] && echo "✅ PASS" || echo "❌ FAIL")"
+echo "   DETAILS (Performance): $([ $BENCH_EXIT_CODE -eq 0 ] && echo "✅ PASS" || echo "⚠️ WARN")"
+
+# Calculate pyramid success rate
+CRITICAL_TESTS=$((PROP_EXIT_CODE + INTEGRATION_EXIT_CODE + JOURNEY_EXIT_CODE + PARITY_EXIT_CODE))
+TOTAL_TESTS=$((CRITICAL_TESTS + GUARD_EXIT_CODE))
+
+if [ $CRITICAL_TESTS -eq 0 ]; then
+    echo ""
+    echo "🎉 PYRAMID VERIFICATION: 100% SUCCESS"
+    echo "📈 All critical layers validated - Ready for one-shot implementation!"
+    echo "🎯 All 12 user journeys passing"
+    echo "⚖️ Rails behavioral parity confirmed"
+    echo "🚫 Anti-coordination constraints enforced"
+    echo "📊 Property test coverage: 100% for critical gaps"
+    exit 0
+elif [ $TOTAL_TESTS -eq 1 ] && [ $BENCH_EXIT_CODE -ne 0 ]; then
+    echo ""
+    echo "⚠️ PYRAMID VERIFICATION: 95% SUCCESS (Performance Warning Only)"
+    echo "🎯 All critical tests pass - Implementation ready with performance monitoring"
+    exit 0
+else
+    echo ""
+    echo "❌ PYRAMID VERIFICATION: FAILED"
+    echo "🔍 Critical failures detected - Implementation not ready"
+    echo "📋 Fix failed tests before proceeding with implementation"
+    exit 1
+fi
+```
+
+### Deep Reasoning Validation Matrix
+
+| Verification Layer | Purpose | Success Criteria | Failure Impact | Recovery Strategy |
+|-------------------|---------|------------------|----------------|-------------------|
+| **Property Tests (APEX)** | Prove mathematical invariants hold | 100% pass rate for critical gaps | 60% runtime bugs | Add missing invariants, fix logic |
+| **Integration Tests (KEY LINE 1)** | Verify service boundaries | All service interactions work | 40% integration failures | Fix service contracts, update mocks |
+| **E2E Tests (KEY LINE 2)** | Validate user journeys | All 12 journeys complete successfully | 80% user experience issues | Fix UI/UX flows, update test stubs |
+| **Rails Parity (KEY LINE 3)** | Ensure behavioral equivalence | >95% behavioral match | 30% unexpected behavior | Study Rails code, adjust implementation |
+| **Anti-Coordination Guards** | Prevent forbidden patterns | Zero violations detected | 100% architecture corruption | Refactor to remove coordination |
+| **Performance Benchmarks** | Maintain Rails parity | Within 110% of Rails performance | 20% performance regression | Profile and optimize hot paths |
+
+### Critical Gap Verification Status
+
+| Gap ID | Property Test | Integration Test | E2E Journey | Rails Parity | Overall Status |
+|--------|---------------|------------------|-------------|--------------|----------------|
+| **Gap #1: Deduplication** | `prop_dedup_idempotent` | `integration_message_service` | `JOURNEY_02: Rapid-Click` | UNIQUE constraint behavior | ⏳ Pending |
+| **Gap #2: Reconnection** | `prop_reconnection_delivers_missed` | `integration_websocket_reconnect` | `JOURNEY_03: Reconnect-Missed` | ActionCable missed messages | ⏳ Pending |
+| **Gap #3: Write Serialization** | `prop_concurrent_writes_serialized` | `integration_database_writer` | N/A (Internal) | Rails connection pooling | ⏳ Pending |
+| **Gap #4: Session Security** | `prop_token_entropy_sufficient` | `integration_auth_service` | `JOURNEY_12: Session Security` | Rails SecureRandom tokens | ⏳ Pending |
+| **Gap #5: Presence Tracking** | `prop_presence_ttl_cleanup` | `integration_presence_heartbeat` | `JOURNEY_07: Presence Tracking` | Rails connection counting | ⏳ Pending |
+
+### Implementation Readiness Checklist (Minto-Structured)
+
+**APEX (Essential for One-Shot Success)**:
+- [ ] All 5 critical gaps have complete property tests
+- [ ] Mathematical invariants proven for core logic
+- [ ] Type contracts prevent invalid states
+
+**KEY LINES (Supporting Implementation Success)**:
+- [ ] All service boundaries tested with real dependencies
+- [ ] All 12 user journeys have E2E test stubs
+- [ ] Rails behavioral parity validated for critical paths
+
+**DETAILS (Implementation Quality Assurance)**:
+- [ ] Anti-coordination guards prevent forbidden patterns
+- [ ] Performance benchmarks establish regression detection
+- [ ] Comprehensive error handling covers all edge cases
+
+**Test Execution Flow Visualization**:
+```mermaid
+flowchart LR
+    subgraph "APEX: Property Tests"
+        A1[prop_dedup_idempotent]
+        A2[prop_reconnection_delivers_missed]
+        A3[prop_concurrent_writes_serialized]
+        A4[prop_token_entropy_sufficient]
+        A5[prop_presence_ttl_cleanup]
+    end
+    
+    subgraph "KEY LINE 1: Integration Tests"
+        B1[integration_message_service]
+        B2[integration_websocket_reconnect]
+        B3[integration_database_writer]
+        B4[integration_auth_service]
+        B5[integration_presence_heartbeat]
+    end
+    
+    subgraph "KEY LINE 2: E2E Journey Tests"
+        C1[JOURNEY_01: Auth-to-Send]
+        C2[JOURNEY_02: Rapid-Click Dedup]
+        C3[JOURNEY_03: Reconnect-Missed]
+        C4[JOURNEY_07: Presence Tracking]
+        C5[JOURNEY_12: Session Security]
+    end
+    
+    subgraph "KEY LINE 3: Rails Parity"
+        D1[rails_deduplication_behavior]
+        D2[rails_actioncable_reconnect]
+        D3[rails_connection_pooling]
+        D4[rails_secure_random_tokens]
+        D5[rails_presence_counting]
+    end
+    
+    A1 --> B1
+    A2 --> B2
+    A3 --> B3
+    A4 --> B4
+    A5 --> B5
+    
+    B1 --> C1
+    B2 --> C3
+    B3 --> C2
+    B4 --> C5
+    B5 --> C4
+    
+    C1 --> D1
+    C2 --> D1
+    C3 --> D2
+    C4 --> D5
+    C5 --> D4
+    
+    D1 --> E[✅ Gap #1 Verified]
+    D2 --> F[✅ Gap #2 Verified]
+    D3 --> G[✅ Gap #3 Verified]
+    D4 --> H[✅ Gap #4 Verified]
+    D5 --> I[✅ Gap #5 Verified]
+    
+    E --> J[🎉 One-Shot Implementation Ready]
+    F --> J
+    G --> J
+    H --> J
+    I --> J
+    
+    style A1 fill:#e3f2fd
+    style A2 fill:#e3f2fd
+    style A3 fill:#e3f2fd
+    style A4 fill:#e3f2fd
+    style A5 fill:#e3f2fd
+    style J fill:#e8f5e8
+```
+
+**Success Threshold**: APEX + KEY LINES must be 100% complete. DETAILS can have warnings but no failures.

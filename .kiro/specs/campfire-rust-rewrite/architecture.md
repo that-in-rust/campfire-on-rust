@@ -14,19 +14,20 @@ This document defines the high-level system architecture for the Campfire Rust r
 - **Simple Patterns**: Use proven Rails patterns implemented in idiomatic Rust
 - **Evidence-Based**: Add complexity only when Rails proves it's necessary
 
-### System Components
+### System Components & Data Flow
 
+**High-Level System Architecture**:
 ```mermaid
 graph TB
     subgraph "Client Layer"
-        React[React SPA]
-        WS_Client[WebSocket Client]
+        React[React SPA<br/>Complete UI + Graceful Degradation]
+        WS_Client[WebSocket Client<br/>Auto-reconnect + State Sync]
     end
     
     subgraph "Server Layer"
-        HTTP[HTTP Server<br/>Axum]
-        WS_Server[WebSocket Server<br/>ActionCable-style]
-        Auth[Authentication<br/>Session-based]
+        HTTP[HTTP Server<br/>Axum + Type-safe Extractors]
+        WS_Server[WebSocket Server<br/>ActionCable-style Broadcasting]
+        Auth[Authentication<br/>Session-based + Rate Limiting]
     end
     
     subgraph "Service Layer"
@@ -38,8 +39,8 @@ graph TB
     
     subgraph "Data Layer"
         Writer[Database Writer<br/>Gap #3: Write Serialization]
-        SQLite[(SQLite Database<br/>WAL Mode)]
-        FTS5[(FTS5 Search Index)]
+        SQLite[(SQLite Database<br/>WAL Mode + UNIQUE Constraints)]
+        FTS5[(FTS5 Search Index<br/>Porter Stemming)]
     end
     
     React --> HTTP
@@ -54,6 +55,90 @@ graph TB
     BroadcastSvc --> Writer
     Writer --> SQLite
     Writer --> FTS5
+    
+    classDef criticalGap fill:#ff9999,stroke:#333,stroke-width:2px
+    class MessageSvc,BroadcastSvc,Writer,AuthSvc criticalGap
+```
+
+**Complete Message Creation Data Flow**:
+```mermaid
+sequenceDiagram
+    participant U as User (React)
+    participant H as HTTP Server
+    participant M as MessageService
+    participant W as DatabaseWriter
+    participant D as SQLite DB
+    participant B as Broadcaster
+    participant O as Other Users
+    
+    U->>H: POST /api/rooms/123/messages
+    Note over U,H: { content: "Hello", client_message_id: "uuid-123" }
+    
+    H->>H: Validate session token
+    H->>H: Check rate limits
+    H->>M: create_message_with_deduplication()
+    
+    Note over M: Critical Gap #1: Deduplication Check
+    M->>M: Check for existing client_message_id
+    
+    alt Message already exists
+        M-->>H: Return existing message
+        H-->>U: 200 OK (existing message)
+    else New message
+        M->>W: Serialize write operation
+        Note over W: Critical Gap #3: Write Serialization
+        W->>D: BEGIN TRANSACTION
+        W->>D: INSERT INTO messages (UNIQUE constraint)
+        W->>D: UPDATE rooms SET last_message_at
+        W->>D: INSERT INTO message_search_index (FTS5)
+        W->>D: COMMIT TRANSACTION
+        D-->>W: Success
+        W-->>M: Message created
+        
+        M->>B: broadcast_to_room()
+        Note over B: Critical Gap #2: Real-time Broadcasting
+        B->>B: Get room subscribers
+        B->>O: WebSocket broadcast (best-effort)
+        
+        M-->>H: Return created message
+        H-->>U: 201 Created
+    end
+```
+
+**WebSocket Connection Lifecycle**:
+```mermaid
+stateDiagram-v2
+    [*] --> Connecting
+    Connecting --> Authenticating: WebSocket established
+    Authenticating --> Authenticated: Valid session token
+    Authenticating --> Rejected: Invalid token
+    Rejected --> [*]
+    
+    Authenticated --> Subscribing: Join room request
+    Subscribing --> Subscribed: Room access granted
+    Subscribing --> AccessDenied: No room permission
+    AccessDenied --> Authenticated
+    
+    Subscribed --> Broadcasting: Normal operation
+    Broadcasting --> Subscribed: Message sent/received
+    
+    Subscribed --> Reconnecting: Connection lost
+    Reconnecting --> Subscribed: Reconnect successful
+    Reconnecting --> [*]: Reconnect failed
+    
+    Subscribed --> [*]: Explicit disconnect
+    
+    note right of Subscribed
+        Track last_seen_message_id
+        Increment presence count
+        Enable real-time messaging
+    end note
+    
+    note right of Reconnecting
+        Query missed messages
+        Restore connection state
+        Resume broadcasting
+    end note
 ```
 
 ### Critical Gap Solutions Architecture

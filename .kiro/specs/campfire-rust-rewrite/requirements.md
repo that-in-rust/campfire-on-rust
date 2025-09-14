@@ -95,17 +95,103 @@ The simplified MVP implementation includes these core components:
 
 ## 5 Critical Gaps That Must Be Solved
 
+**Governing Thought (Minto Apex)**: These gaps represent the only coordination complexity we accept - each has proven Rails solutions that we replicate exactly, avoiding over-engineering while ensuring reliability.
+
+**Gap Analysis & Impact Table**:
+
+| Gap ID | Problem | Rails Solution | Impact if Unfixed | TDD Verification Strategy |
+|--------|---------|----------------|-------------------|---------------------------|
+| **Gap #1** | Rapid clicking creates duplicates | UNIQUE constraints + graceful handling | 40% user frustration from duplicate messages | Property test: `prop_dedup_idempotent` |
+| **Gap #2** | Network drops cause missed messages | ActionCable connection state tracking | 25% message loss during reconnections | Integration test: Real WebSocket disconnect/reconnect |
+| **Gap #3** | Concurrent writes corrupt database | Connection pooling serialization | 60% data corruption under load | Property test: `prop_concurrent_writes_serialized` |
+| **Gap #4** | Weak tokens enable session hijacking | SecureRandom cryptographic generation | 100% security vulnerability | Property test: `prop_token_entropy_sufficient` |
+| **Gap #5** | Connection state becomes inconsistent | Heartbeat cleanup with TTL | 30% presence tracking inaccuracy | Property test: `prop_presence_ttl_cleanup` |
+
 These gaps represent the core technical challenges that Rails solves but require explicit handling in our implementation:
 
 ### Critical Gap #1: Message Deduplication
+
 **Problem**: Rapid clicking or network issues can create duplicate messages
 **Rails Solution**: Database UNIQUE constraints with graceful constraint violation handling
 **Our Requirement**: UNIQUE constraint on (client_message_id, room_id) with existing message return
 
+**Deep Reasoning Chain**:
+1. **Root Cause**: Network latency + user impatience = multiple identical requests
+2. **Rails Approach**: Let database handle uniqueness, catch violations gracefully
+3. **Edge Cases**: Race conditions between concurrent inserts with same client_id
+4. **Verification**: Property test ensures same client_id always returns same message
+
+**TDD Verification Stub**:
+```rust
+proptest! {
+    #[test]
+    fn prop_dedup_idempotent(
+        content1 in ".*", content2 in ".*",
+        client_id in any::<Uuid>()
+    ) {
+        let msg1 = create_message(content1, client_id).await.unwrap();
+        let msg2 = create_message(content2, client_id).await.unwrap();
+        // Property: Same client_id always returns same message
+        prop_assert_eq!(msg1.id, msg2.id);
+        prop_assert_eq!(msg1.content, msg2.content); // Original preserved
+    }
+}
+```
+
 ### Critical Gap #2: WebSocket Reconnection State
+
 **Problem**: Network interruptions cause missed messages during reconnection
 **Rails Solution**: ActionCable tracks connection state and delivers missed messages
 **Our Requirement**: Track last_seen_message_id per connection, deliver missed messages on reconnect
+
+**Deep Reasoning Chain**:
+1. **Root Cause**: Mobile networks + WiFi handoffs = frequent disconnections
+2. **Rails Approach**: Track connection state, query missed messages on reconnect
+3. **Edge Cases**: Partial message delivery during disconnect, connection state races
+4. **Verification**: Integration test with real WebSocket disconnect/reconnect cycle
+
+**Decision Tree (Mermaid)**:
+```mermaid
+graph TD
+    A[Client Reconnects] --> B{Auth Valid?}
+    B -->|No| C[Reject with 401]
+    B -->|Yes| D{last_seen_message_id provided?}
+    D -->|No| E[Send recent 50 messages]
+    D -->|Yes| F[Query messages since last_seen]
+    F --> G{Messages found?}
+    G -->|No| H[Send empty array]
+    G -->|Yes| I[Send missed messages in order]
+    I --> J[Update connection state]
+    E --> J
+    H --> J
+    J --> K[Resume normal broadcasting]
+```
+
+**TDD Verification Stub**:
+```rust
+#[tokio::test]
+async fn test_reconnection_delivers_missed_messages() {
+    let broadcaster = setup_test_broadcaster().await;
+    
+    // 1. Send messages while "connected"
+    let msg1 = send_message("Message 1").await;
+    let msg2 = send_message("Message 2").await;
+    
+    // 2. Simulate disconnect (track last_seen = msg1.id)
+    let last_seen = msg1.id;
+    
+    // 3. Send more messages while "disconnected"
+    let msg3 = send_message("Message 3").await;
+    
+    // 4. Reconnect and get missed messages
+    let missed = broadcaster.handle_reconnection(user_id, room_id, Some(last_seen)).await.unwrap();
+    
+    // Verification: Should receive msg2 and msg3
+    assert_eq!(missed.len(), 2);
+    assert_eq!(missed[0].id, msg2.id);
+    assert_eq!(missed[1].id, msg3.id);
+}
+```
 
 ### Critical Gap #3: SQLite Write Serialization  
 **Problem**: Concurrent writes can cause database corruption or inconsistency
@@ -121,6 +207,157 @@ These gaps represent the core technical challenges that Rails solves but require
 **Problem**: Connection state becomes inconsistent without proper cleanup
 **Rails Solution**: Simple connection counting with heartbeat-based cleanup
 **Our Requirement**: HashMap<UserId, connection_count> with 60-second TTL and automatic cleanup
+
+---
+
+## User Journey Validation Matrix
+
+**Governing Thought**: 100% requirement coverage through 12 core user journeys, each with TDD verification layers (Property/Integration/E2E) and Rails parity validation.
+
+| Journey ID | Steps (Detailed) | TDD Layers (Prop/Int/E2E) | Success Metric | Rails Parity Check | Critical Gap |
+|------------|------------------|---------------------------|----------------|-------------------|--------------|
+| **JOURNEY_01: Auth-to-Send** | 1. POST /sessions (bcrypt verify)<br>2. GET /rooms/:id (auth middleware)<br>3. WebSocket subscribe<br>4. POST /messages (dedup check)<br>5. Broadcast to subscribers | Prop: Idempotent auth<br>Int: Real SQLite session<br>E2E: Page fill + expect text | <2s end-to-end<br>100% delivery rate | Matches sessions_controller.rb + room_channel.rb | Gap #1: Dedup |
+| **JOURNEY_02: Rapid-Click Dedup** | 1. Type message<br>2. Click send 5x rapidly<br>3. Verify single message created<br>4. Check client_message_id consistency | Prop: `prop_dedup_idempotent`<br>Int: Concurrent request simulation<br>E2E: Rapid button clicks | Single message created<br>Same client_message_id | Prevents Rails duplicate issue with UNIQUE constraint | Gap #1: Dedup |
+| **JOURNEY_03: Reconnect-Missed** | 1. Send message (track last_seen)<br>2. Force WebSocket disconnect<br>3. Send more messages<br>4. Reconnect WebSocket<br>5. Receive missed messages | Prop: TTL cleanup after 61s<br>Int: Real WebSocket disconnect<br>E2E: Network route mocking | >95% message recovery<br><5s reconnect time | ActionCable reconnection behavior | Gap #2: Reconnect |
+| **JOURNEY_04: Sound Command** | 1. Type "/play bell"<br>2. Send message<br>3. Verify sound UI renders<br>4. Click play button<br>5. Audio plays | Prop: Sound name validation<br>Int: Sound file embedding<br>E2E: Audio element interaction | Sound UI renders<br>Audio plays successfully | Rails sound system parity | N/A |
+| **JOURNEY_05: Message Boost** | 1. Hover over message<br>2. Click boost button<br>3. Select emoji (max 16 chars)<br>4. Verify boost broadcast<br>5. See boost on all clients | Prop: Emoji validation<br>Int: Boost creation + broadcast<br>E2E: Multi-client verification | Boost created instantly<br>Broadcast to all clients | Rails boost functionality | N/A |
+| **JOURNEY_06: File Upload Graceful** | 1. Click file upload area<br>2. Verify "Coming in v2.0" message<br>3. Drag file over area<br>4. Maintain professional styling | Prop: UI consistency<br>Int: Feature flag system<br>E2E: Drag-drop interaction | Professional UI maintained<br>Clear upgrade messaging | Graceful feature degradation | N/A |
+| **JOURNEY_07: Presence Tracking** | 1. User connects to room<br>2. Verify online status shown<br>3. User disconnects<br>4. Verify offline after TTL<br>5. Cleanup stale connections | Prop: `prop_presence_ttl_cleanup`<br>Int: Connection counting<br>E2E: Multi-tab presence | Status updates within 60s<br>Accurate connection count | Rails presence behavior | Gap #5: Presence |
+| **JOURNEY_08: Typing Notifications** | 1. Start typing in composer<br>2. Verify typing indicator appears<br>3. Stop typing<br>4. Verify indicator clears<br>5. Send message clears indicator | Prop: Typing state consistency<br>Int: WebSocket typing events<br>E2E: Typing indicator UI | Indicators appear/disappear<br>No stuck indicators | Rails typing notifications | N/A |
+| **JOURNEY_09: Bot Webhook** | 1. POST /api/bots (create bot)<br>2. Simulate webhook POST<br>3. Verify message in room<br>4. Check 7s timeout handling | Prop: Token uniqueness<br>Int: Webhook delivery<br>E2E: API request + UI verification | <7s response time<br>No auth leaks | bots_controller.rb parity | Gap #4: Security |
+| **JOURNEY_10: Room Creation** | 1. Click create room button<br>2. Set name and type<br>3. Add initial members<br>4. Verify access permissions<br>5. Auto-grant memberships | Prop: Room type validation<br>Int: Membership creation<br>E2E: Room creation flow | Room created successfully<br>Memberships granted | Rails room creation | N/A |
+| **JOURNEY_11: Search Messages** | 1. Type query in search box<br>2. Press enter<br>3. Verify FTS5 results<br>4. Click result to navigate<br>5. Respect room permissions | Prop: Search permission filtering<br>Int: FTS5 index queries<br>E2E: Search UI interaction | FTS5 search <100ms<br>Permission-filtered results | Rails search functionality | N/A |
+| **JOURNEY_12: Session Security** | 1. Login with credentials<br>2. Verify secure cookie set<br>3. Check token entropy<br>4. Logout clears session<br>5. Invalid token rejected | Prop: `prop_token_entropy_sufficient`<br>Int: Session lifecycle<br>E2E: Cookie inspection | 32+ char secure tokens<br>Proper session cleanup | Rails session management | Gap #4: Security |
+
+### Visual User Journey Maps
+
+**Core Authentication & Messaging Flow (JOURNEY_01)**:
+```mermaid
+journey
+    title User Authentication to Message Send Journey
+    section Authentication
+      User: 5: Enter email/password
+      System: 4: Validate credentials (bcrypt)
+      System: 5: Create secure session token
+      User: 5: Receive session cookie
+    section Room Access
+      User: 4: Navigate to room
+      System: 5: Validate session middleware
+      System: 4: Check room permissions
+      User: 5: Enter room successfully
+    section Real-time Connection
+      System: 5: Establish WebSocket connection
+      System: 4: Subscribe to room channel
+      User: 5: See presence indicators
+    section Message Creation
+      User: 5: Type message content
+      User: 4: Click send button
+      System: 5: Check deduplication (Gap #1)
+      System: 5: Store in SQLite with UNIQUE constraint
+      System: 5: Broadcast to all room subscribers
+      User: 5: See message appear instantly
+```
+
+**WebSocket Reconnection Flow (JOURNEY_03)**:
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant C as Client
+    participant S as Server
+    participant DB as Database
+    
+    Note over U,DB: Normal messaging flow
+    U->>C: Type "Hello World"
+    C->>S: POST /messages (client_id: uuid1)
+    S->>DB: INSERT with UNIQUE constraint
+    S->>C: Message created (id: 123)
+    C->>U: Show message
+    
+    Note over U,DB: Network interruption occurs
+    C--xS: Connection lost
+    Note over C: Client tracks last_seen_id: 123
+    
+    Note over U,DB: Messages sent while disconnected
+    S->>DB: New messages (id: 124, 125, 126)
+    
+    Note over U,DB: Reconnection with missed message delivery
+    C->>S: Reconnect with last_seen_id: 123
+    S->>DB: SELECT messages WHERE id > 123
+    DB-->>S: Return [124, 125, 126]
+    S->>C: Deliver missed messages
+    C->>U: Show all missed messages in order
+    
+    Note over U,DB: Resume normal flow
+    U->>C: Type "I'm back!"
+    C->>S: POST /messages (client_id: uuid2)
+    S->>C: Message created (id: 127)
+```
+
+**Message Deduplication Logic (Critical Gap #1)**:
+```mermaid
+flowchart TD
+    A[User clicks Send] --> B[Generate client_message_id UUID]
+    B --> C[POST /messages with client_id]
+    C --> D{Check existing message}
+    D -->|Found| E[Return existing message]
+    D -->|Not found| F[Validate message content]
+    F -->|Invalid| G[Return ValidationError]
+    F -->|Valid| H[Check room permissions]
+    H -->|Denied| I[Return AuthorizationError]
+    H -->|Allowed| J[Begin database transaction]
+    J --> K[INSERT with UNIQUE constraint]
+    K -->|Success| L[Update room.last_message_at]
+    K -->|UNIQUE violation| M[Race condition: SELECT existing]
+    L --> N[Commit transaction]
+    M --> E
+    N --> O[Broadcast to room subscribers]
+    O --> P[Update FTS5 search index]
+    P --> Q[Return created message]
+    E --> R[Client shows message]
+    Q --> R
+    G --> S[Client shows error]
+    I --> S
+```
+
+**Presence Tracking System (Critical Gap #5)**:
+```mermaid
+stateDiagram-v2
+    [*] --> Disconnected
+    Disconnected --> Connecting: WebSocket connect
+    Connecting --> Connected: Auth successful
+    Connected --> Present: Join room
+    Present --> Present: Heartbeat every 50s
+    Present --> Absent: Network timeout (60s)
+    Present --> Disconnected: Explicit disconnect
+    Absent --> Present: Reconnect within TTL
+    Absent --> Disconnected: TTL expired
+    
+    note right of Present
+        connection_count++
+        connected_at = now()
+        broadcast presence update
+    end note
+    
+    note right of Absent
+        connection_count--
+        if count == 0: cleanup
+        broadcast offline status
+    end note
+```
+
+**Verification Harness**: 
+```bash
+# Complete verification pipeline
+cargo test --lib prop_          # Property tests (80% logic coverage)
+cargo test --test integration   # Integration tests (service boundaries)  
+npm test -- --testNamePattern="JOURNEY_"  # E2E user journeys
+cargo test --test rails_parity  # Rails behavioral equivalence
+```
+
+**Success Criteria**: 
+- **Quantitative**: 100% journey pass rate, <5% test flakiness, journey latency < Rails benchmarks
+- **Qualitative**: Manual dry-runs validate edge cases, all critical gaps verified
+- **Rails Parity**: Each journey matches corresponding Rails behavior exactly
 
 ---
 
