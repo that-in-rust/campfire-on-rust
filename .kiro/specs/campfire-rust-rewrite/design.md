@@ -1,5 +1,21 @@
 # Campfire Rust Rewrite - Design Document
 
+## Document Hierarchy Reference
+
+This document contains **complete technical contracts** that developers reference for implementation:
+
+```
+requirements.md (Governing Rules & Critical Gaps)
+    ↓
+architecture.md (System Architecture & Component Design)
+    ↓  
+architecture-L2.md (TDD Implementation Patterns)
+    ↓
+design.md (THIS DOCUMENT - Complete Technical Contracts)
+    ↓
+tasks.md (Maximum Implementation Detail)
+```
+
 ## Overview: TDD-Driven Type Contracts
 
 This document defines the complete type contracts, function signatures, and error hierarchies for the Campfire Rust rewrite. Following the improved LLM workflow, we establish all interfaces before any implementation to ensure compile-first success and architectural correctness.
@@ -9,6 +25,359 @@ This document defines the complete type contracts, function signatures, and erro
 - **Rails Parity**: Every interface mirrors Rails behavior exactly, no improvements
 - **Anti-Coordination**: Direct function calls, no async coordination between components
 - **Phantom Types**: Use type system to prevent invalid state transitions
+
+## TDD-Driven Logic Reasoning
+
+### Critical Gap Decision Trees
+
+#### Gap #1: Message Deduplication Logic Flow
+
+```mermaid
+graph TD
+    A[Client sends message] --> B{client_message_id exists?}
+    B -->|Yes| C[Query existing message]
+    C --> D[Return existing message]
+    B -->|No| E[Validate content]
+    E -->|Invalid| F[Return ValidationError]
+    E -->|Valid| G[Check room access]
+    G -->|Denied| H[Return AuthorizationError]
+    G -->|Allowed| I[Begin transaction]
+    I --> J[Insert message]
+    J -->|UNIQUE violation| K[Race condition: fetch existing]
+    J -->|Success| L[Update room timestamp]
+    L --> M[Commit transaction]
+    M --> N[Broadcast to room]
+    N --> O[Update FTS5 index]
+    O --> P[Return created message]
+    K --> D
+```
+
+**Test Assertions**:
+```rust
+// Property: Same client_id always returns same message
+prop_assert_eq!(create_twice_same_id().id, existing_message.id);
+
+// Edge case: Concurrent inserts with same client_id
+assert!(handles_race_condition_gracefully());
+
+// Rails parity: UNIQUE constraint behavior matches ActiveRecord
+assert_eq!(rails_behavior(), our_behavior());
+```
+
+#### Gap #2: WebSocket Reconnection State Sync
+
+```mermaid
+graph TD
+    A[Client reconnects] --> B{Auth valid?}
+    B -->|No| C[Reject with 401]
+    B -->|Yes| D{last_seen_message_id provided?}
+    D -->|No| E[Send recent messages (50)]
+    D -->|Yes| F[Query messages since last_seen]
+    F --> G{Messages found?}
+    G -->|No| H[Send empty array]
+    G -->|Yes| I[Send missed messages]
+    I --> J[Update connection state]
+    E --> J
+    H --> J
+    J --> K[Resume normal broadcasting]
+```
+
+**Test Assertions**:
+```rust
+// Property: All missed messages are delivered
+prop_assert_eq!(missed_messages.len(), expected_count);
+
+// Edge case: Network interruption during sync
+assert!(handles_partial_sync_gracefully());
+
+// Rails parity: ActionCable reconnection behavior
+assert_eq!(actioncable_behavior(), our_behavior());
+```
+
+### Logic Branch Coverage Matrix
+
+| Scenario | Input | Expected Output | Test Assertion | Rails Parity Note |
+|----------|--------|-----------------|----------------|-------------------|
+| **Message Deduplication** |
+| First message | `client_id=uuid1, content="Hello"` | `Message{id=1, content="Hello"}` | `assert_eq!(msg.content, "Hello")` | Rails INSERT behavior |
+| Duplicate client_id | `client_id=uuid1, content="World"` | `Message{id=1, content="Hello"}` | `assert_eq!(msg.content, "Hello")` | Rails UNIQUE constraint |
+| Race condition | 2 concurrent inserts, same client_id | One succeeds, one returns existing | `assert_eq!(msg1.id, msg2.id)` | Rails transaction isolation |
+| **WebSocket Reconnection** |
+| Clean reconnect | `last_seen_id=100` | Messages 101-150 | `assert_eq!(msgs.len(), 50)` | ActionCable missed messages |
+| No last_seen | `last_seen_id=None` | Recent 50 messages | `assert_eq!(msgs.len(), 50)` | ActionCable initial sync |
+| Network drop mid-broadcast | Disconnect after send | Best-effort: Some clients miss | `assert!(delivery_rate >= 95%)` | ActionCable fire-and-forget |
+| **Concurrent Writes (Gap #3)** |
+| 10 simultaneous inserts | Multiple writers | Serialized via mpsc channel | `prop_assert_eq!(order, timestamp_order)` | Rails connection pooling |
+| Database lock timeout | High write contention | Graceful error handling | `assert!(matches!(err, DatabaseError::Timeout))` | Rails deadlock detection |
+| **Session Security (Gap #4)** |
+| Token generation | `generate_secure_token()` | 32-char alphanumeric | `assert!(token.len() >= 32)` | Rails SecureRandom |
+| Session validation | Valid token | User + session data | `assert_eq!(user.id, expected_id)` | Rails session lookup |
+| Expired session | Token > 24h old | SessionNotFound error | `assert!(matches!(err, AuthError::SessionNotFound))` | Rails session expiry |
+| **Presence Tracking (Gap #5)** |
+| User connects | `user_connected(user_id)` | Increment count | `assert_eq!(count, 1)` | Rails connection counting |
+| TTL cleanup | 61 seconds elapsed | Count reset to 0 | `assert_eq!(count, 0)` | Rails heartbeat timeout |
+| Multiple tabs | 3 connections same user | Count = 3 | `assert_eq!(count, 3)` | Rails multi-connection |
+
+### Anti-Coordination Safeguards
+
+**TDD Guards** - Test assertions that fail if coordination patterns creep in:
+
+```rust
+// Guard: No async coordination between services
+#[test]
+fn test_no_async_coordination() {
+    // This test fails if we add event buses, coordinators, etc.
+    let service_call_count = count_async_operations_in_request();
+    assert!(service_call_count <= 3, "Too many async operations - coordination detected");
+}
+
+// Guard: Direct function calls only
+#[test]
+fn test_direct_function_calls() {
+    // This test fails if we add message queues, event streams, etc.
+    let has_message_queue = check_for_message_queue_usage();
+    assert!(!has_message_queue, "Message queue detected - violates anti-coordination");
+}
+
+// Guard: Rails-equivalent complexity only
+#[test]
+fn test_rails_complexity_ceiling() {
+    // This test fails if we exceed Rails complexity
+    let complexity_score = measure_code_complexity();
+    let rails_baseline = get_rails_complexity_baseline();
+    assert!(complexity_score <= rails_baseline * 1.1, "Complexity exceeds Rails by >10%");
+}
+```
+
+## Complete Service Interface Contracts
+
+### MessageService Interface (Critical Gap #1)
+
+```rust
+/// Message service with comprehensive error handling and side effects
+pub trait MessageService: Send + Sync {
+    /// Creates message with deduplication - CRITICAL GAP #1
+    /// Side Effects: Updates room.last_message_at, broadcasts via WebSocket, updates FTS5 index
+    async fn create_message_with_deduplication(
+        &self,
+        content: String,           // 1-10000 chars, HTML allowed
+        room_id: RoomId,
+        creator_id: UserId,
+        client_message_id: Uuid,   // For deduplication
+    ) -> Result<Message<Persisted>, MessageError>;
+    
+    /// Retrieves messages since ID for reconnection - CRITICAL GAP #2
+    async fn get_messages_since(
+        &self,
+        room_id: RoomId,
+        last_seen_id: MessageId,
+        user_id: UserId,
+    ) -> Result<Vec<Message<Persisted>>, MessageError>;
+    
+    /// Search messages with FTS5 and permission filtering
+    async fn search_messages(
+        &self,
+        query: String,
+        user_id: UserId,
+        limit: u32,
+    ) -> Result<Vec<Message<Persisted>>, MessageError>;
+    
+    /// Create boost with emoji validation
+    async fn create_boost(
+        &self,
+        message_id: MessageId,
+        booster_id: UserId,
+        emoji_content: String,     // Max 16 chars, Unicode validation
+    ) -> Result<Boost, MessageError>;
+}
+```
+
+### RoomService Interface
+
+```rust
+/// Room service with membership management
+pub trait RoomService: Send + Sync {
+    /// Create room with automatic membership granting
+    async fn create_room(
+        &self,
+        name: String,
+        room_type: RoomType,
+        creator_id: UserId,
+    ) -> Result<Room, RoomError>;
+    
+    /// Grant membership with involvement level
+    async fn grant_membership(
+        &self,
+        user_id: UserId,
+        room_id: RoomId,
+        involvement: Involvement,
+    ) -> Result<Membership, RoomError>;
+    
+    /// Check room access permissions
+    async fn check_room_access(
+        &self,
+        user_id: UserId,
+        room_id: RoomId,
+    ) -> Result<bool, RoomError>;
+}
+```
+
+### AuthService Interface (Critical Gap #4)
+
+```rust
+/// Authentication service with session management - CRITICAL GAP #4
+pub trait AuthService: Send + Sync {
+    /// Create session with secure token generation
+    async fn create_session(
+        &self,
+        email: String,
+        password: String,
+    ) -> Result<Session, AuthError>;
+    
+    /// Validate session token
+    async fn validate_session(
+        &self,
+        token: String,
+    ) -> Result<User, AuthError>;
+    
+    /// Generate secure bot token
+    fn generate_bot_token() -> BotToken;
+}
+```
+
+### WebSocketBroadcaster Interface (Critical Gap #2)
+
+```rust
+/// WebSocket broadcaster with connection management - CRITICAL GAP #2
+pub trait WebSocketBroadcaster: Send + Sync {
+    /// Add connection with state tracking
+    async fn add_connection(
+        &self,
+        user_id: UserId,
+        room_id: RoomId,
+        connection: WebSocketConnection<Authenticated>,
+    ) -> Result<ConnectionId, BroadcastError>;
+    
+    /// Handle reconnection with missed message delivery
+    async fn handle_reconnection(
+        &self,
+        user_id: UserId,
+        room_id: RoomId,
+        last_seen_id: Option<MessageId>,
+    ) -> Result<Vec<Message<Persisted>>, BroadcastError>;
+    
+    /// Broadcast message to room subscribers
+    async fn broadcast_to_room(
+        &self,
+        room_id: RoomId,
+        message: &Message<Persisted>,
+    ) -> Result<(), BroadcastError>;
+}
+```
+
+### DatabaseWriter Interface (Critical Gap #3)
+
+```rust
+/// Database writer for write serialization - CRITICAL GAP #3
+pub trait DatabaseWriter: Send + Sync {
+    /// Execute write command with serialization
+    async fn execute_write<T>(
+        &self,
+        command: WriteCommand<T>,
+    ) -> Result<T, DatabaseError>;
+}
+```
+
+## Complete Error Hierarchy
+
+```rust
+#[derive(Debug, thiserror::Error)]
+pub enum MessageError {
+    #[error("Database operation failed: {0}")]
+    Database(#[from] sqlx::Error),
+    
+    #[error("Message validation failed: {field} - {reason}")]
+    Validation { field: String, reason: String },
+    
+    #[error("User {user_id} not authorized for room {room_id}")]
+    Authorization { user_id: UserId, room_id: RoomId },
+    
+    #[error("Message {message_id} not found")]
+    NotFound { message_id: MessageId },
+    
+    #[error("Broadcast failed: {reason}")]
+    BroadcastFailed { reason: String },
+    
+    #[error("Duplicate client_message_id handled")]
+    DuplicateHandled { existing_id: MessageId },
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum RoomError {
+    #[error("Database operation failed: {0}")]
+    Database(#[from] sqlx::Error),
+    
+    #[error("Room {room_id} not found")]
+    NotFound { room_id: RoomId },
+    
+    #[error("User {user_id} not authorized for room {room_id}")]
+    AccessDenied { user_id: UserId, room_id: RoomId },
+    
+    #[error("Invalid room type: {reason}")]
+    InvalidType { reason: String },
+    
+    #[error("Membership limit exceeded for room {room_id}")]
+    MembershipLimitExceeded { room_id: RoomId },
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum AuthError {
+    #[error("Database operation failed: {0}")]
+    Database(#[from] sqlx::Error),
+    
+    #[error("Invalid credentials for email: {email}")]
+    InvalidCredentials { email: String },
+    
+    #[error("Session token invalid or expired")]
+    InvalidSession,
+    
+    #[error("Rate limit exceeded: {attempts} attempts in {window_seconds}s")]
+    RateLimitExceeded { attempts: u32, window_seconds: u32 },
+    
+    #[error("User account deactivated: {user_id}")]
+    AccountDeactivated { user_id: UserId },
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum BroadcastError {
+    #[error("Connection {connection_id} not found")]
+    ConnectionNotFound { connection_id: ConnectionId },
+    
+    #[error("WebSocket send failed: {reason}")]
+    SendFailed { reason: String },
+    
+    #[error("Serialization failed: {0}")]
+    SerializationFailed(#[from] serde_json::Error),
+    
+    #[error("Room {room_id} has no active connections")]
+    NoActiveConnections { room_id: RoomId },
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum DatabaseError {
+    #[error("SQLite error: {0}")]
+    Sqlite(#[from] sqlx::Error),
+    
+    #[error("Write channel closed")]
+    WriterUnavailable,
+    
+    #[error("Transaction failed: {reason}")]
+    TransactionFailed { reason: String },
+    
+    #[error("Constraint violation: {constraint}")]
+    ConstraintViolation { constraint: String },
+}
+```
 
 ## Core Domain Types
 

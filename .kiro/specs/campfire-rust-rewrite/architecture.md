@@ -1,31 +1,144 @@
 # Campfire Rust Rewrite - Architecture Document
 
-## ⚠️ Critical Database Deployment Rule
+## System Architecture Overview
 
-**NEVER INCLUDE DATABASE FILES IN CONTAINER IMAGES**
+This document defines the high-level system architecture for the Campfire Rust rewrite, implementing the requirements and constraints defined in `requirements.md`.
 
-### Why This Rule Exists:
-- **Data Loss Risk**: Container updates/restarts can wipe database
-- **No Persistence**: Accidental container deletion = complete data loss  
-- **Backup Impossible**: Can't backup database independently
-- **Scaling Issues**: Can't run multiple instances
-- **Recovery Problems**: Must restore entire container for data recovery
+### Architecture Philosophy
 
-### Correct Deployment Approach:
-```dockerfile
-# ✅ CORRECT: No database in image
-FROM alpine:latest
-COPY campfire-on-rust /usr/local/bin/campfire-on-rust
-# Database will be in mounted volume or persistent filesystem
-EXPOSE $PORT
-CMD ["/usr/local/bin/campfire-on-rust"]
+**Rails-Inspired Pragmatic Architecture**: Build a simple, working chat application that replicates Rails behavior without coordination complexity.
+
+**Core Principles**:
+- **Anti-Coordination**: Direct function calls, no async coordination between components
+- **Rails Parity**: Replicate Rails ActionCable behavior exactly, don't improve it
+- **Simple Patterns**: Use proven Rails patterns implemented in idiomatic Rust
+- **Evidence-Based**: Add complexity only when Rails proves it's necessary
+
+### System Components
+
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        React[React SPA]
+        WS_Client[WebSocket Client]
+    end
+    
+    subgraph "Server Layer"
+        HTTP[HTTP Server<br/>Axum]
+        WS_Server[WebSocket Server<br/>ActionCable-style]
+        Auth[Authentication<br/>Session-based]
+    end
+    
+    subgraph "Service Layer"
+        MessageSvc[Message Service<br/>Gap #1: Deduplication]
+        RoomSvc[Room Service<br/>Membership Management]
+        AuthSvc[Auth Service<br/>Gap #4: Secure Tokens]
+        BroadcastSvc[Broadcast Service<br/>Gap #2: Reconnection]
+    end
+    
+    subgraph "Data Layer"
+        Writer[Database Writer<br/>Gap #3: Write Serialization]
+        SQLite[(SQLite Database<br/>WAL Mode)]
+        FTS5[(FTS5 Search Index)]
+    end
+    
+    React --> HTTP
+    WS_Client --> WS_Server
+    HTTP --> MessageSvc
+    HTTP --> RoomSvc
+    HTTP --> AuthSvc
+    WS_Server --> BroadcastSvc
+    MessageSvc --> Writer
+    RoomSvc --> Writer
+    AuthSvc --> Writer
+    BroadcastSvc --> Writer
+    Writer --> SQLite
+    Writer --> FTS5
 ```
 
-### Deployment Strategies by Platform:
-- **Docker/VPS**: Use volume mounts (`-v campfire-data:/data`)
-- **Railway/Render**: Use persistent filesystem (`/app/data/`)
-- **AWS/GCP**: Use managed volumes (EFS/Persistent Disks)
-- **Kubernetes**: Use PersistentVolumeClaims
+### Critical Gap Solutions Architecture
+
+#### Gap #1: Message Deduplication
+```
+Client Request → MessageService → Database Writer → SQLite UNIQUE Constraint
+                                      ↓
+                              Handle Violation → Return Existing Message
+```
+
+#### Gap #2: WebSocket Reconnection
+```
+Client Reconnect → BroadcastService → Query Missed Messages → Send to Client
+                        ↓
+                 Track last_seen_message_id per connection
+```
+
+#### Gap #3: Write Serialization
+```
+Multiple Writers → mpsc Channel → Single Writer Task → SQLite
+                                       ↓
+                              Serialize all write operations
+```
+
+#### Gap #4: Session Security
+```
+Login Request → AuthService → Generate Secure Token → Store in Database
+                                    ↓
+                            32+ char alphanumeric (Rails equivalent)
+```
+
+#### Gap #5: Presence Tracking
+```
+WebSocket Connect → Increment Counter → Store with TTL
+WebSocket Disconnect → Decrement Counter → Cleanup if zero
+Heartbeat Timer → Clean stale connections (60s TTL)
+```
+
+### Data Flow Architecture
+
+#### Message Creation Flow
+```
+1. Client sends message with client_message_id
+2. HTTP handler validates request
+3. MessageService checks for existing message (Gap #1)
+4. DatabaseWriter serializes write operation (Gap #3)
+5. SQLite stores message with UNIQUE constraint
+6. BroadcastService sends to room subscribers (Gap #2)
+7. FTS5 index updated for search
+```
+
+#### Real-time Communication Flow
+```
+1. Client establishes WebSocket connection
+2. AuthService validates session (Gap #4)
+3. BroadcastService tracks connection state
+4. PresenceService increments user count (Gap #5)
+5. Message broadcasts sent to active connections
+6. Reconnection delivers missed messages (Gap #2)
+```
+
+### Component Relationships
+
+**Service Dependencies** (following Rails service object pattern):
+- MessageService → DatabaseWriter, BroadcastService
+- RoomService → DatabaseWriter, BroadcastService  
+- AuthService → DatabaseWriter
+- BroadcastService → DatabaseWriter (for connection state)
+
+**Data Dependencies**:
+- All services use single SQLite database
+- FTS5 index for message search
+- Session storage in database
+- Connection state tracking in memory
+
+### Deployment Architecture
+
+**Single Binary Deployment**:
+- Embedded React SPA (rust-embed)
+- SQLite database in mounted volume
+- No orchestration or service discovery
+- Simple environment configuration
+
+**⚠️ Critical Database Rule**: Database files NEVER in container images - always in mounted volumes for persistence.
 
 ---
 

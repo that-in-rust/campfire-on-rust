@@ -93,27 +93,241 @@ The simplified MVP implementation includes these core components:
 11. WHEN code review occurs THEN it SHALL verify compliance with anti-coordination constraints, check for forbidden patterns, ensure Rails parity, and reject any coordination complexity regardless of perceived benefits
 12. WHEN deployment is implemented THEN it SHALL use single binary with embedded assets, avoid orchestration or service discovery, maintain simple environment configuration, and provide basic health checks without coordination overhead
 
+## 5 Critical Gaps That Must Be Solved
+
+These gaps represent the core technical challenges that Rails solves but require explicit handling in our implementation:
+
+### Critical Gap #1: Message Deduplication
+**Problem**: Rapid clicking or network issues can create duplicate messages
+**Rails Solution**: Database UNIQUE constraints with graceful constraint violation handling
+**Our Requirement**: UNIQUE constraint on (client_message_id, room_id) with existing message return
+
+### Critical Gap #2: WebSocket Reconnection State
+**Problem**: Network interruptions cause missed messages during reconnection
+**Rails Solution**: ActionCable tracks connection state and delivers missed messages
+**Our Requirement**: Track last_seen_message_id per connection, deliver missed messages on reconnect
+
+### Critical Gap #3: SQLite Write Serialization  
+**Problem**: Concurrent writes can cause database corruption or inconsistency
+**Rails Solution**: Connection pooling effectively serializes writes through queue management
+**Our Requirement**: Dedicated Writer Task pattern with mpsc channel for write serialization
+
+### Critical Gap #4: Session Token Security
+**Problem**: Weak session tokens enable session hijacking and security vulnerabilities
+**Rails Solution**: SecureRandom generates cryptographically secure tokens with proper validation
+**Our Requirement**: Rails-equivalent secure token generation with 32+ character alphanumeric tokens
+
+### Critical Gap #5: Basic Presence Tracking
+**Problem**: Connection state becomes inconsistent without proper cleanup
+**Rails Solution**: Simple connection counting with heartbeat-based cleanup
+**Our Requirement**: HashMap<UserId, connection_count> with 60-second TTL and automatic cleanup
+
+---
+
 ### Requirement 1: Rich Text Message System (MVP Phase 1)
 
 **User Story:** As a chat user, I want rich text messaging functionality with sounds and boosts, plus complete UI for future file features, so that I have a professional chat experience with clear upgrade path.
 
-#### Acceptance Criteria
+#### Technical Implementation Reference
 
-1. WHEN a user sends a message THEN the system SHALL store it with client_message_id (UUID format), creator_id, room_id, created_at/updated_at timestamps and broadcast via WebSocket within 100ms
-2. WHEN a message contains rich text THEN the system SHALL store it with HTML body, support Trix editor formatting with bold/italics/blockquotes/hyperlinks, and render with proper sanitization
-3. WHEN a user attempts file upload THEN the system SHALL display complete upload UI with graceful "Coming in v2.0" message, maintain drag-and-drop zones for future functionality, and provide clear upgrade messaging
-4. WHEN file upload areas are displayed THEN the system SHALL show professional placeholder UI, maintain all CSS styling and components, display "File sharing available in v2.0" messaging, and collect user feedback on desired file types
-5. WHEN a user plays a sound command (/play soundname) THEN the system SHALL recognize 50+ predefined sounds (56k, bell, bezos, bueller, trombone, etc.), render special UI element for sound playback, and play embedded audio files
-6. WHEN a user boosts a message THEN the system SHALL create boost record with message_id, booster_id, content (max 16 chars emoji), timestamps, and broadcast updates to all connected clients
-7. WHEN messages are paginated THEN the system SHALL support before/after parameters, page_around functionality, last_page method, and maintain scroll position with proper threading using intersection observers
-8. WHEN a message is edited/deleted THEN the system SHALL broadcast updates using WebSocket messages, maintain message integrity, and require creator or administrator permissions
-9. WHEN emoji-only messages are detected THEN the system SHALL apply message--emoji CSS class using Unicode emoji detection regex and enlarge display appropriately
-10. WHEN code blocks are present THEN the system SHALL apply syntax highlighting using highlight.js for plain text code blocks with language detection and proper formatting
-11. WHEN @mentions are processed THEN the system SHALL use mention tags, trigger autocomplete with 300ms debounce, send notifications to mentioned users, and maintain complete mention UI
-12. WHEN optimistic UI updates occur THEN the system SHALL generate temporary client_message_id (UUID), create pending message UI, show complete interface feedback, and replace with confirmed message using same client_message_id
-13. WHEN message creation fails THEN the system SHALL retry with exponential backoff (1s, 2s, 4s, 8s, 16s), maintain optimistic UI during retries, and provide clear error messaging after max retries exceeded
-14. WHEN duplicate client_message_id is detected THEN the system SHALL return existing message instead of creating duplicate, preventing race condition duplicates from network issues or rapid clicking
-15. WHEN database transaction fails THEN the system SHALL rollback all changes atomically, preventing partial message creation or inconsistent room state
+**Complete interface contracts defined in**: `design.md`
+**Implementation details defined in**: `tasks.md`
+
+**Key Technical Requirements**:
+- MessageService trait with deduplication support (addresses Critical Gap #1)
+- Message<State> phantom types for compile-time safety
+- Comprehensive error handling with MessageError enum
+- Database UNIQUE constraint on (client_message_id, room_id)
+
+#### Property-Based Test Specifications
+
+```rust
+// Property tests for message deduplication invariant
+proptest! {
+    #[test]
+    fn prop_duplicate_client_id_returns_same_message(
+        content1 in ".*",
+        content2 in ".*",
+        room_id in any::<u64>().prop_map(RoomId),
+        user_id in any::<u64>().prop_map(UserId),
+        client_id in any::<Uuid>(),
+    ) {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let service = setup_test_message_service().await;
+            
+            // Create first message
+            let msg1 = service.create_message_with_deduplication(
+                content1, room_id, user_id, client_id
+            ).await.unwrap();
+            
+            // Attempt duplicate with different content but same client_id
+            let msg2 = service.create_message_with_deduplication(
+                content2, room_id, user_id, client_id
+            ).await.unwrap();
+            
+            // Property: Same client_id always returns same message
+            prop_assert_eq!(msg1.id, msg2.id);
+            prop_assert_eq!(msg1.content, msg2.content); // Original preserved
+            prop_assert_eq!(msg1.client_message_id, msg2.client_message_id);
+        });
+    }
+
+    #[test]
+    fn prop_messages_since_chronological_order(
+        room_id in any::<u64>().prop_map(RoomId),
+        user_id in any::<u64>().prop_map(UserId),
+        message_count in 2..20usize,
+    ) {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let service = setup_test_message_service().await;
+            
+            // Create messages in sequence
+            let mut created_messages = Vec::new();
+            for i in 0..message_count {
+                let msg = service.create_message_with_deduplication(
+                    format!("Message {}", i),
+                    room_id,
+                    user_id,
+                    Uuid::new_v4(),
+                ).await.unwrap();
+                created_messages.push(msg);
+                tokio::time::sleep(Duration::from_millis(1)).await; // Ensure different timestamps
+            }
+            
+            // Get messages since first message
+            let since_id = created_messages[0].id;
+            let retrieved = service.get_messages_since(room_id, since_id, user_id).await.unwrap();
+            
+            // Property: Messages returned in chronological order
+            for window in retrieved.windows(2) {
+                prop_assert!(
+                    window[0].created_at <= window[1].created_at,
+                    "Messages not in chronological order"
+                );
+                if window[0].created_at == window[1].created_at {
+                    prop_assert!(window[0].id < window[1].id, "Same timestamp not ordered by ID");
+                }
+            }
+        });
+    }
+
+    #[test]
+    fn prop_message_validation_boundaries(
+        content in ".*",
+        room_id in any::<u64>().prop_map(RoomId),
+        user_id in any::<u64>().prop_map(UserId),
+    ) {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let service = setup_test_message_service().await;
+            let client_id = Uuid::new_v4();
+            
+            let result = service.create_message_with_deduplication(
+                content.clone(), room_id, user_id, client_id
+            ).await;
+            
+            // Property: Validation rules are consistently applied
+            if content.is_empty() {
+                prop_assert!(matches!(result, Err(MessageError::Validation { field, .. }) if field == "content"));
+            } else if content.len() > 10000 {
+                prop_assert!(matches!(result, Err(MessageError::Validation { field, .. }) if field == "content"));
+            } else {
+                // Valid content should succeed (assuming valid room/user)
+                prop_assert!(result.is_ok() || matches!(result, Err(MessageError::Authorization { .. })));
+            }
+        });
+    }
+}
+```
+
+#### User Journey Validation
+
+| Journey ID | Steps | Test Stub | Success Metric | Rails Parity Check |
+|------------|--------|-----------|----------------|-------------------|
+| JOURNEY_01: Basic Message Send | 1. User authenticates<br>2. Joins room<br>3. Types message<br>4. Clicks send<br>5. Message appears | `test('basic message send', async ({ page }) => { await login(page); await joinRoom(page, 'general'); await page.fill('#message-composer', 'Hello world'); await page.click('[data-testid=send-button]'); await expect(page.locator('.message').last()).toContainText('Hello world'); });` | <100ms broadcast; 100% delivery | Matches room_channel.rb broadcast |
+| JOURNEY_02: Rapid Click Deduplication | 1. Type message<br>2. Rapidly click send 5 times<br>3. Verify only one message created | `test('dedup rapid clicks', async ({ page }) => { await page.fill('#composer', 'Test'); for(let i=0; i<5; i++) await page.click('[data-testid=send-button]'); const messages = await page.locator('.message:has-text("Test")').count(); expect(messages).toBe(1); });` | Single message created; same client_message_id | Prevents Rails duplicate issue |
+| JOURNEY_03: Sound Command | 1. Type "/play bell"<br>2. Send message<br>3. Verify sound UI appears<br>4. Click play button | `test('sound command', async ({ page }) => { await page.fill('#composer', '/play bell'); await page.click('[data-testid=send-button]'); await expect(page.locator('[data-testid=sound-player]')).toBeVisible(); await page.click('[data-testid=play-sound]'); });` | Sound UI renders; audio plays | Matches Rails sound system |
+| JOURNEY_04: Message Boost | 1. Hover over message<br>2. Click boost button<br>3. Select emoji<br>4. Verify boost appears | `test('message boost', async ({ page }) => { await page.hover('.message'); await page.click('[data-testid=boost-button]'); await page.click('[data-emoji="👍"]'); await expect(page.locator('.boost:has-text("👍")')).toBeVisible(); });` | Boost created; broadcast to all | Rails boost functionality |
+| JOURNEY_05: File Upload Graceful Degradation | 1. Click file upload area<br>2. Verify "v2.0" message<br>3. Drag file over area<br>4. Verify styling maintained | `test('file upload degradation', async ({ page }) => { await page.click('[data-testid=file-upload-area]'); await expect(page.locator(':has-text("Coming in v2.0")')).toBeVisible(); });` | Professional UI; clear messaging | Graceful feature degradation |
+
+#### Acceptance Criteria with Test Mapping
+
+1. **WHEN a user sends a message** THEN the system SHALL store it with client_message_id (UUID format), creator_id, room_id, created_at/updated_at timestamps and broadcast via WebSocket within 100ms
+   - **Test**: `JOURNEY_01: Basic Message Send` validates end-to-end flow
+   - **Property**: `prop_duplicate_client_id_returns_same_message` ensures deduplication
+   - **Interface**: `create_message_with_deduplication` contract defines behavior
+
+2. **WHEN a message contains rich text** THEN the system SHALL store it with HTML body, support Trix editor formatting with bold/italics/blockquotes/hyperlinks, and render with proper sanitization
+   - **Test**: Rich text rendering validation in message display tests
+   - **Property**: HTML sanitization property tests prevent XSS
+   - **Interface**: Content validation in `MessageError::Validation`
+
+3. **WHEN a user attempts file upload** THEN the system SHALL display complete upload UI with graceful "Coming in v2.0" message, maintain drag-and-drop zones for future functionality, and provide clear upgrade messaging
+   - **Test**: `JOURNEY_05: File Upload Graceful Degradation` validates UI
+   - **Property**: UI consistency across all file upload areas
+   - **Interface**: Feature flag system for v2.0 functionality
+
+4. **WHEN file upload areas are displayed** THEN the system SHALL show professional placeholder UI, maintain all CSS styling and components, display "File sharing available in v2.0" messaging, and collect user feedback on desired file types
+   - **Test**: Visual regression tests for upload UI consistency
+   - **Property**: All upload areas show consistent messaging
+   - **Interface**: Feedback collection system interface
+
+5. **WHEN a user plays a sound command (/play soundname)** THEN the system SHALL recognize 50+ predefined sounds (56k, bell, bezos, bueller, trombone, etc.), render special UI element for sound playback, and play embedded audio files
+   - **Test**: `JOURNEY_03: Sound Command` validates sound system
+   - **Property**: All 50+ sounds are recognized and playable
+   - **Interface**: Sound command parsing and playback interface
+
+6. **WHEN a user boosts a message** THEN the system SHALL create boost record with message_id, booster_id, content (max 16 chars emoji), timestamps, and broadcast updates to all connected clients
+   - **Test**: `JOURNEY_04: Message Boost` validates boost creation
+   - **Property**: Boost emoji validation and broadcast consistency
+   - **Interface**: `create_boost` method in MessageService trait
+
+7. **WHEN messages are paginated** THEN the system SHALL support before/after parameters, page_around functionality, last_page method, and maintain scroll position with proper threading using intersection observers
+   - **Test**: Pagination integration tests with large message sets
+   - **Property**: Pagination maintains chronological order invariant
+   - **Interface**: Pagination methods in MessageService trait
+
+8. **WHEN a message is edited/deleted** THEN the system SHALL broadcast updates using WebSocket messages, maintain message integrity, and require creator or administrator permissions
+   - **Test**: Message edit/delete permission and broadcast tests
+   - **Property**: Only authorized users can modify messages
+   - **Interface**: Edit/delete methods with authorization checks
+
+9. **WHEN emoji-only messages are detected** THEN the system SHALL apply message--emoji CSS class using Unicode emoji detection regex and enlarge display appropriately
+   - **Test**: Emoji detection and styling tests
+   - **Property**: Unicode emoji detection is consistent
+   - **Interface**: Message classification system
+
+10. **WHEN code blocks are present** THEN the system SHALL apply syntax highlighting using highlight.js for plain text code blocks with language detection and proper formatting
+    - **Test**: Code block rendering and highlighting tests
+    - **Property**: All supported languages are highlighted correctly
+    - **Interface**: Code block processing pipeline
+
+11. **WHEN @mentions are processed** THEN the system SHALL use mention tags, trigger autocomplete with 300ms debounce, send notifications to mentioned users, and maintain complete mention UI
+    - **Test**: Mention autocomplete and notification tests
+    - **Property**: All valid mentions trigger notifications
+    - **Interface**: Mention processing and notification system
+
+12. **WHEN optimistic UI updates occur** THEN the system SHALL generate temporary client_message_id (UUID), create pending message UI, show complete interface feedback, and replace with confirmed message using same client_message_id
+    - **Test**: Optimistic update flow with network simulation
+    - **Property**: Optimistic messages are always replaced correctly
+    - **Interface**: Optimistic update state management
+
+13. **WHEN message creation fails** THEN the system SHALL retry with exponential backoff (1s, 2s, 4s, 8s, 16s), maintain optimistic UI during retries, and provide clear error messaging after max retries exceeded
+    - **Test**: Network failure simulation and retry testing
+    - **Property**: Retry backoff follows exponential pattern
+    - **Interface**: Retry mechanism with backoff configuration
+
+14. **WHEN duplicate client_message_id is detected** THEN the system SHALL return existing message instead of creating duplicate, preventing race condition duplicates from network issues or rapid clicking
+    - **Test**: `JOURNEY_02: Rapid Click Deduplication` validates behavior
+    - **Property**: `prop_duplicate_client_id_returns_same_message` ensures invariant
+    - **Interface**: UNIQUE constraint handling in database layer
+
+15. **WHEN database transaction fails** THEN the system SHALL rollback all changes atomically, preventing partial message creation or inconsistent room state
+    - **Test**: Database transaction failure simulation
+    - **Property**: All operations are atomic (message + room update + broadcast)
+    - **Interface**: Transaction management in database layer
 
 ### Requirement 2: Room Types and Membership Management
 
