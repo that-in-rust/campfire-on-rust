@@ -1,10 +1,17 @@
 # Design Document - Campfire Rust Rewrite MVP
 
-## Overview
+## Overview: TDD-Driven Design Methodology
 
-This design document outlines the implementation approach for the Campfire Rust Rewrite MVP, strictly adhering to the anti-coordination constraints and Rails-inspired simplicity mandated in the requirements. The design replicates Rails ActionCable behavior using idiomatic Rust patterns without introducing coordination complexity.
+This design document outlines the implementation approach for the Campfire Rust Rewrite MVP using **Test-Driven Development** with **function signatures defined before implementation**. The design strictly adheres to anti-coordination constraints while using type-driven development to ensure one-shot correctness.
 
-**Design Philosophy**: Build the simplest thing that works, using direct operations and proven Rails patterns. Every component is designed to avoid coordination layers while maintaining Rails-equivalent functionality.
+**TDD Design Philosophy**: 
+1. **Type Contracts First**: Define complete function signatures with all error cases before any implementation
+2. **Property-Based Specifications**: Specify behavior through property tests that validate invariants
+3. **Integration Contracts**: Define service boundaries and interaction patterns before implementation
+4. **Type-Guided Implementation**: Implementation follows from type contracts, preventing coordination complexity
+5. **Comprehensive Validation**: Property tests and integration tests validate contract compliance
+
+**Rails Parity with Type Safety**: Replicate Rails ActionCable behavior using idiomatic Rust patterns with compile-time guarantees that prevent coordination complexity from emerging during development.
 
 ## Architecture
 

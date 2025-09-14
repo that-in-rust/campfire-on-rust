@@ -1,16 +1,23 @@
 # Realistic Implementation Plan - Campfire MVP 1.0
 
-## Overview: "Rails-Equivalent Imperfection" Strategy
+## Overview: TDD-Driven "Rails-Equivalent Imperfection" Strategy
 
-This implementation plan focuses on **"works well enough"** rather than **"perfect"** - exactly matching Rails behavior and limitations. We implement only what Rails actually does, accepting Rails-level imperfections as acceptable for MVP.
+This implementation plan uses **Test-Driven Development** with **function signatures defined before implementation** to achieve **"works well enough"** rather than **"perfect"** - exactly matching Rails behavior and limitations while ensuring one-shot correctness through type-driven design.
 
-**Core Philosophy**:
-- **Rails Parity Rule**: If Rails doesn't do it perfectly, we don't need to either
-- **"Good Enough" Quality**: Match Rails reliability, not theoretical perfection
-- **5 Critical Gaps Only**: Fix only gaps that Rails actually solves
-- **Accept Known Limitations**: Document and accept Rails-equivalent limitations
+**TDD-First Philosophy**:
+- **Type Contracts Before Code**: Define complete function signatures with all error cases first
+- **Property-Based Specifications**: Specify behavior through property tests that validate invariants
+- **Rails Parity Rule**: If Rails doesn't do it perfectly, we don't need to either - but we specify it completely
+- **"Good Enough" Quality**: Match Rails reliability with compile-time guarantees
+- **5 Critical Gaps Only**: Fix only gaps that Rails actually solves, using type-driven design
+- **Accept Known Limitations**: Document and accept Rails-equivalent limitations with type safety
 
-**Success Criteria**: Works as well as Rails ActionCable, with similar limitations and edge cases.
+**TDD Success Criteria**: 
+1. **Complete Type Contracts**: Every function signature defined with all error cases before implementation
+2. **Property Test Coverage**: All invariants validated with property-based testing
+3. **Integration Test Validation**: All service boundaries tested with real dependencies
+4. **Rails Behavioral Parity**: Works as well as Rails ActionCable, with similar limitations and edge cases
+5. **Compile-Time Safety**: Type system prevents coordination complexity and common bugs
 
 ## MVP 1.0 Focus: Complete UI with Text-Only Backend
 
@@ -48,6 +55,39 @@ This implementation plan focuses on **"works well enough"** rather than **"perfe
 
 **Gap #4: Session Token Security**
 - **Rails Reality**: Uses SecureRandom for session tokens with proper validation
+- **Our Fix**: Implement Rails-equivalent secure token generation with type safety
+- **Requirements**: Requirement 3.4 - rate limit login attempts, secure session management
+
+**Gap #5: Basic Presence Tracking**
+- **Rails Reality**: Simple connection counting with heartbeat cleanup
+- **Our Fix**: HashMap<UserId, connection_count> with 60-second TTL and RAII cleanup
+- **Requirements**: Requirement 4.2 - track connections count with 60-second TTL
+
+## TDD Implementation Methodology
+
+### Phase 1: Type Contract Definition (Before Any Code)
+- Define complete function signatures for all services
+- Specify all error cases in Result<T, E> types
+- Document behavior contracts and side effects
+- Create comprehensive type definitions with newtypes
+
+### Phase 2: Property Test Specification
+- Write property-based tests for all invariants
+- Specify behavior through mathematical properties
+- Create test data generators with proptest
+- Define integration test contracts
+
+### Phase 3: Type-Guided Implementation
+- Implement following type contracts
+- Use type system to prevent coordination complexity
+- Apply RAII patterns for resource management
+- Implement actor patterns for state management
+
+### Phase 4: Comprehensive Validation
+- Validate property test compliance
+- Run integration tests with real dependencies
+- Benchmark critical paths for performance
+- Verify Rails behavioral parity
 - **Our Fix**: Implement Rails-equivalent secure token generation
 - **Requirements**: Requirement 3.3 - secure session management
 
@@ -80,47 +120,117 @@ This implementation plan focuses on **"works well enough"** rather than **"perfe
 
 ---
 
+## Phase 0: TDD Foundation (Week 0)
+
+**Goal**: Establish complete type contracts and property tests before any implementation
+
+### 0.1 Type Contract Definition
+
+- [ ] **0.1.1 Define complete service trait interfaces**
+  - MessageService trait with all methods and error cases
+  - RoomService trait with membership management methods
+  - AuthService trait with session and user management
+  - WebSocketBroadcaster trait with connection management
+  - _Requirements: All service boundaries defined before implementation_
+
+- [ ] **0.1.2 Create comprehensive error type hierarchy**
+  - MessageError with all validation, database, and authorization cases
+  - RoomError with access control and membership errors
+  - AuthError with authentication and session errors
+  - ConnectionError with WebSocket and presence errors
+  - _Requirements: Complete error case enumeration for Result<T, E> types_
+
+- [ ] **0.1.3 Define domain model type contracts**
+  - Message<State> with phantom types for Draft/Validated/Persisted states
+  - WebSocketConnection<State> with Connected/Authenticated/Subscribed states
+  - User, Room, Membership with complete field specifications
+  - All newtypes: UserId, RoomId, MessageId, SessionId, ConnectionId
+  - _Requirements: Type system prevents invalid state transitions_
+
+### 0.2 Property Test Specification
+
+- [ ] **0.2.1 Message service property tests**
+  - Duplicate client_message_id returns same message (Critical Gap #1)
+  - Messages since returns chronological order
+  - Search respects room access permissions
+  - Message creation is atomic with room timestamp update
+  - _Requirements: Property tests validate all message invariants_
+
+- [ ] **0.2.2 WebSocket connection property tests**
+  - Reconnection delivers all missed messages (Critical Gap #2)
+  - Connection state transitions are valid
+  - Presence tracking is eventually consistent
+  - Broadcast delivery is best-effort (Rails-equivalent)
+  - _Requirements: Property tests validate connection behavior_
+
+- [ ] **0.2.3 Room membership property tests**
+  - Room creator always has membership (unless deactivated)
+  - Direct rooms have exactly 2 members
+  - Open rooms auto-grant to all active users
+  - Involvement levels control message visibility
+  - _Requirements: Property tests validate membership invariants_
+
+### 0.3 Integration Contract Definition
+
+- [ ] **0.3.1 End-to-end message flow contracts**
+  - HTTP message creation → Database write → WebSocket broadcast
+  - User authentication → Session creation → Cookie setting
+  - Room creation → Membership granting → Sidebar updates
+  - File upload UI → Graceful degradation messaging
+  - _Requirements: Complete integration test specifications_
+
+- [ ] **0.3.2 Service boundary integration tests**
+  - MessageService + RoomService + WebSocketBroadcaster integration
+  - AuthService + SessionService + CookieService integration
+  - Database writer + FTS5 indexer + presence tracker integration
+  - All services tested with real SQLite database
+  - _Requirements: All service interactions validated_
+
 ## Phase 1: Core Infrastructure (Week 1)
 
-**Goal**: Get basic server running with Rails-equivalent patterns
+**Goal**: Implement type-guided infrastructure following contracts
 
 ### 1.1 Project Setup
 
-- [ ] **1.1.1 Initialize Rust project with anti-coordination constraints**
-  - Create Cargo.toml with minimal dependencies: axum, sqlx, tokio, serde, rust-embed
+- [ ] **1.1.1 Implement type-guided project structure**
+  - Create Cargo.toml with TDD dependencies: axum, sqlx, tokio, serde, rust-embed, proptest
+  - Implement project structure following type contracts from Phase 0
   - Set up basic project structure (≤50 files total per Requirement 0.8)
-  - Configure development environment with Rails-equivalent patterns
-  - _Requirements: Requirement 0.1 - direct function calls, single-threaded logic_
+  - Configure development environment with property test runners
+  - _Requirements: Requirement 0.1 - direct function calls, Phase 0 type contracts_
 
-- [ ] **1.1.2 Create type-safe domain models**
-  - UserId(i64), RoomId(i64), MessageId(i64) newtypes for type safety
-  - User, Room, Message structs matching Rails schema from Requirement 7.2
-  - UserRole enum (member: 0, administrator: 1, bot: 2) from Requirement 3.7
-  - Basic AppError enum with user-friendly messages per Requirement 0.4
-  - _Requirements: Requirement 3.7 - role enum, Requirement 0.4 - simple error handling_
+- [ ] **1.1.2 Implement domain models following type contracts**
+  - Implement UserId, RoomId, MessageId newtypes with serde derives
+  - Implement User, Room, Message structs matching Phase 0 specifications
+  - Implement UserRole enum with database mapping
+  - Implement comprehensive error types from Phase 0.1.2
+  - _Requirements: Phase 0 type contracts, Requirement 3.7 - role enum_
 
-- [ ] **1.1.3 Set up SQLite database with Critical Gap Fix #1**
-  - Create schema matching Rails conventions from Requirement 7.2
-  - Add UNIQUE constraint on (client_message_id, room_id) - **Critical Gap Fix #1**
-  - Set up WAL mode and connection pooling per Requirement 6.5
-  - Create FTS5 search index for messages per Requirement 7.5
-  - _Requirements: Requirement 1.14 - prevent duplicates, Requirement 7.5 - FTS5 search_
+- [ ] **1.1.3 Implement database layer following contracts**
+  - Implement Database struct with read pool and dedicated writer
+  - Create schema with UNIQUE constraint on (client_message_id, room_id) - **Critical Gap Fix #1**
+  - Implement WAL mode and connection pooling with error handling
+  - Create FTS5 search index with compile-time query validation
+  - Run property tests to validate database behavior contracts
+  - _Requirements: Phase 0 database contracts, Critical Gap #1, Requirement 7.5_
 
 ### 1.2 Basic HTTP Server
 
-- [ ] **1.2.1 Create Axum server with embedded assets**
-  - Basic health check endpoint
-  - Embedded React SPA serving using rust-embed per Requirement 8.7
-  - CORS and basic middleware matching Rails patterns
-  - Static asset serving with proper caching headers per Requirement 6.7
-  - _Requirements: Requirement 8.7 - embedded assets, Requirement 6.7 - static serving_
+- [ ] **1.2.1 Implement HTTP server following contracts**
+  - Implement Axum server with type-safe extractors and error handling
+  - Implement embedded React SPA serving using rust-embed
+  - Implement CORS and middleware with comprehensive error handling
+  - Implement static asset serving with proper caching headers
+  - Run integration tests to validate HTTP behavior contracts
+  - _Requirements: Phase 0 HTTP contracts, Requirement 8.7 - embedded assets_
 
-- [ ] **1.2.2 Implement Rails-style session authentication - Critical Gap Fix #4**
-  - Secure token generation using SecureRandom equivalent per Requirement 3.3
-  - Cookie-based sessions with httponly SameSite=Lax per Requirement 3.3
-  - Basic login/logout endpoints matching Rails SessionsController
-  - Rate limiting (10 attempts per 3 minutes) per Requirement 3.4
-  - _Requirements: Requirement 3.3 - session management, Requirement 3.4 - rate limiting_
+- [ ] **1.2.2 Implement authentication service - Critical Gap Fix #4**
+  - Implement AuthService trait following Phase 0 contracts
+  - Implement secure token generation with cryptographic randomness
+  - Implement cookie-based sessions with security headers
+  - Implement login/logout endpoints with comprehensive error handling
+  - Run property tests to validate authentication behavior
+  - _Requirements: Phase 0 auth contracts, Critical Gap #4, Requirement 3.3_
 
 ---
 
@@ -130,34 +240,39 @@ This implementation plan focuses on **"works well enough"** rather than **"perfe
 
 ### 2.1 Database Operations with Write Serialization
 
-- [ ] **2.1.1 Implement dedicated writer pattern - Critical Gap Fix #3**
-  - Single writer task with mpsc channel for write serialization
-  - All writes go through single task (Rails connection pool equivalent)
-  - Read operations can be concurrent per Requirement 6.5
-  - Handle SQLite SQLITE_BUSY errors gracefully without complex retry
-  - _Requirements: Requirement 4.11 - concurrent updates, Requirement 6.5 - connection pooling_
+- [ ] **2.1.1 Implement DatabaseWriter actor - Critical Gap Fix #3**
+  - Implement DatabaseWriter following Phase 0 contracts
+  - Implement single writer task with mpsc channel for write serialization
+  - Implement concurrent read operations with proper error handling
+  - Handle SQLite errors gracefully with user-friendly messages
+  - Run property tests to validate write serialization behavior
+  - _Requirements: Phase 0 database contracts, Critical Gap #3, Requirement 4.11_
 
-- [ ] **2.1.2 Rich text message CRUD with Rails patterns**
-  - create_message with client_message_id deduplication (Critical Gap Fix #1)
-  - Support HTML body with Trix formatting per Requirement 1.2
-  - get_messages with before/after pagination per Requirement 1.7
-  - Handle UNIQUE constraint violations by returning existing message per Requirement 1.14
-  - _Requirements: Requirement 1.1-1.2 - message creation, Requirement 1.7 - pagination_
+- [ ] **2.1.2 Implement MessageService following contracts**
+  - Implement MessageService trait from Phase 0.1.1
+  - Implement create_message_with_deduplication with UNIQUE constraint handling
+  - Implement get_messages_since with chronological ordering guarantees
+  - Implement search_messages with FTS5 and permission filtering
+  - Run property tests from Phase 0.2.1 to validate behavior
+  - _Requirements: Phase 0 message contracts, Critical Gap #1, Requirement 1.1-1.7_
 
-- [ ] **2.1.3 Room management with STI pattern**
-  - Room types: Open, Closed, Direct using STI per Requirement 2.10
-  - Membership management with involvement levels per Requirement 2.4
-  - Simple permission checks (creator/admin or member) per Requirement 3.12
-  - Auto-grant Open room memberships per Requirement 2.1
-  - _Requirements: Requirement 2.1-2.12 - room management, Requirement 3.12 - authorization_
+- [ ] **2.1.3 Implement RoomService following contracts**
+  - Implement RoomService trait from Phase 0.1.1
+  - Implement room creation with automatic membership granting
+  - Implement membership management with involvement level controls
+  - Implement permission checks with type-safe authorization
+  - Run property tests from Phase 0.2.3 to validate membership invariants
+  - _Requirements: Phase 0 room contracts, Requirement 2.1-2.12, Requirement 3.12_
 
 ### 2.2 WebSocket Broadcasting (Rails ActionCable Equivalent)
 
-- [ ] **2.2.1 ActionCable-style connection management**
-  - HashMap<RoomId, Vec<WebSocketSender>> for room-based connections
-  - Authenticate via session cookies per Requirement 4.8
-  - Basic connection cleanup on disconnect (accept Rails-level imperfection)
-  - Reject unauthorized connections per Requirement 4.9
+- [ ] **2.2.1 Implement WebSocketBroadcaster following contracts**
+  - Implement WebSocketBroadcaster trait from Phase 0.1.1
+  - Implement connection management with type-safe state transitions
+  - Implement authentication via session cookies with error handling
+  - Implement connection cleanup with RAII patterns
+  - Run property tests from Phase 0.2.2 to validate connection behavior
+  - _Requirements: Phase 0 WebSocket contracts, Critical Gap #2, Requirement 4.8-4.9_
   - _Requirements: Requirement 4.8-4.9 - WebSocket authentication and authorization_
 
 - [ ] **2.2.2 Turbo Streams message broadcasting**

@@ -1,14 +1,26 @@
 # Architecture L2: TDD-Driven Implementation Patterns for Option 5 MVP
 
-## Overview: "Rails-Equivalent Imperfection" Implementation
+## Overview: TDD-Driven "Rails-Equivalent Imperfection" Implementation
 
-This document provides detailed implementation patterns for the realistic MVP that accepts Rails-level limitations while fixing only the 5 critical gaps that Rails actually solves. Every pattern follows Test-Driven Development (TDD) principles and Rails-inspired simplicity.
+This document provides comprehensive implementation patterns for the realistic MVP using **Test-Driven Development (TDD)** methodology with **complete interface contracts defined before any implementation**. Every function signature, type contract, and integration pattern is specified first to ensure one-shot correctness and prevent coordination complexity.
 
-**Core Philosophy**: Build "works well enough" rather than "perfect" - exactly matching Rails behavior and limitations. Fix only gaps that Rails actually solves, accept Rails-level imperfections as acceptable for MVP.
+**Core TDD Philosophy**: 
+- **Interface Contracts Before Code**: Complete function signatures with all error cases defined first
+- **Property-Based Behavior Specification**: Mathematical properties that must hold across all inputs
+- **Type-Driven Architecture**: Type system prevents coordination complexity at compile time
+- **Integration Contract Testing**: Service boundaries validated with comprehensive integration tests
+- **Rails-Equivalent Limitations**: Accept Rails-level imperfections while fixing only the 5 critical gaps
 
-**5 Critical Gaps Strategy**: Focus only on gaps that Rails actually solves, avoid over-engineering problems that Rails itself doesn't solve perfectly.
+**TDD Methodology for Campfire**:
+1. **Type Contracts First**: Define complete function signatures with input/output types and all error cases
+2. **Property Tests**: Specify behavior through property-based testing with proptest
+3. **Integration Contracts**: Define service boundaries and interaction patterns with real dependencies
+4. **Type-Guided Implementation**: Implementation follows from contracts, types prevent coordination
+5. **Comprehensive Validation**: Property tests, integration tests, and benchmarks validate compliance
 
-**Anti-Coordination Compliance**: This document implements ONLY patterns that comply with the FORBIDDEN and MANDATORY constraints from requirements.md.
+**5 Critical Gaps Strategy**: Each gap solved with type-driven design that makes invalid states unrepresentable and prevents coordination complexity through compile-time guarantees.
+
+**Anti-Coordination Compliance**: Type system enforces FORBIDDEN and MANDATORY constraints from requirements.md, making coordination patterns impossible to implement.
 
 ---
 
