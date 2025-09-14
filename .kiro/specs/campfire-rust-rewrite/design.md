@@ -232,6 +232,387 @@ pub trait MessageService: Send + Sync {
         booster_id: UserId,
         emoji_content: String,     // Max 16 chars, Unicode validation
     ) -> Result<Boost, MessageError>;
+    
+    /// Update message content (creator or admin only)
+    async fn update_message(
+        &self,
+        message_id: MessageId,
+        new_content: String,
+        editor_id: UserId,
+    ) -> Result<Message<Persisted>, MessageError>;
+    
+    /// Delete message (creator or admin only)
+    async fn delete_message(
+        &self,
+        message_id: MessageId,
+        deleter_id: UserId,
+    ) -> Result<(), MessageError>;
+    
+    /// Get paginated messages for room
+    async fn get_room_messages(
+        &self,
+        room_id: RoomId,
+        user_id: UserId,
+        limit: u32,
+        before: Option<MessageId>,
+    ) -> Result<Vec<Message<Persisted>>, MessageError>;
+}
+```
+
+### RoomService Interface
+
+```rust
+/// Room service with membership management
+pub trait RoomService: Send + Sync {
+    /// Create room with automatic membership granting
+    async fn create_room(
+        &self,
+        name: String,
+        room_type: RoomType,
+        creator_id: UserId,
+    ) -> Result<Room, RoomError>;
+    
+    /// Grant membership with involvement level
+    async fn grant_membership(
+        &self,
+        user_id: UserId,
+        room_id: RoomId,
+        involvement: Involvement,
+    ) -> Result<Membership, RoomError>;
+    
+    /// Revoke membership from room
+    async fn revoke_membership(
+        &self,
+        user_id: UserId,
+        room_id: RoomId,
+        revoker_id: UserId,
+    ) -> Result<(), RoomError>;
+    
+    /// Check room access permissions
+    async fn check_room_access(
+        &self,
+        user_id: UserId,
+        room_id: RoomId,
+    ) -> Result<bool, RoomError>;
+    
+    /// Update room settings (name, type, etc.)
+    async fn update_room(
+        &self,
+        room_id: RoomId,
+        updates: RoomUpdates,
+        updater_id: UserId,
+    ) -> Result<Room, RoomError>;
+    
+    /// Get user's rooms with involvement filtering
+    async fn get_user_rooms(
+        &self,
+        user_id: UserId,
+        include_invisible: bool,
+    ) -> Result<Vec<Room>, RoomError>;
+    
+    /// Get room memberships
+    async fn get_room_memberships(
+        &self,
+        room_id: RoomId,
+    ) -> Result<Vec<Membership>, RoomError>;
+    
+    /// Update involvement level for user in room
+    async fn update_involvement(
+        &self,
+        user_id: UserId,
+        room_id: RoomId,
+        involvement: Involvement,
+    ) -> Result<Membership, RoomError>;
+    
+    /// Find or create direct room between two users
+    async fn find_or_create_direct_room(
+        &self,
+        user1_id: UserId,
+        user2_id: UserId,
+    ) -> Result<Room, RoomError>;
+}
+```
+
+### AuthService Interface (Critical Gap #4)
+
+```rust
+/// Authentication service with session management - CRITICAL GAP #4
+pub trait AuthService: Send + Sync {
+    /// Create session with secure token generation
+    async fn create_session(
+        &self,
+        email: String,
+        password: String,
+        ip_address: String,
+        user_agent: String,
+    ) -> Result<Session, AuthError>;
+    
+    /// Validate session token and return user
+    async fn validate_session(
+        &self,
+        token: String,
+    ) -> Result<(User, Session), AuthError>;
+    
+    /// Refresh session activity timestamp
+    async fn refresh_session(
+        &self,
+        session_id: SessionId,
+    ) -> Result<Session, AuthError>;
+    
+    /// Destroy session (logout)
+    async fn destroy_session(
+        &self,
+        session_id: SessionId,
+    ) -> Result<(), AuthError>;
+    
+    /// Generate secure bot token (Rails SecureRandom equivalent)
+    fn generate_bot_token() -> BotToken;
+    
+    /// Authenticate bot via bot token
+    async fn authenticate_bot(
+        &self,
+        bot_id: UserId,
+        bot_token: BotToken,
+    ) -> Result<User, AuthError>;
+    
+    /// Create new user account
+    async fn create_user(
+        &self,
+        email: String,
+        name: String,
+        password: String,
+        join_code: String,
+    ) -> Result<User, AuthError>;
+    
+    /// Update user password
+    async fn update_password(
+        &self,
+        user_id: UserId,
+        current_password: String,
+        new_password: String,
+    ) -> Result<(), AuthError>;
+    
+    /// Deactivate user account
+    async fn deactivate_user(
+        &self,
+        user_id: UserId,
+        deactivator_id: UserId,
+    ) -> Result<(), AuthError>;
+    
+    /// Check rate limits for authentication attempts
+    async fn check_rate_limit(
+        &self,
+        ip_address: String,
+    ) -> Result<(), AuthError>;
+}
+```
+
+### WebSocketBroadcaster Interface (Critical Gap #2)
+
+```rust
+/// WebSocket broadcaster with connection management - CRITICAL GAP #2
+pub trait WebSocketBroadcaster: Send + Sync {
+    /// Add connection with state tracking
+    async fn add_connection(
+        &self,
+        user_id: UserId,
+        room_id: RoomId,
+        connection: WebSocketConnection<Authenticated>,
+    ) -> Result<ConnectionId, BroadcastError>;
+    
+    /// Remove connection and cleanup state
+    async fn remove_connection(
+        &self,
+        connection_id: ConnectionId,
+    ) -> Result<(), BroadcastError>;
+    
+    /// Handle reconnection with missed message delivery
+    async fn handle_reconnection(
+        &self,
+        user_id: UserId,
+        room_id: RoomId,
+        last_seen_id: Option<MessageId>,
+    ) -> Result<Vec<Message<Persisted>>, BroadcastError>;
+    
+    /// Broadcast message to room subscribers
+    async fn broadcast_to_room(
+        &self,
+        room_id: RoomId,
+        message: &Message<Persisted>,
+    ) -> Result<(), BroadcastError>;
+    
+    /// Broadcast typing notification
+    async fn broadcast_typing(
+        &self,
+        room_id: RoomId,
+        user_id: UserId,
+        is_typing: bool,
+    ) -> Result<(), BroadcastError>;
+    
+    /// Broadcast presence update
+    async fn broadcast_presence(
+        &self,
+        room_id: RoomId,
+        user_id: UserId,
+        is_present: bool,
+    ) -> Result<(), BroadcastError>;
+    
+    /// Get active connections for room
+    async fn get_room_connections(
+        &self,
+        room_id: RoomId,
+    ) -> Result<Vec<ConnectionId>, BroadcastError>;
+    
+    /// Send direct message to specific connection
+    async fn send_to_connection(
+        &self,
+        connection_id: ConnectionId,
+        message: WebSocketMessage,
+    ) -> Result<(), BroadcastError>;
+}
+```
+
+### DatabaseWriter Interface (Critical Gap #3)
+
+```rust
+/// Database writer for write serialization - CRITICAL GAP #3
+pub trait DatabaseWriter: Send + Sync {
+    /// Execute write command with serialization
+    async fn execute_write<T>(
+        &self,
+        command: WriteCommand<T>,
+    ) -> Result<T, DatabaseError>;
+    
+    /// Execute multiple writes in transaction
+    async fn execute_transaction(
+        &self,
+        commands: Vec<WriteCommand<()>>,
+    ) -> Result<(), DatabaseError>;
+    
+    /// Create message with UNIQUE constraint handling
+    async fn create_message(
+        &self,
+        data: CreateMessageData,
+    ) -> Result<Message<Persisted>, DatabaseError>;
+    
+    /// Update message content
+    async fn update_message(
+        &self,
+        message_id: MessageId,
+        new_content: String,
+    ) -> Result<Message<Persisted>, DatabaseError>;
+    
+    /// Create or update room
+    async fn upsert_room(
+        &self,
+        room_data: RoomData,
+    ) -> Result<Room, DatabaseError>;
+    
+    /// Create session with secure token
+    async fn create_session(
+        &self,
+        session_data: SessionData,
+    ) -> Result<Session, DatabaseError>;
+    
+    /// Update session activity
+    async fn update_session_activity(
+        &self,
+        session_id: SessionId,
+        last_active_at: DateTime<Utc>,
+    ) -> Result<(), DatabaseError>;
+    
+    /// Create or update membership
+    async fn upsert_membership(
+        &self,
+        membership_data: MembershipData,
+    ) -> Result<Membership, DatabaseError>;
+}
+```
+
+### PresenceService Interface (Critical Gap #5)
+
+```rust
+/// Presence service with TTL cleanup - CRITICAL GAP #5
+pub trait PresenceService: Send + Sync {
+    /// Increment user connection count
+    async fn user_connected(
+        &self,
+        user_id: UserId,
+        room_id: RoomId,
+    ) -> Result<i32, PresenceError>;
+    
+    /// Decrement user connection count
+    async fn user_disconnected(
+        &self,
+        user_id: UserId,
+        room_id: RoomId,
+    ) -> Result<i32, PresenceError>;
+    
+    /// Refresh user connection timestamp
+    async fn refresh_connection(
+        &self,
+        user_id: UserId,
+        room_id: RoomId,
+    ) -> Result<(), PresenceError>;
+    
+    /// Check if user is online in room
+    async fn is_user_online(
+        &self,
+        user_id: UserId,
+        room_id: RoomId,
+    ) -> Result<bool, PresenceError>;
+    
+    /// Get online users for room
+    async fn get_online_users(
+        &self,
+        room_id: RoomId,
+    ) -> Result<Vec<UserId>, PresenceError>;
+    
+    /// Cleanup stale connections (TTL expired)
+    async fn cleanup_stale_connections(&self) -> Result<u32, PresenceError>;
+    
+    /// Get connection count for user in room
+    async fn get_connection_count(
+        &self,
+        user_id: UserId,
+        room_id: RoomId,
+    ) -> Result<i32, PresenceError>;
+}
+```
+pub trait MessageService: Send + Sync {
+    /// Creates message with deduplication - CRITICAL GAP #1
+    /// Side Effects: Updates room.last_message_at, broadcasts via WebSocket, updates FTS5 index
+    async fn create_message_with_deduplication(
+        &self,
+        content: String,           // 1-10000 chars, HTML allowed
+        room_id: RoomId,
+        creator_id: UserId,
+        client_message_id: Uuid,   // For deduplication
+    ) -> Result<Message<Persisted>, MessageError>;
+    
+    /// Retrieves messages since ID for reconnection - CRITICAL GAP #2
+    async fn get_messages_since(
+        &self,
+        room_id: RoomId,
+        last_seen_id: MessageId,
+        user_id: UserId,
+    ) -> Result<Vec<Message<Persisted>>, MessageError>;
+    
+    /// Search messages with FTS5 and permission filtering
+    async fn search_messages(
+        &self,
+        query: String,
+        user_id: UserId,
+        limit: u32,
+    ) -> Result<Vec<Message<Persisted>>, MessageError>;
+    
+    /// Create boost with emoji validation
+    async fn create_boost(
+        &self,
+        message_id: MessageId,
+        booster_id: UserId,
+        emoji_content: String,     // Max 16 chars, Unicode validation
+    ) -> Result<Boost, MessageError>;
 }
 ```
 
@@ -439,6 +820,18 @@ pub enum MessageError {
     
     #[error("Duplicate client_message_id handled")]
     DuplicateHandled { existing_id: MessageId },
+    
+    #[error("Content too long: {length} chars (max 10000)")]
+    ContentTooLong { length: usize },
+    
+    #[error("Empty content not allowed")]
+    EmptyContent,
+    
+    #[error("Invalid HTML content: {reason}")]
+    InvalidHtml { reason: String },
+    
+    #[error("Message editing not allowed after {hours} hours")]
+    EditTimeExpired { hours: u32 },
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -505,6 +898,99 @@ pub enum DatabaseError {
     
     #[error("Constraint violation: {constraint}")]
     ConstraintViolation { constraint: String },
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum RoomError {
+    #[error("Database operation failed: {0}")]
+    Database(#[from] sqlx::Error),
+    
+    #[error("Room {room_id} not found")]
+    NotFound { room_id: RoomId },
+    
+    #[error("User {user_id} not authorized for room {room_id}")]
+    AccessDenied { user_id: UserId, room_id: RoomId },
+    
+    #[error("Invalid room type: {reason}")]
+    InvalidType { reason: String },
+    
+    #[error("Membership limit exceeded for room {room_id}")]
+    MembershipLimitExceeded { room_id: RoomId },
+    
+    #[error("Room name too long: {length} chars (max 100)")]
+    NameTooLong { length: usize },
+    
+    #[error("Cannot modify system room")]
+    SystemRoomProtected,
+    
+    #[error("Direct room already exists between users")]
+    DirectRoomExists { room_id: RoomId },
+    
+    #[error("User {user_id} not found")]
+    UserNotFound { user_id: UserId },
+    
+    #[error("Membership already exists for user {user_id} in room {room_id}")]
+    MembershipExists { user_id: UserId, room_id: RoomId },
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum AuthError {
+    #[error("Database operation failed: {0}")]
+    Database(#[from] sqlx::Error),
+    
+    #[error("Invalid credentials for email: {email}")]
+    InvalidCredentials { email: String },
+    
+    #[error("Session token invalid or expired")]
+    InvalidSession,
+    
+    #[error("Rate limit exceeded: {attempts} attempts in {window_seconds}s")]
+    RateLimitExceeded { attempts: u32, window_seconds: u32 },
+    
+    #[error("User account deactivated: {user_id}")]
+    AccountDeactivated { user_id: UserId },
+    
+    #[error("Join code invalid or expired")]
+    InvalidJoinCode,
+    
+    #[error("Email already registered: {email}")]
+    EmailExists { email: String },
+    
+    #[error("Password too weak: {reason}")]
+    WeakPassword { reason: String },
+    
+    #[error("Bot token generation failed")]
+    TokenGenerationFailed,
+    
+    #[error("User not found: {email}")]
+    UserNotFound { email: String },
+    
+    #[error("Invalid bot token")]
+    InvalidBotToken,
+    
+    #[error("Session not found or expired")]
+    SessionNotFound,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum PresenceError {
+    #[error("Database operation failed: {0}")]
+    Database(#[from] sqlx::Error),
+    
+    #[error("Connection tracking failed: {reason}")]
+    TrackingFailed { reason: String },
+    
+    #[error("TTL cleanup failed: {reason}")]
+    CleanupFailed { reason: String },
+    
+    #[error("Invalid connection count: {count}")]
+    InvalidCount { count: i32 },
+    
+    #[error("User {user_id} not found in room {room_id}")]
+    UserNotInRoom { user_id: UserId, room_id: RoomId },
+    
+    #[error("Connection timeout exceeded")]
+    ConnectionTimeout,
 }
 ```
 

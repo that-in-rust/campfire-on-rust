@@ -527,6 +527,68 @@ This implementation plan uses **Test-Driven Development** with **function signat
           });
       }
   }
+  
+  // Additional property tests for comprehensive coverage
+  proptest! {
+      #[test]
+      fn prop_message_boost_emoji_validation(
+          emoji_content in ".*",
+          message_id in any::<u64>().prop_map(MessageId),
+          booster_id in any::<u64>().prop_map(UserId),
+      ) {
+          let rt = tokio::runtime::Runtime::new().unwrap();
+          rt.block_on(async {
+              let service = setup_test_message_service().await;
+              
+              let result = service.create_boost(
+                  message_id, booster_id, emoji_content.clone()
+              ).await;
+              
+              // Property: Emoji validation is consistent
+              if emoji_content.is_empty() || emoji_content.len() > 16 {
+                  prop_assert!(matches!(result, Err(MessageError::Validation { .. })));
+              } else if is_valid_unicode_emoji(&emoji_content) {
+                  prop_assert!(result.is_ok() || matches!(result, Err(MessageError::NotFound { .. })));
+              } else {
+                  prop_assert!(matches!(result, Err(MessageError::Validation { .. })));
+              }
+          });
+      }
+
+      #[test]
+      fn prop_search_respects_permissions(
+          query in ".*",
+          user_id in any::<u64>().prop_map(UserId),
+          room_count in 1..10usize,
+      ) {
+          let rt = tokio::runtime::Runtime::new().unwrap();
+          rt.block_on(async {
+              let service = setup_test_message_service().await;
+              
+              // Create rooms with different access levels
+              let mut accessible_rooms = Vec::new();
+              for i in 0..room_count {
+                  let room_id = RoomId(i as i64);
+                  if i % 2 == 0 {
+                      // Grant access to even-numbered rooms
+                      grant_room_access(user_id, room_id).await;
+                      accessible_rooms.push(room_id);
+                  }
+                  create_test_message_in_room(room_id, &query).await;
+              }
+              
+              let results = service.search_messages(query, user_id, 100).await.unwrap();
+              
+              // Property: Search only returns messages from accessible rooms
+              for message in results {
+                  prop_assert!(
+                      accessible_rooms.contains(&message.room_id),
+                      "Search returned message from inaccessible room"
+                  );
+              }
+          });
+      }
+  }
   ```
   - _Requirements: Property tests validate all message invariants, Critical Gap #1_
 
@@ -1025,6 +1087,88 @@ This implementation plan uses **Test-Driven Development** with **function signat
 
 **Goal**: Implement type-guided infrastructure following contracts
 
+### 1.1 Project Setup and Database Foundation
+
+- [ ] **1.1.1 Initialize Rust project with TDD dependencies**
+  - Create Cargo.toml with dependencies: axum, sqlx, tokio, serde, rust-embed, proptest, thiserror, anyhow
+  - Set up workspace structure following design.md specifications
+  - Configure development environment with property test runners
+  - Set up basic logging with tracing and tracing-subscriber
+  - _Requirements: Requirement 0.8 - maximum 50 files total_
+
+- [ ] **1.1.2 Implement domain models with phantom types**
+  - Copy newtype IDs from design.md: UserId, RoomId, MessageId, SessionId, ConnectionId
+  - Implement Message<State> with Draft/Validated/Persisted phantom types
+  - Implement User, Room, Session, Membership structs matching design.md
+  - Implement UserRole, RoomType, Involvement enums with database mapping
+  - _Requirements: design.md domain type specifications_
+
+- [ ] **1.1.3 Set up SQLite database with Critical Gap #1 constraints**
+  - Create database schema with UNIQUE constraint on (client_message_id, room_id)
+  - Set up WAL mode for concurrent read/write operations
+  - Create FTS5 search index for message content with Porter stemming
+  - Implement database connection pool with sqlx
+  - Add database migration system
+  - _Requirements: Critical Gap #1 - message deduplication, Requirement 7.5 - FTS5 search_
+
+- [ ] **1.1.4 Implement comprehensive error types**
+  - Copy complete error hierarchies from design.md
+  - Implement MessageError, RoomError, AuthError, BroadcastError, DatabaseError, PresenceError
+  - Add proper error conversion traits and Display implementations
+  - Create user-friendly error message mapping
+  - _Requirements: design.md error hierarchy specifications_
+
+### 1.2 HTTP Server and Authentication Foundation
+
+- [ ] **1.2.1 Implement Axum HTTP server with type-safe extractors**
+  - Set up Axum router with proper middleware stack
+  - Implement CORS middleware with security headers
+  - Add request logging middleware with tracing
+  - Implement rate limiting middleware for authentication endpoints
+  - Set up static asset serving with rust-embed for React SPA
+  - _Requirements: Requirement 8.7 - embedded React assets_
+
+- [ ] **1.2.2 Implement AuthService with Critical Gap #4 security**
+  - Implement secure token generation using cryptographically secure random
+  - Create session management with httponly SameSite=Lax cookies
+  - Implement bcrypt password hashing with proper salt rounds
+  - Add rate limiting for login attempts (10 attempts per 3 minutes)
+  - Implement bot token generation and validation
+  - _Requirements: Critical Gap #4 - session token security, Requirement 3.4 - rate limiting_
+
+- [ ] **1.2.3 Implement authentication HTTP endpoints**
+  - POST /api/auth/login with session creation
+  - POST /api/auth/logout with session destruction
+  - POST /api/auth/register with user creation and join code validation
+  - GET /api/auth/me for current user information
+  - POST /api/auth/refresh for session refresh
+  - _Requirements: Requirement 3 - user authentication and session management_
+
+### 1.3 Database Writer Implementation (Critical Gap #3)
+
+- [ ] **1.3.1 Implement DatabaseWriter with write serialization**
+  - Create DatabaseWriter trait implementation from design.md
+  - Set up single writer task with mpsc channel for write serialization
+  - Implement WriteCommand enum for all database write operations
+  - Add proper error handling and recovery for database operations
+  - Implement transaction support for atomic operations
+  - _Requirements: Critical Gap #3 - SQLite write serialization_
+
+- [ ] **1.3.2 Implement core database operations**
+  - Implement create_message with UNIQUE constraint handling
+  - Implement create_session with secure token storage
+  - Implement create_room with automatic membership granting
+  - Implement upsert_membership with involvement level management
+  - Add proper SQL query validation with sqlx compile-time checking
+  - _Requirements: All service interfaces from design.md_
+
+- [ ] **1.3.3 Add database connection management**
+  - Set up connection pooling with proper limits and timeouts
+  - Implement connection health checks and recovery
+  - Add database backup and recovery procedures
+  - Implement proper connection cleanup on shutdown
+  - _Requirements: Requirement 0.2 - direct SQLite operations_
+
 ### 1.1 Project Setup
 
 - [ ] **1.1.1 Implement type-guided project structure**
@@ -1072,6 +1216,91 @@ This implementation plan uses **Test-Driven Development** with **function signat
 ## Phase 2: Core Chat Functionality (Week 2)
 
 **Goal**: Basic message sending/receiving that works "well enough"
+
+### 2.1 MessageService Implementation (Critical Gap #1)
+
+- [ ] **2.1.1 Implement MessageService trait from design.md**
+  - Implement create_message_with_deduplication with UNIQUE constraint handling
+  - Add proper content validation (1-10000 characters, HTML sanitization)
+  - Implement get_messages_since for reconnection support
+  - Add get_room_messages with pagination support
+  - Implement update_message and delete_message with permission checks
+  - _Requirements: Critical Gap #1 - message deduplication, Requirement 1 - rich text messaging_
+
+- [ ] **2.1.2 Implement message boost functionality**
+  - Implement create_boost with emoji validation (max 16 characters)
+  - Add Unicode emoji validation and sanitization
+  - Implement boost storage and retrieval
+  - Add boost counting and display logic
+  - _Requirements: Requirement 1.6 - message boosts_
+
+- [ ] **2.1.3 Implement FTS5 search functionality**
+  - Implement search_messages with FTS5 full-text search
+  - Add Porter stemming for better search results
+  - Implement permission filtering for search results
+  - Add search result ranking and pagination
+  - Implement search index maintenance and updates
+  - _Requirements: Requirement 6.9 - FTS5 search performance_
+
+- [ ] **2.1.4 Add message HTTP API endpoints**
+  - POST /api/rooms/:id/messages for message creation
+  - GET /api/rooms/:id/messages for message retrieval with pagination
+  - PUT /api/messages/:id for message updates
+  - DELETE /api/messages/:id for message deletion
+  - POST /api/messages/:id/boosts for boost creation
+  - GET /api/search/messages for message search
+  - _Requirements: Requirement 1 - rich text message system_
+
+### 2.2 RoomService Implementation
+
+- [ ] **2.2.1 Implement RoomService trait from design.md**
+  - Implement create_room with automatic membership granting
+  - Add support for Open/Closed/Direct room types
+  - Implement grant_membership and revoke_membership
+  - Add check_room_access for permission validation
+  - Implement update_room for room settings changes
+  - _Requirements: Requirement 2 - room types and membership management_
+
+- [ ] **2.2.2 Implement membership management**
+  - Implement get_user_rooms with involvement filtering
+  - Add get_room_memberships for member listing
+  - Implement update_involvement for involvement level changes
+  - Add find_or_create_direct_room for direct messaging
+  - Implement membership cleanup on user deactivation
+  - _Requirements: Requirement 2.4 - involvement levels_
+
+- [ ] **2.2.3 Add room HTTP API endpoints**
+  - POST /api/rooms for room creation
+  - GET /api/rooms for user's room list
+  - GET /api/rooms/:id for room details
+  - PUT /api/rooms/:id for room updates
+  - POST /api/rooms/:id/memberships for membership management
+  - DELETE /api/rooms/:id/memberships/:user_id for membership removal
+  - _Requirements: Requirement 2 - room types and membership management_
+
+### 2.3 WebSocket Foundation Setup
+
+- [ ] **2.3.1 Set up WebSocket server infrastructure**
+  - Implement WebSocket upgrade handler with Axum
+  - Add WebSocket connection authentication via session tokens
+  - Set up connection state management with phantom types
+  - Implement connection cleanup on disconnect
+  - Add proper error handling for WebSocket operations
+  - _Requirements: Requirement 4.8 - WebSocket authentication_
+
+- [ ] **2.3.2 Implement basic WebSocket message types**
+  - Define WebSocketMessage enum for all message types
+  - Implement message serialization/deserialization with serde
+  - Add proper message validation and error handling
+  - Implement connection state tracking
+  - _Requirements: Requirement 4.1 - WebSocket broadcasting_
+
+- [ ] **2.3.3 Add WebSocket connection management**
+  - Implement connection registry with user and room mapping
+  - Add connection heartbeat and timeout handling
+  - Implement graceful connection shutdown
+  - Add connection metrics and monitoring
+  - _Requirements: Requirement 4.13 - connection loss detection_
 
 ### 2.1 Database Operations with Write Serialization
 
@@ -1130,6 +1359,84 @@ This implementation plan uses **Test-Driven Development** with **function signat
 
 **Goal**: "Good enough" real-time features matching Rails quality
 
+### 3.1 WebSocketBroadcaster Implementation (Critical Gap #2)
+
+- [ ] **3.1.1 Implement WebSocketBroadcaster trait from design.md**
+  - Implement add_connection with state tracking
+  - Add remove_connection with proper cleanup
+  - Implement broadcast_to_room with best-effort delivery
+  - Add get_room_connections for connection management
+  - Implement send_to_connection for direct messaging
+  - _Requirements: Critical Gap #2 - WebSocket reconnection state_
+
+- [ ] **3.1.2 Implement reconnection with missed message delivery**
+  - Implement handle_reconnection with last_seen_message_id tracking
+  - Add missed message query and delivery logic
+  - Implement connection state synchronization
+  - Add proper error handling for reconnection failures
+  - Implement exponential backoff for reconnection attempts
+  - _Requirements: Critical Gap #2 - deliver missed messages on reconnect_
+
+- [ ] **3.1.3 Add real-time message broadcasting**
+  - Implement message broadcast on creation
+  - Add message update and deletion broadcasts
+  - Implement boost creation broadcasts
+  - Add proper message ordering and delivery
+  - Implement broadcast error handling and logging
+  - _Requirements: Requirement 4.1 - Turbo Streams broadcasting within 100ms_
+
+### 3.2 PresenceService Implementation (Critical Gap #5)
+
+- [ ] **3.2.1 Implement PresenceService trait from design.md**
+  - Implement user_connected with connection count increment
+  - Add user_disconnected with connection count decrement
+  - Implement refresh_connection for heartbeat updates
+  - Add is_user_online and get_online_users for presence queries
+  - Implement cleanup_stale_connections with 60-second TTL
+  - _Requirements: Critical Gap #5 - presence tracking with TTL cleanup_
+
+- [ ] **3.2.2 Add presence broadcasting**
+  - Implement broadcast_presence for online/offline status updates
+  - Add presence update on connection/disconnection
+  - Implement presence refresh every 50 seconds
+  - Add visibility change handling with 5-second delay
+  - Implement presence cleanup on browser crashes
+  - _Requirements: Requirement 4.2-4.7 - presence tracking and broadcasting_
+
+- [ ] **3.2.3 Implement typing notifications**
+  - Implement broadcast_typing for typing indicators
+  - Add typing start/stop detection with throttling
+  - Implement typing indicator cleanup on message send
+  - Add typing state management per room
+  - Implement typing notification broadcasting
+  - _Requirements: Requirement 4.6 - typing notifications with throttling_
+
+### 3.3 Real-time Integration and Testing
+
+- [ ] **3.3.1 Integrate MessageService with WebSocketBroadcaster**
+  - Connect message creation to real-time broadcasting
+  - Add message update/delete broadcasting
+  - Implement boost creation broadcasting
+  - Add proper error handling for broadcast failures
+  - Implement broadcast retry logic with exponential backoff
+  - _Requirements: Integration between services from design.md_
+
+- [ ] **3.3.2 Add comprehensive real-time testing**
+  - Implement WebSocket integration tests with real connections
+  - Add multi-client broadcasting tests
+  - Implement reconnection testing with message delivery validation
+  - Add presence tracking tests with TTL validation
+  - Implement typing notification tests
+  - _Requirements: Property tests from Phase 0.2.2_
+
+- [ ] **3.3.3 Implement real-time performance optimization**
+  - Add connection pooling and management optimization
+  - Implement message batching for high-frequency updates
+  - Add broadcast performance monitoring and metrics
+  - Implement backpressure handling for high load
+  - Add connection limit enforcement
+  - _Requirements: Requirement 6.8 - WebSocket broadcasting performance_
+
 ### 3.1 Presence Tracking (Rails-Equivalent Imperfection) - Critical Gap Fix #5
 
 - [ ] **3.1.1 Connectable concern pattern for presence**
@@ -1167,6 +1474,92 @@ This implementation plan uses **Test-Driven Development** with **function signat
 ## Phase 4: Frontend Integration (Week 4)
 
 **Goal**: React frontend that works with Rails-equivalent backend
+
+### 4.1 React UI Components Implementation
+
+- [ ] **4.1.1 Implement core messaging components**
+  - Create MessageList component with virtual scrolling for performance
+  - Implement MessageComposer with Trix editor integration
+  - Add MessageItem component with boost and action support
+  - Implement sound command UI with embedded MP3 playback
+  - Add emoji-only message detection and enlargement
+  - _Requirements: Requirement 1.2-1.6, 1.9 - rich text messaging features_
+
+- [ ] **4.1.2 Implement room management components**
+  - Create RoomList component with involvement level filtering
+  - Implement RoomCreation modal with type selection
+  - Add MembershipManagement component for user invitations
+  - Implement room settings and configuration UI
+  - Add direct message room creation flow
+  - _Requirements: Requirement 2 - room types and membership management_
+
+- [ ] **4.1.3 Implement authentication components**
+  - Create LoginForm with email/password validation
+  - Implement RegistrationForm with join code validation
+  - Add UserProfile component for account management
+  - Implement password change functionality
+  - Add session management and logout functionality
+  - _Requirements: Requirement 3 - user authentication and session management_
+
+- [ ] **4.1.4 Add graceful degradation UI for v2.0 features**
+  - Implement file upload areas with "Coming in v2.0" messaging
+  - Add avatar upload UI with text-based initials fallback
+  - Implement OpenGraph preview placeholders
+  - Add professional styling for all deferred features
+  - Implement user feedback collection for desired features
+  - _Requirements: Requirement 1.3-1.4 - graceful feature degradation_
+
+### 4.2 WebSocket Integration and Real-time UI
+
+- [ ] **4.2.1 Implement WebSocket client with auto-reconnection**
+  - Create WebSocket service with connection state management
+  - Implement auto-reconnection with exponential backoff
+  - Add connection status indicators in UI
+  - Implement missed message delivery on reconnection
+  - Add proper error handling and user feedback
+  - _Requirements: Critical Gap #2 - WebSocket reconnection, Requirement 1.13 - retry logic_
+
+- [ ] **4.2.2 Implement real-time message updates**
+  - Add real-time message creation updates
+  - Implement message edit/delete real-time updates
+  - Add boost creation real-time updates
+  - Implement optimistic UI updates with rollback
+  - Add proper message ordering and threading
+  - _Requirements: Requirement 1.12 - optimistic UI updates_
+
+- [ ] **4.2.3 Implement presence and typing indicators**
+  - Add online/offline user indicators
+  - Implement typing notification display
+  - Add presence updates on connection changes
+  - Implement typing detection with 300ms debounce
+  - Add proper cleanup of stale indicators
+  - _Requirements: Requirement 4.2-4.7 - presence tracking, Requirement 4.6 - typing notifications_
+
+### 4.3 State Management and Performance
+
+- [ ] **4.3.1 Implement React state management**
+  - Set up Zustand store for application state
+  - Implement message state management with optimistic updates
+  - Add room state management with membership tracking
+  - Implement user state and authentication state
+  - Add connection state management
+  - _Requirements: Requirement 8.5 - React state management_
+
+- [ ] **4.3.2 Add performance optimizations**
+  - Implement virtual scrolling for large message lists
+  - Add message pagination with intersection observers
+  - Implement proper React memoization for expensive components
+  - Add debouncing for search and typing indicators
+  - Implement lazy loading for non-critical components
+  - _Requirements: Requirement 6.8 - performance optimization_
+
+- [ ] **4.3.3 Implement error boundaries and error handling**
+  - Add React error boundaries for graceful error handling
+  - Implement user-friendly error messages
+  - Add retry mechanisms for failed operations
+  - Implement proper loading states and feedback
+  - Add comprehensive error logging and reporting
+  - _Requirements: Requirement 8.6 - error handling and recovery_
 
 ### 4.1 Complete React UI with Graceful Degradation
 
