@@ -141,6 +141,212 @@ This implementation plan uses **Test-Driven Development** with **function signat
 
 ---
 
+## Feature Verification Checklist Template
+
+**Use this checklist for each feature to ensure complete implementation:**
+
+### Feature: [Feature Name]
+
+**Design Spec Completed:**
+- [ ] All new interfaces, types, and errors for the feature are defined in design.md before implementation begins
+- [ ] Complete test plan scenarios documented with Given/When/Then format
+- [ ] All error cases enumerated in Result<T, E> types
+- [ ] Service interface contracts specify all side effects
+
+**Acceptance Criteria Met:**
+- [ ] Every acceptance criterion from requirements.md has at least one corresponding test scenario implemented
+- [ ] Traceability established between requirement IDs and test results
+- [ ] Property-based tests cover all invariants
+- [ ] Integration tests cover all service boundaries
+
+**All Tests Passing:**
+- [ ] Unit tests written and passing (cargo test --lib)
+- [ ] Property-based tests written and passing (cargo test --lib prop_)
+- [ ] Integration tests written and passing (cargo test --test integration)
+- [ ] Full user flow tests written and passing (cargo test --test feature_full_flow)
+
+**One-Command Flow OK:**
+- [ ] Running the one-command smoke test for this feature completes successfully
+- [ ] End-to-end user journey demonstrates complete functionality
+- [ ] All critical gaps addressed and verified
+
+**Docs Updated:**
+- [ ] Requirements, design, and architecture docs updated to reflect final implemented behavior
+- [ ] No TODOs or out-of-date stubs remaining
+- [ ] Documentation and code are in sync
+
+**No Regressions:**
+- [ ] Core regression suite passes – feature didn't break existing functionality
+- [ ] All previous tests still pass
+- [ ] Performance benchmarks within acceptable ranges
+
+**Coding Standards Met:**
+- [ ] Implementation follows project conventions (no forbidden coordination patterns)
+- [ ] Respects architecture constraints and anti-coordination mandates
+- [ ] Proper error handling with comprehensive error types
+- [ ] Type safety enforced through phantom types and newtypes
+
+## Reusable Feature Spec Template
+
+**Use this template for specifying new features to ensure consistency and completeness:**
+
+```markdown
+# Feature: <Feature Name>
+
+## User Story
+As a <user role>, I want <feature goal> so that <benefit>.
+
+## Acceptance Criteria
+1. WHEN <context or action> THEN it SHALL <expected behavior>.
+2. WHEN <another scenario> THEN it SHALL <expected outcome>.
+*(Include all key behaviors and edge cases in numbered criteria.)*
+
+## Design
+**Data Model/Types:** List any new structs or fields required, with descriptions.
+**Service Interfaces:** Outline new trait methods or functions (with signatures) needed to implement this feature. Use Rust syntax and include doc comments for each, specifying inputs, outputs, errors.
+**Error Handling:** Define any new error types or variants to cover failure cases.
+
+## Test Plan
+**Unit Tests:** Identify any pure functions or components to be unit-tested (if any).
+**Integration Tests:** Define scenarios with preconditions and expected results for end-to-end flows:
+- *Scenario 1:* **Precondition:** <state> **Action:** <user performs X> **Expected:** <outcome> (maps to AC #1)
+- *Scenario 2:* ... (cover each Acceptance Criterion with at least one scenario)
+Include any special **test fixtures** (e.g., "requires a test user with admin role", or "simulate network drop for reconnection test").
+
+## Tasks
+- [ ] **Design**: Update design.md with new types and interface stubs for *Feature Name*.
+- [ ] **Tests**: Write failing tests for each scenario above (in code or pseudocode form).
+- [ ] **Implementation**: Write code to make all tests pass, using TDD iteration.
+- [ ] **Docs**: Update documentation (requirements.md, architecture.md) to reflect implemented behavior and any constraints.
+- [ ] **Verify**: Run `cargo test --test <feature_flow>` – all scenarios passing.
+
+## Example Usage
+When adding a "Message Pinning" feature:
+1. Fill in this template with specific details
+2. Use the **Service Interfaces** section as input for LLM to generate trait implementation
+3. Use the **Test Plan** scenarios as input for LLM to generate Rust tests
+4. Merge completed template into main docs or keep as feature-specific spec during development
+```
+
+## Spec Compliance and Traceability Automation
+
+### Automated Verification Tools
+
+**Spec vs. Code Consistency Check:**
+```bash
+# Script to verify design.md interface stubs are implemented in codebase
+./scripts/check_spec_compliance.sh
+
+# Example implementation:
+#!/bin/bash
+echo "Checking design.md interface compliance..."
+
+# Extract trait method signatures from design.md
+grep -E "async fn \w+\(" .kiro/specs/campfire-rust-rewrite/design.md > /tmp/spec_methods.txt
+
+# Check if each method exists in codebase
+while read -r method; do
+    method_name=$(echo "$method" | sed -E 's/.*async fn ([^(]+).*/\1/')
+    if ! grep -r "async fn $method_name" src/; then
+        echo "❌ Missing implementation: $method_name"
+        exit 1
+    else
+        echo "✅ Found implementation: $method_name"
+    fi
+done < /tmp/spec_methods.txt
+
+echo "All interface methods implemented!"
+```
+
+**Requirement Coverage Mapping:**
+```bash
+# Script to verify all requirements have corresponding tests
+./scripts/check_requirement_coverage.sh
+
+# Example implementation:
+#!/bin/bash
+echo "Checking requirement coverage..."
+
+# Extract requirement IDs from requirements.md
+grep -E "Requirement [0-9]+\.[0-9]+" .kiro/specs/campfire-rust-rewrite/requirements.md | \
+    sed -E 's/.*Requirement ([0-9]+\.[0-9]+).*/\1/' > /tmp/requirements.txt
+
+# Check if each requirement is referenced in tests
+while read -r req_id; do
+    if ! grep -r "Req $req_id\|Requirement $req_id" tests/ src/; then
+        echo "❌ No test coverage for Requirement $req_id"
+        exit 1
+    else
+        echo "✅ Test coverage found for Requirement $req_id"
+    fi
+done < /tmp/requirements.txt
+
+echo "All requirements have test coverage!"
+```
+
+**Template-driven Code Generation:**
+```bash
+# CLI tool for generating code from feature specs
+./scripts/generate_from_spec.sh <feature_spec.md>
+
+# Example usage:
+./scripts/generate_from_spec.sh message_pinning_spec.md
+# Outputs:
+# - src/services/message_pinning_service.rs (trait implementation stubs)
+# - tests/message_pinning_tests.rs (test function stubs)
+# - src/models/pinned_message.rs (data model stubs)
+```
+
+**One-Command Test Runner:**
+```bash
+# Makefile targets for convenient testing
+make test-feature-messaging    # cargo test --test message_flow
+make test-feature-rooms        # cargo test --test room_flow  
+make test-feature-auth         # cargo test --test auth_flow
+make test-all-features         # Run all feature flow tests
+make test-property             # cargo test --lib prop_
+make test-integration          # cargo test --test integration
+make test-full-suite          # Complete test suite with coverage
+```
+
+### CI Integration
+
+**Automated Spec Compliance in CI:**
+```yaml
+# .github/workflows/spec_compliance.yml
+name: Spec Compliance Check
+
+on: [push, pull_request]
+
+jobs:
+  spec-compliance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Check interface compliance
+        run: ./scripts/check_spec_compliance.sh
+        
+      - name: Check requirement coverage
+        run: ./scripts/check_requirement_coverage.sh
+        
+      - name: Verify no TODOs in specs
+        run: |
+          if grep -r "TODO\|FIXME\|XXX" .kiro/specs/; then
+            echo "❌ Found TODOs in spec documents"
+            exit 1
+          fi
+          
+      - name: Check spec-code sync
+        run: |
+          # Verify design.md and code are in sync
+          if [ .kiro/specs/campfire-rust-rewrite/design.md -nt src/lib.rs ]; then
+            echo "⚠️  design.md newer than code - may need implementation updates"
+          fi
+```
+
+This automation ensures our specs remain the single source of truth and that the development process follows: **write spec → generate/check code → run tests → update spec if needed → done**.
+
 ## Phase 0: TDD Foundation (Week 0)
 
 **Goal**: Establish complete type contracts and property tests before any implementation

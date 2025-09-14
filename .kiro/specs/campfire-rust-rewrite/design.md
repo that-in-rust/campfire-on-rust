@@ -614,6 +614,57 @@ pub trait MessageService: Send + Sync {
         emoji_content: String,     // Max 16 chars, Unicode validation
     ) -> Result<Boost, MessageError>;
 }
+
+#### MessageService Test Plan
+
+**Scenario 1: Successful Message Creation**
+- **Given** a valid user in room and valid content
+- **When** `create_message_with_deduplication` is called
+- **Then** it returns `Ok(Message<Persisted>)` and the new message is saved, `room.last_message_at` is updated, and a WebSocket broadcast is triggered
+- **Test Stub**: `test_create_message_success()`
+- **Requirements**: Covers Requirement 1.1, 1.2
+
+**Scenario 2: Deduplication of Message**
+- **Given** a message with `client_message_id` X already exists
+- **When** a new message with the same client ID X is created in that room
+- **Then** the service returns `Ok(existing Message)` (no duplicate) – fulfilling Critical Gap #1 deduplication
+- **Test Stub**: `prop_duplicate_client_id_returns_same_message()`
+- **Requirements**: Covers Critical Gap #1
+
+**Scenario 3: Unauthorized Creator**
+- **Given** a user without access to the room
+- **When** they attempt to create a message
+- **Then** the service returns `Err(MessageError::Authorization)` and no message is created
+- **Test Stub**: `test_unauthorized_message_creation()`
+- **Requirements**: Covers Requirement 3.1
+
+**Scenario 4: Content Validation Boundaries**
+- **Given** message content that is empty or exceeds 10000 characters
+- **When** `create_message_with_deduplication` is called
+- **Then** it returns `Err(MessageError::Validation)` with appropriate field and reason
+- **Test Stub**: `prop_message_validation_boundaries()`
+- **Requirements**: Covers Requirement 1.3
+
+**Scenario 5: Missed Message Delivery on Reconnection**
+- **Given** a user reconnects after being offline and provides `last_seen_message_id`
+- **When** `get_messages_since` is called
+- **Then** it returns all messages created after the last seen ID in chronological order
+- **Test Stub**: `test_reconnection_delivers_missed_messages()`
+- **Requirements**: Covers Critical Gap #2
+
+**Scenario 6: Search Permission Filtering**
+- **Given** a user with access to some rooms but not others
+- **When** `search_messages` is called with a query
+- **Then** results only include messages from rooms the user can access
+- **Test Stub**: `prop_search_respects_permissions()`
+- **Requirements**: Covers Requirement 2.4
+
+**Scenario 7: Emoji Boost Validation**
+- **Given** various emoji content (valid Unicode, too long, invalid characters)
+- **When** `create_boost` is called
+- **Then** it validates emoji content and returns appropriate success or validation error
+- **Test Stub**: `prop_message_boost_emoji_validation()`
+- **Requirements**: Covers Requirement 1.6
 ```
 
 #### TDD Implementation Cycle for MessageService
@@ -730,6 +781,36 @@ pub trait RoomService: Send + Sync {
         room_id: RoomId,
     ) -> Result<bool, RoomError>;
 }
+
+#### RoomService Test Plan
+
+**Scenario 1: Room Creation with Creator Membership**
+- **Given** valid room data and creator user ID
+- **When** `create_room` is called
+- **Then** room is created and creator automatically gets membership with Everything involvement
+- **Test Stub**: `test_room_creation_grants_creator_membership()`
+- **Requirements**: Covers Requirement 2.1
+
+**Scenario 2: Direct Room Exactly Two Members**
+- **Given** two different user IDs for direct room creation
+- **When** `create_room` is called with `RoomType::Direct`
+- **Then** room is created with exactly 2 memberships for the specified users
+- **Test Stub**: `prop_direct_rooms_exactly_two_members()`
+- **Requirements**: Covers Requirement 2.2
+
+**Scenario 3: Membership Involvement Levels**
+- **Given** a user and room with various involvement levels
+- **When** `grant_membership` is called with different involvement types
+- **Then** membership is created with correct involvement level affecting message visibility
+- **Test Stub**: `prop_involvement_levels_control_visibility()`
+- **Requirements**: Covers Requirement 2.3
+
+**Scenario 4: Room Access Permission Check**
+- **Given** users with and without room access
+- **When** `check_room_access` is called
+- **Then** returns true only for users with valid membership and non-invisible involvement
+- **Test Stub**: `test_room_access_permission_check()`
+- **Requirements**: Covers Requirement 2.4
 ```
 
 ### AuthService Interface (Critical Gap #4)
@@ -753,6 +834,36 @@ pub trait AuthService: Send + Sync {
     /// Generate secure bot token
     fn generate_bot_token() -> BotToken;
 }
+
+#### AuthService Test Plan
+
+**Scenario 1: Secure Session Creation**
+- **Given** valid email and password credentials
+- **When** `create_session` is called
+- **Then** session is created with cryptographically secure token (32+ chars) and stored
+- **Test Stub**: `test_secure_session_creation()`
+- **Requirements**: Covers Critical Gap #4
+
+**Scenario 2: Session Token Validation**
+- **Given** a valid session token
+- **When** `validate_session` is called
+- **Then** returns the associated user and updates session activity timestamp
+- **Test Stub**: `test_session_token_validation()`
+- **Requirements**: Covers Requirement 3.2
+
+**Scenario 3: Invalid Credentials Handling**
+- **Given** incorrect email or password
+- **When** `create_session` is called
+- **Then** returns `Err(AuthError::InvalidCredentials)` without revealing which field was wrong
+- **Test Stub**: `test_invalid_credentials_handling()`
+- **Requirements**: Covers Requirement 3.3
+
+**Scenario 4: Bot Token Security**
+- **Given** bot token generation request
+- **When** `generate_bot_token` is called
+- **Then** returns cryptographically secure token with sufficient entropy
+- **Test Stub**: `prop_bot_token_security()`
+- **Requirements**: Covers Requirement 3.4
 ```
 
 ### WebSocketBroadcaster Interface (Critical Gap #2)
@@ -783,6 +894,36 @@ pub trait WebSocketBroadcaster: Send + Sync {
         message: &Message<Persisted>,
     ) -> Result<(), BroadcastError>;
 }
+
+#### WebSocketBroadcaster Test Plan
+
+**Scenario 1: Connection State Tracking**
+- **Given** an authenticated WebSocket connection
+- **When** `add_connection` is called
+- **Then** connection is tracked and can receive broadcasts for the room
+- **Test Stub**: `test_connection_state_tracking()`
+- **Requirements**: Covers Critical Gap #5 (Presence Tracking)
+
+**Scenario 2: Missed Message Delivery on Reconnection**
+- **Given** a user reconnects after network interruption with last_seen_message_id
+- **When** `handle_reconnection` is called
+- **Then** all messages created after last_seen are delivered in chronological order
+- **Test Stub**: `prop_reconnection_delivers_missed_messages()`
+- **Requirements**: Covers Critical Gap #2
+
+**Scenario 3: Room Broadcasting**
+- **Given** multiple connections subscribed to a room
+- **When** `broadcast_to_room` is called with a message
+- **Then** message is sent to all active connections for that room
+- **Test Stub**: `test_room_broadcasting()`
+- **Requirements**: Covers Requirement 4.1
+
+**Scenario 4: Connection Cleanup on Disconnect**
+- **Given** a connection that disconnects unexpectedly
+- **When** connection is lost
+- **Then** connection is removed from tracking and presence count is decremented
+- **Test Stub**: `test_connection_cleanup_on_disconnect()`
+- **Requirements**: Covers Critical Gap #5
 ```
 
 ### DatabaseWriter Interface (Critical Gap #3)
@@ -797,6 +938,169 @@ pub trait DatabaseWriter: Send + Sync {
     ) -> Result<T, DatabaseError>;
 }
 ```
+
+## One-Command Full Flow Verification
+
+### Comprehensive Test Execution Strategy
+
+Following the enhancement proposal, we provide single-command verification of complete user journeys:
+
+#### Full Feature Flow Tests
+
+**Command**: `cargo test --test feature_full_flow`
+
+This executes complete end-to-end scenarios that validate entire user journeys:
+
+```rust
+// tests/feature_full_flow.rs
+#[tokio::test]
+async fn test_complete_messaging_flow() {
+    let app = create_test_app().await;
+    
+    // User Journey: Signup → Login → Create Room → Post Message → Receive via WebSocket
+    
+    // 1. User signup
+    let user = app.create_user("test@example.com", "password123", "join-code").await?;
+    
+    // 2. Login and get session
+    let session = app.login("test@example.com", "password123").await?;
+    
+    // 3. Create room
+    let room = app.create_room("General", RoomType::Open, user.id).await?;
+    
+    // 4. Establish WebSocket connection
+    let ws_client = app.connect_websocket(session.token, room.id).await?;
+    
+    // 5. Post message via HTTP API
+    let message_response = app
+        .post(&format!("/api/rooms/{}/messages", room.id))
+        .json(&json!({
+            "content": "Hello, world!",
+            "client_message_id": Uuid::new_v4()
+        }))
+        .send()
+        .await;
+    
+    assert_eq!(message_response.status(), 201);
+    
+    // 6. Verify WebSocket broadcast received
+    let ws_message = ws_client.receive_message().await;
+    match ws_message {
+        WebSocketMessage::MessageCreated { message } => {
+            assert_eq!(message.content, "Hello, world!");
+            assert_eq!(message.creator_id, user.id);
+            assert_eq!(message.room_id, room.id);
+        }
+        _ => panic!("Expected MessageCreated WebSocket message"),
+    }
+    
+    // 7. Verify message persisted in database
+    let stored_message = app.database
+        .get_message(message.id)
+        .await?
+        .expect("Message should be stored");
+    
+    assert_eq!(stored_message.content, "Hello, world!");
+    
+    // 8. Verify FTS5 search index updated
+    let search_results = app.database
+        .search_messages("Hello", user.id, 10)
+        .await?;
+    
+    assert_eq!(search_results.len(), 1);
+    assert_eq!(search_results[0].id, message.id);
+}
+
+#[tokio::test]
+async fn test_websocket_reconnection_flow() {
+    let app = create_test_app().await;
+    
+    // User Journey: Connect → Send Messages → Disconnect → Send More → Reconnect → Receive Missed
+    
+    let user = app.create_test_user().await;
+    let room = app.create_test_room(user.id).await;
+    let ws_client = app.connect_websocket(user.id, room.id).await;
+    
+    // Send initial message and track last_seen
+    let msg1 = app.send_message(room.id, "Message 1").await;
+    let last_seen = msg1.id;
+    
+    // Simulate disconnect
+    ws_client.disconnect().await;
+    
+    // Send messages while disconnected
+    let msg2 = app.send_message(room.id, "Message 2").await;
+    let msg3 = app.send_message(room.id, "Message 3").await;
+    
+    // Reconnect and verify missed messages delivered
+    let ws_client = app.reconnect_websocket(user.id, room.id, Some(last_seen)).await;
+    
+    let missed_messages = ws_client.receive_missed_messages().await;
+    assert_eq!(missed_messages.len(), 2);
+    assert_eq!(missed_messages[0].id, msg2.id);
+    assert_eq!(missed_messages[1].id, msg3.id);
+}
+```
+
+#### Smoke Test Commands
+
+**For each major feature, run targeted smoke tests:**
+
+```bash
+# Message system smoke test
+cargo test --test message_flow --features=rich_text_flow
+
+# Room management smoke test  
+cargo test --test room_flow --features=room_management_flow
+
+# Authentication smoke test
+cargo test --test auth_flow --features=auth_flow
+
+# WebSocket smoke test
+cargo test --test websocket_flow --features=websocket_flow
+
+# Complete integration smoke test
+cargo test --test integration --features=full_integration
+```
+
+#### CI Automation Pipeline
+
+**Automated testing pipeline runs on each build:**
+
+```yaml
+# .github/workflows/test.yml
+name: Comprehensive Test Suite
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      # Unit tests
+      - name: Run unit tests
+        run: cargo test --lib
+        
+      # Property-based tests
+      - name: Run property tests
+        run: cargo test --lib prop_
+        
+      # Integration tests
+      - name: Run integration tests
+        run: cargo test --test integration
+        
+      # Full feature flow tests
+      - name: Run feature flow tests
+        run: cargo test --test feature_full_flow
+        
+      # Rails parity tests
+      - name: Run Rails parity tests
+        run: cargo test --test rails_parity
+```
+
+This ensures that every push runs the complete feature flows automatically, catching any regression in user journeys immediately.
 
 ## Complete Error Hierarchy
 
