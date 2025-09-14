@@ -1,2620 +1,1530 @@
-# Design Document - Campfire Rust Rewrite MVP
+# Campfire Rust Rewrite - Design Document
 
-## Overview: TDD-Driven Design Methodology
+## Overview: TDD-Driven Type Contracts
 
-This design document outlines the implementation approach for the Campfire Rust Rewrite MVP using **Test-Driven Development** with **function signatures defined before implementation**. The design strictly adheres to anti-coordination constraints while using type-driven development to ensure one-shot correctness.
+This document defines the complete type contracts, function signatures, and error hierarchies for the Campfire Rust rewrite. Following the improved LLM workflow, we establish all interfaces before any implementation to ensure compile-first success and architectural correctness.
 
-**TDD Design Philosophy**: 
-1. **Type Contracts First**: Define complete function signatures with all error cases before any implementation
-2. **Property-Based Specifications**: Specify behavior through property tests that validate invariants
-3. **Integration Contracts**: Define service boundaries and interaction patterns before implementation
-4. **Type-Guided Implementation**: Implementation follows from type contracts, preventing coordination complexity
-5. **Comprehensive Validation**: Property tests and integration tests validate contract compliance
+**Design Philosophy:**
+- **Type Contracts First**: Complete function signatures with all error cases defined upfront
+- **Rails Parity**: Every interface mirrors Rails behavior exactly, no improvements
+- **Anti-Coordination**: Direct function calls, no async coordination between components
+- **Phantom Types**: Use type system to prevent invalid state transitions
 
-**Rails Parity with Type Safety**: Replicate Rails ActionCable behavior using idiomatic Rust patterns with compile-time guarantees that prevent coordination complexity from emerging during development.
+## Core Domain Types
 
-## Architecture
-
-### High-Level Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                Single Rust Binary (~30MB)                   │
-├─────────────────────────────────────────────────────────────┤
-│  Embedded React SPA (Complete UI)                          │
-│  ├─── All Components (with graceful degradation)           │
-│  ├─── Complete Styling (26 CSS files)                      │
-│  ├─── Sound Assets (59 MP3 files)                          │
-│  └─── Service Worker (PWA + Push)                          │
-├─────────────────────────────────────────────────────────────┤
-│  Axum HTTP Server                                          │
-│  ├─── REST API Handlers                                    │
-│  ├─── WebSocket Upgrade Handler                            │
-│  ├─── Static Asset Serving                                 │
-│  └─── Session Authentication                               │
-├─────────────────────────────────────────────────────────────┤
-│  Simple WebSocket Broadcasting                             │
-│  ├─── Room-based Message Broadcasting                      │
-│  ├─── Basic Presence Tracking                              │
-│  ├─── Typing Notifications                                 │
-│  └─── Connection Management                                │
-├─────────────────────────────────────────────────────────────┤
-│  Basic Background Tasks                                    │
-│  ├─── Webhook Delivery (tokio::spawn)                     │
-│  ├─── Push Notifications                                   │
-│  └─── Simple Cleanup Tasks                                 │
-├─────────────────────────────────────────────────────────────┤
-│  Direct SQLite Operations                                  │
-│  ├─── Connection Pool (sqlx)                              │
-│  ├─── Direct SQL Queries                                   │
-│  ├─── FTS5 Search Index                                    │
-│  └─── WAL Mode for Concurrency                            │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Component Interaction Flow
-
-```
-HTTP Request → Axum Handler → Direct DB Query → Response
-                    ↓
-WebSocket Message → Room Broadcast → Connected Clients
-                    ↓
-Background Task → tokio::spawn → Simple Processing
-```
-##
- Components and Interfaces
-
-## Database Layer Specifications
-
-### Database Architecture - Direct SQLite Operations
-
-**Design Approach**: Direct SQLite operations with sqlx, WAL mode for concurrency, and Dedicated Writer Task pattern for write serialization (Critical Gap #3).
-
-### Connection Management
+### Newtype IDs (Compile-Time Safety)
 
 ```rust
-use sqlx::{SqlitePool, Row, sqlite::SqlitePoolOptions};
-use tokio::sync::{mpsc, oneshot};
+use serde::{Deserialize, Serialize};
+use std::fmt;
 
-// Database connection manager
-pub struct Database {
-    // Read pool for concurrent reads
-    read_pool: SqlitePool,
-    // Dedicated writer for serialized writes (Critical Gap #3)
-    writer: DedicatedWriter,
-}
+/// User identifier - prevents mixing up with other ID types
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct UserId(pub i64);
 
-impl Database {
-    pub async fn new(database_url: &str) -> Result<Self, sqlx::Error> {
-        // Configure SQLite with WAL mode for concurrency
-        let read_pool = SqlitePoolOptions::new()
-            .max_connections(10) // Multiple readers
-            .connect_with(
-                sqlx::sqlite::SqliteConnectOptions::from_str(database_url)?
-                    .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
-                    .synchronous(sqlx::sqlite::SqliteSynchronous::Normal)
-                    .foreign_keys(true)
-                    .create_if_missing(true)
-            )
-            .await?;
-        
-        // Create dedicated writer task
-        let writer = DedicatedWriter::new(database_url).await?;
-        
-        Ok(Self { read_pool, writer })
-    }
-    
-    // Read operations use the pool directly
-    pub fn read_pool(&self) -> &SqlitePool {
-        &self.read_pool
-    }
-    
-    // Write operations go through dedicated writer
-    pub fn writer(&self) -> &DedicatedWriter {
-        &self.writer
-    }
-}
+/// Room identifier - type-safe room references
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct RoomId(pub i64);
+
+/// Message identifier - prevents ID confusion
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct MessageId(pub i64);
+
+/// Session identifier - secure session tracking
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct SessionId(pub i64);
+
+/// WebSocket connection identifier
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ConnectionId(pub i64);
+
+/// Bot token for API authentication
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct BotToken(pub String);
 ```
 
-### Dedicated Writer Task Pattern (Critical Gap #3)
-
-```rust
-// Dedicated writer for SQLite write serialization
-pub struct DedicatedWriter {
-    sender: mpsc::UnboundedSender<WriteCommand>,
-}
-
-// Write command types
-pub enum WriteCommand {
-    CreateMessage {
-        data: CreateMessageData,
-        response: oneshot::Sender<Result<Message, sqlx::Error>>,
-    },
-    UpdateMessage {
-        id: MessageId,
-        data: UpdateMessageData,
-        response: oneshot::Sender<Result<Message, sqlx::Error>>,
-    },
-    CreateUser {
-        data: CreateUserData,
-        response: oneshot::Sender<Result<User, sqlx::Error>>,
-    },
-    CreateRoom {
-        data: CreateRoomData,
-        response: oneshot::Sender<Result<Room, sqlx::Error>>,
-    },
-    CreateMembership {
-        data: CreateMembershipData,
-        response: oneshot::Sender<Result<Membership, sqlx::Error>>,
-    },
-    UpdateMembership {
-        user_id: UserId,
-        room_id: RoomId,
-        data: UpdateMembershipData,
-        response: oneshot::Sender<Result<Membership, sqlx::Error>>,
-    },
-    CreateSession {
-        data: CreateSessionData,
-        response: oneshot::Sender<Result<Session, sqlx::Error>>,
-    },
-    DeleteSession {
-        id: SessionId,
-        response: oneshot::Sender<Result<(), sqlx::Error>>,
-    },
-}
-
-impl DedicatedWriter {
-    pub async fn new(database_url: &str) -> Result<Self, sqlx::Error> {
-        let (sender, mut receiver) = mpsc::unbounded_channel();
-        
-        // Create dedicated write connection
-        let write_pool = SqlitePoolOptions::new()
-            .max_connections(1) // Single writer
-            .connect_with(
-                sqlx::sqlite::SqliteConnectOptions::from_str(database_url)?
-                    .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
-                    .synchronous(sqlx::sqlite::SqliteSynchronous::Normal)
-                    .foreign_keys(true)
-            )
-            .await?;
-        
-        // Spawn writer task
-        tokio::spawn(async move {
-            while let Some(command) = receiver.recv().await {
-                match command {
-                    WriteCommand::CreateMessage { data, response } => {
-                        let result = Self::execute_create_message(&write_pool, data).await;
-                        let _ = response.send(result);
-                    }
-                    WriteCommand::UpdateMessage { id, data, response } => {
-                        let result = Self::execute_update_message(&write_pool, id, data).await;
-                        let _ = response.send(result);
-                    }
-                    WriteCommand::CreateUser { data, response } => {
-                        let result = Self::execute_create_user(&write_pool, data).await;
-                        let _ = response.send(result);
-                    }
-                    WriteCommand::CreateRoom { data, response } => {
-                        let result = Self::execute_create_room(&write_pool, data).await;
-                        let _ = response.send(result);
-                    }
-                    WriteCommand::CreateMembership { data, response } => {
-                        let result = Self::execute_create_membership(&write_pool, data).await;
-                        let _ = response.send(result);
-                    }
-                    WriteCommand::UpdateMembership { user_id, room_id, data, response } => {
-                        let result = Self::execute_update_membership(&write_pool, user_id, room_id, data).await;
-                        let _ = response.send(result);
-                    }
-                    WriteCommand::CreateSession { data, response } => {
-                        let result = Self::execute_create_session(&write_pool, data).await;
-                        let _ = response.send(result);
-                    }
-                    WriteCommand::DeleteSession { id, response } => {
-                        let result = Self::execute_delete_session(&write_pool, id).await;
-                        let _ = response.send(result);
-                    }
-                }
-            }
-        });
-        
-        Ok(Self { sender })
-    }
-    
-    // Public write methods
-    pub async fn create_message(&self, data: CreateMessageData) -> Result<Message, sqlx::Error> {
-        let (tx, rx) = oneshot::channel();
-        self.sender.send(WriteCommand::CreateMessage { data, response: tx })
-            .map_err(|_| sqlx::Error::PoolClosed)?;
-        rx.await.map_err(|_| sqlx::Error::PoolClosed)?
-    }
-    
-    pub async fn update_message(&self, id: MessageId, data: UpdateMessageData) -> Result<Message, sqlx::Error> {
-        let (tx, rx) = oneshot::channel();
-        self.sender.send(WriteCommand::UpdateMessage { id, data, response: tx })
-            .map_err(|_| sqlx::Error::PoolClosed)?;
-        rx.await.map_err(|_| sqlx::Error::PoolClosed)?
-    }
-    
-    // ... similar methods for other write operations
-}
-```
-
-### Database Operations Implementation
-
-```rust
-impl DedicatedWriter {
-    // Message operations with deduplication (Critical Gap #1)
-    async fn execute_create_message(
-        pool: &SqlitePool,
-        data: CreateMessageData,
-    ) -> Result<Message, sqlx::Error> {
-        // Start transaction for atomic operation
-        let mut tx = pool.begin().await?;
-        
-        // Check for existing message with same client_message_id (Critical Gap #1)
-        let existing = sqlx::query_as!(
-            Message,
-            "SELECT * FROM messages WHERE client_message_id = ? AND room_id = ?",
-            data.client_message_id,
-            data.room_id.0
-        )
-        .fetch_optional(&mut *tx)
-        .await?;
-        
-        if let Some(existing_message) = existing {
-            // Return existing message (Rails deduplication behavior)
-            tx.commit().await?;
-            return Ok(existing_message);
-        }
-        
-        // Create new message
-        let message = sqlx::query_as!(
-            Message,
-            r#"
-            INSERT INTO messages (room_id, creator_id, body, client_message_id, created_at, updated_at)
-            VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
-            RETURNING *
-            "#,
-            data.room_id.0,
-            data.creator_id.0,
-            data.body,
-            data.client_message_id
-        )
-        .fetch_one(&mut *tx)
-        .await?;
-        
-        // Update room last_message_at
-        sqlx::query!(
-            "UPDATE rooms SET last_message_at = datetime('now'), updated_at = datetime('now') WHERE id = ?",
-            data.room_id.0
-        )
-        .execute(&mut *tx)
-        .await?;
-        
-        // Update FTS5 search index
-        sqlx::query!(
-            "INSERT INTO message_search_index (rowid, content) VALUES (?, ?)",
-            message.id.0,
-            message.body
-        )
-        .execute(&mut *tx)
-        .await?;
-        
-        tx.commit().await?;
-        Ok(message)
-    }
-    
-    // User operations
-    async fn execute_create_user(
-        pool: &SqlitePool,
-        data: CreateUserData,
-    ) -> Result<User, sqlx::Error> {
-        let mut tx = pool.begin().await?;
-        
-        // Hash password with bcrypt
-        let password_hash = bcrypt::hash(&data.password, bcrypt::DEFAULT_COST)
-            .map_err(|_| sqlx::Error::Protocol("Password hashing failed".into()))?;
-        
-        let user = sqlx::query_as!(
-            User,
-            r#"
-            INSERT INTO users (email_address, name, password_digest, role, active, created_at, updated_at)
-            VALUES (?, ?, ?, ?, true, datetime('now'), datetime('now'))
-            RETURNING *
-            "#,
-            data.email_address,
-            data.name,
-            password_hash,
-            data.role as i32
-        )
-        .fetch_one(&mut *tx)
-        .await?;
-        
-        tx.commit().await?;
-        Ok(user)
-    }
-    
-    // Room operations with membership auto-granting
-    async fn execute_create_room(
-        pool: &SqlitePool,
-        data: CreateRoomData,
-    ) -> Result<Room, sqlx::Error> {
-        let mut tx = pool.begin().await?;
-        
-        let room = sqlx::query_as!(
-            Room,
-            r#"
-            INSERT INTO rooms (account_id, name, room_type, creator_id, created_at, updated_at)
-            VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
-            RETURNING *
-            "#,
-            data.account_id.0,
-            data.name,
-            data.room_type as i32,
-            data.creator_id.0
-        )
-        .fetch_one(&mut *tx)
-        .await?;
-        
-        // Auto-grant membership to creator
-        sqlx::query!(
-            r#"
-            INSERT INTO memberships (user_id, room_id, involvement, connections, created_at, updated_at)
-            VALUES (?, ?, ?, 0, datetime('now'), datetime('now'))
-            "#,
-            data.creator_id.0,
-            room.id.0,
-            Involvement::Everything as i32
-        )
-        .execute(&mut *tx)
-        .await?;
-        
-        // For Open rooms, grant to all existing users
-        if matches!(data.room_type, RoomType::Open) {
-            sqlx::query!(
-                r#"
-                INSERT INTO memberships (user_id, room_id, involvement, connections, created_at, updated_at)
-                SELECT id, ?, ?, 0, datetime('now'), datetime('now')
-                FROM users 
-                WHERE active = true AND id != ? AND role != ?
-                "#,
-                room.id.0,
-                Involvement::Everything as i32,
-                data.creator_id.0,
-                UserRole::Bot as i32
-            )
-            .execute(&mut *tx)
-            .await?;
-        }
-        
-        tx.commit().await?;
-        Ok(room)
-    }
-    
-    // Session operations (Critical Gap #4)
-    async fn execute_create_session(
-        pool: &SqlitePool,
-        data: CreateSessionData,
-    ) -> Result<Session, sqlx::Error> {
-        // Generate secure token (Rails SecureRandom equivalent)
-        let token = generate_secure_token();
-        
-        let session = sqlx::query_as!(
-            Session,
-            r#"
-            INSERT INTO sessions (user_id, token, ip_address, user_agent, last_active_at, created_at)
-            VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
-            RETURNING *
-            "#,
-            data.user_id.0,
-            token,
-            data.ip_address,
-            data.user_agent
-        )
-        .fetch_one(pool)
-        .await?;
-        
-        Ok(session)
-    }
-}
-
-// Secure token generation (Critical Gap #4)
-fn generate_secure_token() -> String {
-    use rand::{thread_rng, Rng};
-    use rand::distributions::Alphanumeric;
-    
-    thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(32)
-        .map(char::from)
-        .collect()
-}
-```
-
-### Read Operations
-
-```rust
-// Read operations use the read pool directly
-impl Database {
-    // Message queries
-    pub async fn get_message(&self, id: MessageId) -> Result<Option<Message>, sqlx::Error> {
-        sqlx::query_as!(
-            Message,
-            "SELECT * FROM messages WHERE id = ?",
-            id.0
-        )
-        .fetch_optional(&self.read_pool)
-        .await
-    }
-    
-    pub async fn list_room_messages(
-        &self,
-        room_id: RoomId,
-        limit: i64,
-        before: Option<MessageId>,
-    ) -> Result<Vec<Message>, sqlx::Error> {
-        match before {
-            Some(before_id) => {
-                sqlx::query_as!(
-                    Message,
-                    "SELECT * FROM messages WHERE room_id = ? AND id < ? ORDER BY created_at DESC, id DESC LIMIT ?",
-                    room_id.0,
-                    before_id.0,
-                    limit
-                )
-                .fetch_all(&self.read_pool)
-                .await
-            }
-            None => {
-                sqlx::query_as!(
-                    Message,
-                    "SELECT * FROM messages WHERE room_id = ? ORDER BY created_at DESC, id DESC LIMIT ?",
-                    room_id.0,
-                    limit
-                )
-                .fetch_all(&self.read_pool)
-                .await
-            }
-        }
-    }
-    
-    // User queries
-    pub async fn get_user_by_email(&self, email: &str) -> Result<Option<User>, sqlx::Error> {
-        sqlx::query_as!(
-            User,
-            "SELECT * FROM users WHERE email_address = ? AND active = true",
-            email
-        )
-        .fetch_optional(&self.read_pool)
-        .await
-    }
-    
-    // Room queries
-    pub async fn list_user_rooms(&self, user_id: UserId) -> Result<Vec<Room>, sqlx::Error> {
-        sqlx::query_as!(
-            Room,
-            r#"
-            SELECT r.* FROM rooms r
-            JOIN memberships m ON r.id = m.room_id
-            WHERE m.user_id = ? AND m.involvement != ?
-            ORDER BY r.last_message_at DESC NULLS LAST, r.created_at DESC
-            "#,
-            user_id.0,
-            Involvement::Invisible as i32
-        )
-        .fetch_all(&self.read_pool)
-        .await
-    }
-    
-    // FTS5 search
-    pub async fn search_messages(
-        &self,
-        query: &str,
-        user_id: UserId,
-        limit: i64,
-    ) -> Result<Vec<Message>, sqlx::Error> {
-        sqlx::query_as!(
-            Message,
-            r#"
-            SELECT m.* FROM messages m
-            JOIN message_search_index fts ON m.id = fts.rowid
-            JOIN memberships mb ON m.room_id = mb.room_id
-            WHERE fts.content MATCH ? AND mb.user_id = ? AND mb.involvement != ?
-            ORDER BY fts.rank
-            LIMIT ?
-            "#,
-            query,
-            user_id.0,
-            Involvement::Invisible as i32,
-            limit
-        )
-        .fetch_all(&self.read_pool)
-        .await
-    }
-}
-```
-
-**Key Database Design Decisions**:
-- SQLite with WAL mode for concurrent reads and serialized writes
-- Dedicated Writer Task pattern for write serialization (Critical Gap #3)
-- Direct sqlx queries with compile-time validation
-- UNIQUE constraint on (client_message_id, room_id) for deduplication (Critical Gap #1)
-- FTS5 virtual table for full-text search
-- Atomic transactions for complex operations
-- Rails-compatible schema and data patterns
-
-## Complete API Specifications
-
-### HTTP API Layer - Rails-Style RESTful Design
-
-**Design Approach**: Axum handlers with Rails-style routing, direct database operations, session-based authentication.
-
-### Authentication Endpoints
-
-```rust
-// POST /api/auth/login - User authentication
-pub async fn login(
-    State(app_state): State<AppState>,
-    Json(payload): Json<LoginRequest>,
-) -> Result<Json<LoginResponse>, ApiError> {
-    // Validate credentials (Rails: User.authenticate_by)
-    let user = app_state.auth_service
-        .authenticate_user(&payload.email_address, &payload.password)
-        .await?
-        .ok_or(ApiError::Unauthorized)?;
-    
-    // Create session (Critical Gap #4: Secure token generation)
-    let session = app_state.auth_service
-        .create_session(user.id)
-        .await?;
-    
-    // Set secure cookie (Rails: httponly, SameSite=Lax)
-    let cookie = Cookie::build(("session_token", session.token))
-        .http_only(true)
-        .same_site(SameSite::Lax)
-        .secure(true) // HTTPS only
-        .path("/")
-        .max_age(Duration::days(30))
-        .build();
-    
-    Ok((
-        SetCookieHeader::new(cookie),
-        Json(LoginResponse {
-            user: UserSummary::from(user),
-            session_id: session.id,
-        })
-    ))
-}
-
-// POST /api/auth/register - User registration with join code
-pub async fn register(
-    State(app_state): State<AppState>,
-    Json(payload): Json<RegisterRequest>,
-) -> Result<Json<UserResponse>, ApiError> {
-    // Verify join code (Rails: verify_join_code)
-    app_state.auth_service
-        .verify_join_code(&payload.join_code)
-        .await?;
-    
-    // Create user with bcrypt password hash
-    let user = app_state.user_service
-        .create_user(CreateUserData {
-            email_address: payload.email_address,
-            name: payload.name,
-            password: payload.password,
-            role: UserRole::Member,
-        })
-        .await?;
-    
-    // Auto-grant memberships to all Open rooms (Rails: after_save_commit)
-    app_state.room_service
-        .grant_open_room_memberships(user.id)
-        .await?;
-    
-    Ok(Json(UserResponse::from(user)))
-}
-
-// POST /api/auth/logout - Session termination
-pub async fn logout(
-    State(app_state): State<AppState>,
-    session: Session, // Extracted from cookie
-) -> Result<StatusCode, ApiError> {
-    // Remove push subscription (Rails: before session destroy)
-    app_state.push_service
-        .remove_user_subscriptions(session.user_id)
-        .await?;
-    
-    // Delete session
-    app_state.auth_service
-        .delete_session(session.id)
-        .await?;
-    
-    // Clear cookie
-    let cookie = Cookie::build(("session_token", ""))
-        .http_only(true)
-        .same_site(SameSite::Lax)
-        .path("/")
-        .max_age(Duration::seconds(0))
-        .build();
-    
-    Ok((SetCookieHeader::new(cookie), StatusCode::NO_CONTENT))
-}
-```
-
-### Message Endpoints
-
-```rust
-// POST /api/rooms/:room_id/messages - Create message with deduplication
-pub async fn create_message(
-    State(app_state): State<AppState>,
-    Path(room_id): Path<RoomId>,
-    session: Session,
-    Json(payload): Json<CreateMessageRequest>,
-) -> Result<Json<MessageResponse>, ApiError> {
-    // Verify room access
-    app_state.room_service
-        .verify_user_access(session.user_id, room_id)
-        .await?;
-    
-    // Create message with deduplication (Critical Gap #1)
-    let message = app_state.message_service
-        .create_message_with_deduplication(CreateMessageData {
-            room_id,
-            creator_id: session.user_id,
-            body: payload.body,
-            client_message_id: payload.client_message_id,
-        })
-        .await?;
-    
-    // Update room last_message_at
-    app_state.room_service
-        .update_last_message_at(room_id, message.created_at)
-        .await?;
-    
-    // Broadcast to room (Rails ActionCable equivalent)
-    app_state.broadcaster
-        .broadcast_message_created(room_id, &message)
-        .await;
-    
-    // Trigger bot webhooks if applicable
-    if app_state.feature_flags.bot_integrations {
-        app_state.webhook_service
-            .trigger_message_webhooks(room_id, &message)
-            .await;
-    }
-    
-    Ok(Json(MessageResponse::from(message)))
-}
-
-// GET /api/rooms/:room_id/messages - List messages with pagination
-pub async fn list_messages(
-    State(app_state): State<AppState>,
-    Path(room_id): Path<RoomId>,
-    session: Session,
-    Query(params): Query<MessageListParams>,
-) -> Result<Json<MessageListResponse>, ApiError> {
-    // Verify room access
-    app_state.room_service
-        .verify_user_access(session.user_id, room_id)
-        .await?;
-    
-    // Get messages with Rails-style pagination
-    let messages = app_state.message_service
-        .list_room_messages(ListMessagesQuery {
-            room_id,
-            limit: params.limit.unwrap_or(50),
-            before: params.before,
-            after: params.after,
-        })
-        .await?;
-    
-    // Mark room as read (update unread_at)
-    app_state.membership_service
-        .mark_room_read(session.user_id, room_id)
-        .await?;
-    
-    Ok(Json(MessageListResponse {
-        messages: messages.into_iter().map(MessageResponse::from).collect(),
-        has_more: messages.len() == params.limit.unwrap_or(50) as usize,
-    }))
-}
-
-// PUT /api/messages/:message_id - Update message
-pub async fn update_message(
-    State(app_state): State<AppState>,
-    Path(message_id): Path<MessageId>,
-    session: Session,
-    Json(payload): Json<UpdateMessageRequest>,
-) -> Result<Json<MessageResponse>, ApiError> {
-    // Verify message ownership or admin role
-    let message = app_state.message_service
-        .get_message(message_id)
-        .await?
-        .ok_or(ApiError::NotFound)?;
-    
-    if message.creator_id != session.user_id && !session.user.can_administer() {
-        return Err(ApiError::Forbidden);
-    }
-    
-    // Update message
-    let updated_message = app_state.message_service
-        .update_message(message_id, UpdateMessageData {
-            body: payload.body,
-        })
-        .await?;
-    
-    // Broadcast update
-    app_state.broadcaster
-        .broadcast_message_updated(message.room_id, &updated_message)
-        .await;
-    
-    Ok(Json(MessageResponse::from(updated_message)))
-}
-```
-
-### Room Endpoints
-
-```rust
-// GET /api/rooms - List user's rooms
-pub async fn list_rooms(
-    State(app_state): State<AppState>,
-    session: Session,
-) -> Result<Json<RoomListResponse>, ApiError> {
-    let rooms = app_state.room_service
-        .list_user_rooms(session.user_id)
-        .await?;
-    
-    Ok(Json(RoomListResponse {
-        rooms: rooms.into_iter().map(RoomResponse::from).collect(),
-    }))
-}
-
-// POST /api/rooms - Create room
-pub async fn create_room(
-    State(app_state): State<AppState>,
-    session: Session,
-    Json(payload): Json<CreateRoomRequest>,
-) -> Result<Json<RoomResponse>, ApiError> {
-    let room = match payload.room_type {
-        RoomType::Open => {
-            // Create open room and auto-grant to all users
-            app_state.room_service
-                .create_open_room(CreateOpenRoomData {
-                    name: payload.name,
-                    creator_id: session.user_id,
-                })
-                .await?
-        }
-        RoomType::Closed => {
-            // Create closed room with specific members
-            app_state.room_service
-                .create_closed_room(CreateClosedRoomData {
-                    name: payload.name,
-                    creator_id: session.user_id,
-                    member_ids: payload.member_ids.unwrap_or_default(),
-                })
-                .await?
-        }
-        RoomType::Direct => {
-            // Create or find direct room (singleton pattern)
-            let member_ids = payload.member_ids.unwrap_or_default();
-            app_state.room_service
-                .find_or_create_direct_room(session.user_id, member_ids)
-                .await?
-        }
-    };
-    
-    Ok(Json(RoomResponse::from(room)))
-}
-
-// PUT /api/rooms/:room_id/membership - Update user's membership
-pub async fn update_membership(
-    State(app_state): State<AppState>,
-    Path(room_id): Path<RoomId>,
-    session: Session,
-    Json(payload): Json<UpdateMembershipRequest>,
-) -> Result<Json<MembershipResponse>, ApiError> {
-    let membership = app_state.membership_service
-        .update_involvement(session.user_id, room_id, payload.involvement)
-        .await?;
-    
-    // Broadcast sidebar update
-    app_state.broadcaster
-        .broadcast_membership_updated(session.user_id, &membership)
-        .await;
-    
-    Ok(Json(MembershipResponse::from(membership)))
-}
-```
-
-### Search Endpoints
-
-```rust
-// GET /api/search/messages - FTS5 message search
-pub async fn search_messages(
-    State(app_state): State<AppState>,
-    session: Session,
-    Query(params): Query<SearchParams>,
-) -> Result<Json<SearchResponse>, ApiError> {
-    if !app_state.feature_flags.search_enabled {
-        return Err(ApiError::FeatureDisabled("Search"));
-    }
-    
-    // Perform FTS5 search with Porter stemming
-    let results = app_state.search_service
-        .search_messages(SearchQuery {
-            query: params.query,
-            user_id: session.user_id, // Only search accessible rooms
-            room_id: params.room_id,
-            limit: params.limit.unwrap_or(20),
-            offset: params.offset.unwrap_or(0),
-        })
-        .await?;
-    
-    Ok(Json(SearchResponse {
-        messages: results.into_iter().map(MessageResponse::from).collect(),
-        total_count: results.len(),
-    }))
-}
-```
-
-### Bot Endpoints
-
-```rust
-// POST /api/bots/:bot_id/messages - Bot message creation
-pub async fn create_bot_message(
-    State(app_state): State<AppState>,
-    Path((room_id, bot_id)): Path<(RoomId, UserId)>,
-    bot_auth: BotAuth, // Custom extractor for bot authentication
-    Json(payload): Json<CreateBotMessageRequest>,
-) -> Result<Json<MessageResponse>, ApiError> {
-    if !app_state.feature_flags.bot_integrations {
-        return Err(ApiError::FeatureDisabled("Bot integrations"));
-    }
-    
-    // Verify bot has access to room
-    app_state.room_service
-        .verify_user_access(bot_id, room_id)
-        .await?;
-    
-    // Create message as bot
-    let message = app_state.message_service
-        .create_message_with_deduplication(CreateMessageData {
-            room_id,
-            creator_id: bot_id,
-            body: payload.body,
-            client_message_id: Uuid::new_v4(), // Generate for bot
-        })
-        .await?;
-    
-    // Broadcast message
-    app_state.broadcaster
-        .broadcast_message_created(room_id, &message)
-        .await;
-    
-    Ok(Json(MessageResponse::from(message)))
-}
-```
-
-### Request/Response Parameter Models
-
-```rust
-#[derive(Debug, Deserialize)]
-pub struct MessageListParams {
-    pub limit: Option<i64>,
-    pub before: Option<MessageId>,
-    pub after: Option<MessageId>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct SearchParams {
-    pub query: String,
-    pub room_id: Option<RoomId>,
-    pub limit: Option<i64>,
-    pub offset: Option<i64>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct UpdateMembershipRequest {
-    pub involvement: Involvement,
-}
-
-#[derive(Debug, Serialize)]
-pub struct LoginResponse {
-    pub user: UserSummary,
-    pub session_id: SessionId,
-}
-
-#[derive(Debug, Serialize)]
-pub struct MessageListResponse {
-    pub messages: Vec<MessageResponse>,
-    pub has_more: bool,
-}
-
-#[derive(Debug, Serialize)]
-pub struct RoomListResponse {
-    pub rooms: Vec<RoomResponse>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct SearchResponse {
-    pub messages: Vec<MessageResponse>,
-    pub total_count: usize,
-}
-```
-
-**Key API Design Decisions**:
-- RESTful design matching Rails conventions exactly
-- Session-based authentication with secure cookies
-- Direct database operations in handlers (no coordination)
-- Feature flags for graceful degradation
-- Rails-style error handling with user-friendly messages
-- Comprehensive request validation and response formatting
-
-## WebSocket Protocol Specifications
-
-### WebSocket Broadcasting - Rails ActionCable Equivalent
-
-**Design Approach**: Simple room-based broadcasting like Rails ActionCable, with basic presence tracking and reconnection support (Critical Gap #2).
-
-### Connection Management
-
-```rust
-use axum::extract::ws::{WebSocket, Message as WsMessage};
-use tokio::sync::{RwLock, mpsc};
-use std::collections::HashMap;
-
-// WebSocket connection state
-#[derive(Debug, Clone)]
-pub struct WebSocketConnection {
-    pub id: ConnectionId,
-    pub user_id: UserId,
-    pub room_subscriptions: HashSet<RoomId>,
-    pub sender: mpsc::UnboundedSender<WsMessage>,
-    pub last_seen_message_id: Option<MessageId>, // Critical Gap #2: Reconnection state
-    pub connected_at: DateTime<Utc>,
-}
-
-// WebSocket broadcaster - Rails ActionCable equivalent
-pub struct WebSocketBroadcaster {
-    // Room-based connection tracking (Rails pattern)
-    room_connections: Arc<RwLock<HashMap<RoomId, HashSet<ConnectionId>>>>,
-    // User connection mapping
-    user_connections: Arc<RwLock<HashMap<UserId, HashSet<ConnectionId>>>>,
-    // Connection details
-    connections: Arc<RwLock<HashMap<ConnectionId, WebSocketConnection>>>,
-}
-
-impl WebSocketBroadcaster {
-    pub fn new() -> Self {
-        Self {
-            room_connections: Arc::new(RwLock::new(HashMap::new())),
-            user_connections: Arc::new(RwLock::new(HashMap::new())),
-            connections: Arc::new(RwLock::new(HashMap::new())),
-        }
-    }
-    
-    // Add connection with presence tracking (Critical Gap #5)
-    pub async fn add_connection(
-        &self,
-        connection: WebSocketConnection,
-        membership_service: &MembershipService,
-    ) -> Result<(), BroadcastError> {
-        let connection_id = connection.id;
-        let user_id = connection.user_id;
-        
-        // Store connection
-        {
-            let mut connections = self.connections.write().await;
-            connections.insert(connection_id, connection);
-        }
-        
-        // Track user connections
-        {
-            let mut user_connections = self.user_connections.write().await;
-            user_connections.entry(user_id).or_default().insert(connection_id);
-        }
-        
-        // Update presence (increment connection count)
-        membership_service.user_connected(user_id).await?;
-        
-        Ok(())
-    }
-    
-    // Remove connection with presence cleanup
-    pub async fn remove_connection(
-        &self,
-        connection_id: ConnectionId,
-        membership_service: &MembershipService,
-    ) -> Result<(), BroadcastError> {
-        let (user_id, room_subscriptions) = {
-            let mut connections = self.connections.write().await;
-            if let Some(connection) = connections.remove(&connection_id) {
-                (connection.user_id, connection.room_subscriptions)
-            } else {
-                return Ok(()); // Connection already removed
-            }
-        };
-        
-        // Remove from room subscriptions
-        {
-            let mut room_connections = self.room_connections.write().await;
-            for room_id in &room_subscriptions {
-                if let Some(room_conns) = room_connections.get_mut(room_id) {
-                    room_conns.remove(&connection_id);
-                    if room_conns.is_empty() {
-                        room_connections.remove(room_id);
-                    }
-                }
-            }
-        }
-        
-        // Remove from user connections
-        {
-            let mut user_connections = self.user_connections.write().await;
-            if let Some(user_conns) = user_connections.get_mut(&user_id) {
-                user_conns.remove(&connection_id);
-                if user_conns.is_empty() {
-                    user_connections.remove(&user_id);
-                }
-            }
-        }
-        
-        // Update presence (decrement connection count)
-        membership_service.user_disconnected(user_id).await?;
-        
-        Ok(())
-    }
-    
-    // Subscribe to room (Rails: ActionCable subscription)
-    pub async fn subscribe_to_room(
-        &self,
-        connection_id: ConnectionId,
-        room_id: RoomId,
-    ) -> Result<(), BroadcastError> {
-        // Add to room connections
-        {
-            let mut room_connections = self.room_connections.write().await;
-            room_connections.entry(room_id).or_default().insert(connection_id);
-        }
-        
-        // Update connection subscriptions
-        {
-            let mut connections = self.connections.write().await;
-            if let Some(connection) = connections.get_mut(&connection_id) {
-                connection.room_subscriptions.insert(room_id);
-            }
-        }
-        
-        Ok(())
-    }
-}
-```
-
-### Message Broadcasting Implementation
-
-```rust
-impl WebSocketBroadcaster {
-    // Broadcast message to room (Rails ActionCable equivalent)
-    pub async fn broadcast_message_created(
-        &self,
-        room_id: RoomId,
-        message: &Message,
-    ) {
-        let ws_message = WebSocketMessage::MessageCreated {
-            message: MessageResponse::from(message.clone()),
-        };
-        
-        self.broadcast_to_room(room_id, &ws_message).await;
-    }
-    
-    // Broadcast message update
-    pub async fn broadcast_message_updated(
-        &self,
-        room_id: RoomId,
-        message: &Message,
-    ) {
-        let ws_message = WebSocketMessage::MessageUpdated {
-            message: MessageResponse::from(message.clone()),
-        };
-        
-        self.broadcast_to_room(room_id, &ws_message).await;
-    }
-    
-    // Broadcast typing notification
-    pub async fn broadcast_typing_notification(
-        &self,
-        room_id: RoomId,
-        user: &User,
-        is_typing: bool,
-    ) {
-        let ws_message = WebSocketMessage::TypingNotification {
-            user: UserSummary::from(user.clone()),
-            is_typing,
-        };
-        
-        self.broadcast_to_room(room_id, &ws_message).await;
-    }
-    
-    // Core broadcasting logic (Rails: best-effort delivery)
-    async fn broadcast_to_room(&self, room_id: RoomId, message: &WebSocketMessage) {
-        let connection_ids = {
-            let room_connections = self.room_connections.read().await;
-            room_connections.get(&room_id).cloned().unwrap_or_default()
-        };
-        
-        let connections = self.connections.read().await;
-        let message_json = serde_json::to_string(message).unwrap();
-        
-        for connection_id in connection_ids {
-            if let Some(connection) = connections.get(&connection_id) {
-                // Best effort delivery (Rails ActionCable behavior)
-                let _ = connection.sender.send(WsMessage::Text(message_json.clone()));
-            }
-        }
-    }
-    
-    // Send missed messages on reconnection (Critical Gap #2)
-    pub async fn send_missed_messages(
-        &self,
-        connection_id: ConnectionId,
-        room_id: RoomId,
-        last_seen_message_id: Option<MessageId>,
-        message_service: &MessageService,
-    ) -> Result<(), BroadcastError> {
-        let connection = {
-            let connections = self.connections.read().await;
-            connections.get(&connection_id).cloned()
-        };
-        
-        if let Some(connection) = connection {
-            // Get missed messages since last_seen_message_id
-            let missed_messages = if let Some(last_id) = last_seen_message_id {
-                message_service.get_messages_since(room_id, last_id).await?
-            } else {
-                // No last seen ID, send recent messages (Rails behavior)
-                message_service.get_recent_messages(room_id, 50).await?
-            };
-            
-            // Send missed messages
-            for message in missed_messages {
-                let ws_message = WebSocketMessage::MessageCreated {
-                    message: MessageResponse::from(message),
-                };
-                let message_json = serde_json::to_string(&ws_message).unwrap();
-                let _ = connection.sender.send(WsMessage::Text(message_json));
-            }
-        }
-        
-        Ok(())
-    }
-}
-```
-
-### WebSocket Message Protocol
-
-```rust
-// WebSocket message types (Rails ActionCable equivalent)
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "type", content = "data")]
-pub enum WebSocketMessage {
-    // Client -> Server messages
-    Subscribe {
-        room_id: RoomId,
-        last_seen_message_id: Option<MessageId>, // For reconnection
-    },
-    Unsubscribe {
-        room_id: RoomId,
-    },
-    TypingStart {
-        room_id: RoomId,
-    },
-    TypingStop {
-        room_id: RoomId,
-    },
-    Heartbeat {
-        timestamp: DateTime<Utc>,
-    },
-    
-    // Server -> Client messages
-    MessageCreated {
-        message: MessageResponse,
-    },
-    MessageUpdated {
-        message: MessageResponse,
-    },
-    MessageDeleted {
-        message_id: MessageId,
-        room_id: RoomId,
-    },
-    TypingNotification {
-        user: UserSummary,
-        is_typing: bool,
-    },
-    PresenceUpdate {
-        room_id: RoomId,
-        online_users: Vec<UserSummary>,
-    },
-    RoomUpdated {
-        room: RoomResponse,
-    },
-    MembershipUpdated {
-        membership: MembershipResponse,
-    },
-    
-    // Connection management
-    Connected {
-        connection_id: ConnectionId,
-    },
-    Disconnected {
-        reason: String,
-    },
-    Error {
-        message: String,
-        code: Option<String>,
-    },
-}
-
-// WebSocket connection handler
-pub async fn handle_websocket_connection(
-    socket: WebSocket,
-    user_id: UserId,
-    broadcaster: Arc<WebSocketBroadcaster>,
-    app_state: AppState,
-) {
-    let connection_id = ConnectionId::new();
-    let (sender, mut receiver) = socket.split();
-    let (tx, mut rx) = mpsc::unbounded_channel();
-    
-    // Create connection
-    let connection = WebSocketConnection {
-        id: connection_id,
-        user_id,
-        room_subscriptions: HashSet::new(),
-        sender: tx,
-        last_seen_message_id: None,
-        connected_at: Utc::now(),
-    };
-    
-    // Add connection with presence tracking
-    if let Err(e) = broadcaster.add_connection(connection, &app_state.membership_service).await {
-        eprintln!("Failed to add WebSocket connection: {}", e);
-        return;
-    }
-    
-    // Send connection confirmation
-    let connected_msg = WebSocketMessage::Connected { connection_id };
-    let _ = tx.send(WsMessage::Text(serde_json::to_string(&connected_msg).unwrap()));
-    
-    // Spawn sender task
-    let sender_task = tokio::spawn(async move {
-        while let Some(message) = rx.recv().await {
-            if sender.send(message).await.is_err() {
-                break;
-            }
-        }
-    });
-    
-    // Handle incoming messages
-    while let Some(msg) = receiver.next().await {
-        match msg {
-            Ok(WsMessage::Text(text)) => {
-                if let Err(e) = handle_websocket_message(
-                    connection_id,
-                    &text,
-                    &broadcaster,
-                    &app_state,
-                ).await {
-                    eprintln!("WebSocket message handling error: {}", e);
-                }
-            }
-            Ok(WsMessage::Close(_)) => break,
-            Err(e) => {
-                eprintln!("WebSocket error: {}", e);
-                break;
-            }
-            _ => {} // Ignore other message types
-        }
-    }
-    
-    // Cleanup on disconnect
-    let _ = broadcaster.remove_connection(connection_id, &app_state.membership_service).await;
-    sender_task.abort();
-}
-
-// Handle individual WebSocket messages
-async fn handle_websocket_message(
-    connection_id: ConnectionId,
-    text: &str,
-    broadcaster: &WebSocketBroadcaster,
-    app_state: &AppState,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let message: WebSocketMessage = serde_json::from_str(text)?;
-    
-    match message {
-        WebSocketMessage::Subscribe { room_id, last_seen_message_id } => {
-            // Verify room access
-            let user_id = get_connection_user_id(connection_id, broadcaster).await?;
-            app_state.room_service.verify_user_access(user_id, room_id).await?;
-            
-            // Subscribe to room
-            broadcaster.subscribe_to_room(connection_id, room_id).await?;
-            
-            // Send missed messages if reconnecting (Critical Gap #2)
-            if last_seen_message_id.is_some() {
-                broadcaster.send_missed_messages(
-                    connection_id,
-                    room_id,
-                    last_seen_message_id,
-                    &app_state.message_service,
-                ).await?;
-            }
-        }
-        
-        WebSocketMessage::TypingStart { room_id } => {
-            let user_id = get_connection_user_id(connection_id, broadcaster).await?;
-            let user = app_state.user_service.get_user(user_id).await?;
-            broadcaster.broadcast_typing_notification(room_id, &user, true).await;
-        }
-        
-        WebSocketMessage::TypingStop { room_id } => {
-            let user_id = get_connection_user_id(connection_id, broadcaster).await?;
-            let user = app_state.user_service.get_user(user_id).await?;
-            broadcaster.broadcast_typing_notification(room_id, &user, false).await;
-        }
-        
-        WebSocketMessage::Heartbeat { .. } => {
-            // Update connection activity (presence tracking)
-            let user_id = get_connection_user_id(connection_id, broadcaster).await?;
-            app_state.membership_service.refresh_user_presence(user_id).await?;
-        }
-        
-        _ => {
-            // Ignore client messages that should be server-only
-        }
-    }
-    
-    Ok(())
-}
-```
-
-**Key WebSocket Design Decisions**:
-- Rails ActionCable equivalent message protocol
-- Room-based subscriptions with access control
-- Basic presence tracking with connection counting (Critical Gap #5)
-- Reconnection support with missed message delivery (Critical Gap #2)
-- Best-effort delivery matching Rails behavior
-- Simple heartbeat mechanism for connection health
-- No complex message ordering or delivery guarantees
-
-### 4. Authentication System
-
-**Design Approach**: Rails-style session management with secure cookies.
-
-```rust
-pub struct AuthService {
-    db: SqlitePool,
-    secret_key: String,
-}
-
-impl AuthService {
-    pub async fn create_session(&self, user: &User) -> Result<String, AuthError> {
-        let session = Session {
-            user_id: user.id,
-            token: generate_secure_token(),
-            expires_at: Utc::now() + Duration::hours(24),
-        };
-        
-        // Direct database insert
-        sqlx::query!(
-            "INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)",
-            session.user_id.0, session.token, session.expires_at
-        ).execute(&self.db).await?;
-        
-        // Return signed cookie value
-        Ok(self.sign_token(&session.token))
-    }
-}
-```
-
-**Key Design Decisions**:
-- Session tokens stored in SQLite (direct operations)
-- Secure cookie-based authentication (Rails-style)
-- Simple token generation and validation
-- No complex OAuth or JWT handling
-- Basic session cleanup
-
-## Background Task Processing
-
-### Simple Async Task System - Rails Background Job Equivalent
-
-**Design Approach**: Simple tokio::spawn for basic async tasks, no complex job queues or coordination. Rails-equivalent background processing for webhooks, push notifications, and cleanup tasks.
-
-### Task Processing Architecture
-
-```rust
-use tokio::time::{Duration, sleep};
-use reqwest::Client;
-use serde_json::json;
-
-// Background task manager
-pub struct BackgroundTaskManager {
-    http_client: Client,
-    feature_flags: FeatureFlags,
-}
-
-impl BackgroundTaskManager {
-    pub fn new(feature_flags: FeatureFlags) -> Self {
-        let http_client = Client::builder()
-            .timeout(Duration::from_secs(30))
-            .build()
-            .expect("Failed to create HTTP client");
-        
-        Self {
-            http_client,
-            feature_flags,
-        }
-    }
-    
-    // Spawn webhook delivery task (Rails: Bot::WebhookJob)
-    pub fn deliver_webhook(&self, webhook_data: WebhookDeliveryData) {
-        if !self.feature_flags.bot_integrations {
-            return;
-        }
-        
-        let client = self.http_client.clone();
-        tokio::spawn(async move {
-            Self::execute_webhook_delivery(client, webhook_data).await;
-        });
-    }
-    
-    // Spawn push notification task
-    pub fn send_push_notification(&self, push_data: PushNotificationData) {
-        if !self.feature_flags.push_notifications {
-            return;
-        }
-        
-        let client = self.http_client.clone();
-        tokio::spawn(async move {
-            Self::execute_push_notification(client, push_data).await;
-        });
-    }
-    
-    // Spawn cleanup task
-    pub fn schedule_cleanup(&self, cleanup_data: CleanupTaskData) {
-        tokio::spawn(async move {
-            Self::execute_cleanup_task(cleanup_data).await;
-        });
-    }
-}
-```
-
-### Webhook Delivery Implementation
-
-```rust
-#[derive(Debug, Clone)]
-pub struct WebhookDeliveryData {
-    pub webhook_url: String,
-    pub payload: WebhookPayload,
-    pub bot_id: UserId,
-    pub message_id: MessageId,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct WebhookPayload {
-    pub user: UserSummary,
-    pub room: RoomSummary,
-    pub message: MessageSummary,
-    pub timestamp: DateTime<Utc>,
-}
-
-impl BackgroundTaskManager {
-    async fn execute_webhook_delivery(client: Client, data: WebhookDeliveryData) {
-        let start_time = std::time::Instant::now();
-        
-        // Rails: 7-second timeout for webhook delivery
-        let result = client
-            .post(&data.webhook_url)
-            .json(&data.payload)
-            .timeout(Duration::from_secs(7))
-            .send()
-            .await;
-        
-        match result {
-            Ok(response) => {
-                let status = response.status();
-                let duration = start_time.elapsed();
-                
-                tracing::info!(
-                    "Webhook delivered successfully: bot_id={}, status={}, duration={:?}",
-                    data.bot_id.0,
-                    status,
-                    duration
-                );
-                
-                // Process webhook response (Rails: create reply message)
-                if status.is_success() {
-                    if let Ok(response_text) = response.text().await {
-                        Self::process_webhook_response(data.bot_id, response_text).await;
-                    }
-                }
-            }
-            Err(e) => {
-                let duration = start_time.elapsed();
-                tracing::error!(
-                    "Webhook delivery failed: bot_id={}, error={}, duration={:?}",
-                    data.bot_id.0,
-                    e,
-                    duration
-                );
-                
-                // Simple retry logic (Rails: basic retry on failure)
-                if duration < Duration::from_secs(5) {
-                    // Only retry if it failed quickly (likely network issue)
-                    sleep(Duration::from_secs(2)).await;
-                    
-                    let retry_result = client
-                        .post(&data.webhook_url)
-                        .json(&data.payload)
-                        .timeout(Duration::from_secs(7))
-                        .send()
-                        .await;
-                    
-                    if let Err(retry_error) = retry_result {
-                        tracing::error!(
-                            "Webhook retry failed: bot_id={}, error={}",
-                            data.bot_id.0,
-                            retry_error
-                        );
-                    }
-                }
-            }
-        }
-    }
-    
-    async fn process_webhook_response(bot_id: UserId, response_text: String) {
-        // Simple response processing (Rails: Messages::ByBotsController)
-        if !response_text.trim().is_empty() && response_text.len() <= 10000 {
-            // TODO: Create bot reply message
-            tracing::info!(
-                "Bot response received: bot_id={}, length={}",
-                bot_id.0,
-                response_text.len()
-            );
-        }
-    }
-}
-```
-
-### Push Notification Implementation
-
-```rust
-#[derive(Debug, Clone)]
-pub struct PushNotificationData {
-    pub subscription: PushSubscription,
-    pub title: String,
-    pub body: String,
-    pub url: String,
-    pub badge_count: Option<i32>,
-}
-
-impl BackgroundTaskManager {
-    async fn execute_push_notification(client: Client, data: PushNotificationData) {
-        // Web Push implementation (Rails: WebPush with VAPID)
-        let payload = json!({
-            "title": data.title,
-            "body": data.body,
-            "url": data.url,
-            "badge": data.badge_count,
-            "icon": "/icon-192.png",
-            "timestamp": Utc::now().timestamp_millis()
-        });
-        
-        // TODO: Implement Web Push protocol with VAPID keys
-        // This would use the web-push crate for proper implementation
-        tracing::info!(
-            "Push notification sent: endpoint={}, title={}",
-            data.subscription.endpoint,
-            data.title
-        );
-    }
-}
-```
-
-### Cleanup Tasks Implementation
-
-```rust
-#[derive(Debug, Clone)]
-pub enum CleanupTaskData {
-    ExpiredSessions,
-    StalePresence,
-    OldSearchIndex,
-}
-
-impl BackgroundTaskManager {
-    async fn execute_cleanup_task(data: CleanupTaskData) {
-        match data {
-            CleanupTaskData::ExpiredSessions => {
-                // Clean up expired sessions (Rails: periodic cleanup)
-                tracing::info!("Cleaning up expired sessions");
-                // TODO: Delete sessions older than 30 days
-            }
-            CleanupTaskData::StalePresence => {
-                // Clean up stale presence data (Rails: Connectable concern)
-                tracing::info!("Cleaning up stale presence data");
-                // TODO: Reset connections for users inactive > 1 hour
-            }
-            CleanupTaskData::OldSearchIndex => {
-                // Optimize FTS5 search index (Rails: periodic maintenance)
-                tracing::info!("Optimizing search index");
-                // TODO: Run FTS5 optimize command
-            }
-        }
-    }
-}
-```
-
-## Asset Integration Specifications
-
-### Embedded Asset System - Complete UI Assets
-
-**Design Approach**: Embed all UI assets (CSS, images, sounds) in the binary using rust-embed for single-file deployment with graceful degradation messaging.
-
-### Asset Embedding Implementation
-
-```rust
-use rust_embed::RustEmbed;
-use axum::response::{IntoResponse, Response};
-use axum::http::{header, StatusCode};
-
-// Embed all frontend assets
-#[derive(RustEmbed)]
-#[folder = "frontend/dist/"]
-pub struct FrontendAssets;
-
-// Embed sound assets (59 MP3 files)
-#[derive(RustEmbed)]
-#[folder = "assets/sounds/"]
-pub struct SoundAssets;
-
-// Embed image assets (79 SVG files)
-#[derive(RustEmbed)]
-#[folder = "assets/images/"]
-pub struct ImageAssets;
-
-// Asset serving handler
-pub async fn serve_asset(Path(path): Path<String>) -> Result<Response, StatusCode> {
-    // Try frontend assets first (React SPA)
-    if let Some(content) = FrontendAssets::get(&path) {
-        let mime_type = mime_guess::from_path(&path)
-            .first_or_octet_stream()
-            .to_string();
-        
-        return Ok(Response::builder()
-            .header(header::CONTENT_TYPE, mime_type)
-            .header(header::CACHE_CONTROL, "public, max-age=31536000") // 1 year cache
-            .header(header::ETAG, format!("\"{}\"", content.metadata.sha256_hash()))
-            .body(content.data.into())
-            .unwrap());
-    }
-    
-    // Try sound assets
-    if path.starts_with("sounds/") {
-        let sound_path = path.strip_prefix("sounds/").unwrap();
-        if let Some(content) = SoundAssets::get(sound_path) {
-            return Ok(Response::builder()
-                .header(header::CONTENT_TYPE, "audio/mpeg")
-                .header(header::CACHE_CONTROL, "public, max-age=31536000")
-                .body(content.data.into())
-                .unwrap());
-        }
-    }
-    
-    // Try image assets
-    if path.starts_with("images/") {
-        let image_path = path.strip_prefix("images/").unwrap();
-        if let Some(content) = ImageAssets::get(image_path) {
-            return Ok(Response::builder()
-                .header(header::CONTENT_TYPE, "image/svg+xml")
-                .header(header::CACHE_CONTROL, "public, max-age=31536000")
-                .body(content.data.into())
-                .unwrap());
-        }
-    }
-    
-    // Fallback to index.html for SPA routing
-    if let Some(content) = FrontendAssets::get("index.html") {
-        return Ok(Response::builder()
-            .header(header::CONTENT_TYPE, "text/html")
-            .header(header::CACHE_CONTROL, "no-cache")
-            .body(content.data.into())
-            .unwrap());
-    }
-    
-    Err(StatusCode::NOT_FOUND)
-}
-```
-
-### Sound Command Processing
-
-```rust
-// Sound command handler (Rails: /play command)
-pub struct SoundProcessor;
-
-impl SoundProcessor {
-    // Parse sound commands from message content
-    pub fn extract_sound_command(content: &str) -> Option<String> {
-        if content.starts_with("/play ") {
-            let sound_name = content.strip_prefix("/play ").unwrap().trim();
-            
-            // Validate against available sounds (Rails: predefined list)
-            const VALID_SOUNDS: &[&str] = &[
-                "56k", "bell", "bezos", "bueller", "crickets", "trombone",
-                "rimshot", "tada", "airhorn", "applause", "boo", "nyan",
-                "ohmy", "pushit", "rimshot", "secret", "trombone", "vuvuzela",
-                "yeah", "yodel", // ... complete list of 59 sounds
-            ];
-            
-            if VALID_SOUNDS.contains(&sound_name) {
-                Some(sound_name.to_string())
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-    
-    // Get sound asset URL
-    pub fn get_sound_url(sound_name: &str) -> String {
-        format!("/assets/sounds/{}.mp3", sound_name)
-    }
-}
-```
-
-### Feature Flag Integration
-
-```rust
-// Feature flag configuration for graceful degradation
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FeatureFlags {
-    // MVP Phase 1: Enabled features
-    pub search_enabled: bool,           // Default: true
-    pub push_notifications: bool,       // Default: true
-    pub bot_integrations: bool,         // Default: true
-    pub sounds_enabled: bool,           // Default: true
-    
-    // MVP Phase 1: Disabled features (graceful degradation)
-    pub files_enabled: bool,            // Default: false
-    pub avatars_enabled: bool,          // Default: false
-    pub opengraph_enabled: bool,        // Default: false
-    pub video_processing: bool,         // Default: false
-}
-
-impl FeatureFlags {
-    pub fn from_env() -> Self {
-        Self {
-            search_enabled: env::var("SEARCH_ENABLED").unwrap_or("true".to_string()) == "true",
-            push_notifications: env::var("PUSH_NOTIFICATIONS").unwrap_or("true".to_string()) == "true",
-            bot_integrations: env::var("BOT_INTEGRATIONS").unwrap_or("true".to_string()) == "true",
-            sounds_enabled: env::var("SOUNDS_ENABLED").unwrap_or("true".to_string()) == "true",
-            
-            // Gracefully disabled for MVP
-            files_enabled: env::var("FILES_ENABLED").unwrap_or("false".to_string()) == "true",
-            avatars_enabled: env::var("AVATARS_ENABLED").unwrap_or("false".to_string()) == "true",
-            opengraph_enabled: env::var("OPENGRAPH_ENABLED").unwrap_or("false".to_string()) == "true",
-            video_processing: env::var("VIDEO_PROCESSING").unwrap_or("false".to_string()) == "true",
-        }
-    }
-}
-
-// Feature flag middleware for API endpoints
-pub async fn check_feature_flag<T>(
-    feature_enabled: bool,
-    feature_name: &str,
-    handler: impl Future<Output = Result<T, ApiError>>,
-) -> Result<T, ApiError> {
-    if !feature_enabled {
-        return Err(ApiError::FeatureDisabled(feature_name.to_string()));
-    }
-    handler.await
-}
-```
-
-**Key Background Task & Asset Design Decisions**:
-- Simple tokio::spawn for background tasks (Rails background job equivalent)
-- 7-second webhook timeout matching Rails implementation
-- Basic retry logic for failed webhooks (Rails pattern)
-- Complete asset embedding for single binary deployment
-- Sound command processing with predefined sound list (Rails /play commands)
-- Feature flags for graceful degradation of disabled features
-- Comprehensive caching headers for optimal performance
-- SPA routing fallback for React frontend#
-# Data Models
-
-## Complete Domain Model Specifications
-
-### Core Entity Models
+### Domain Models with Complete Field Specifications
 
 ```rust
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
 use uuid::Uuid;
 
-// User model - Complete Rails parity
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+/// User model - matches Rails User schema exactly
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
     pub id: UserId,
-    pub email_address: String,           // Rails: email_address field
+    pub email_address: String,
     pub name: String,
-    pub password_digest: String,         // Rails: bcrypt hash
-    pub role: UserRole,                  // Rails: enum (member: 0, administrator: 1, bot: 2)
-    pub bot_token: Option<String>,       // Rails: SecureRandom.alphanumeric(12) for bots
-    pub webhook_url: Option<String>,     // Rails: bot webhook endpoint
-    pub active: bool,                    // Rails: soft delete flag
+    pub password_digest: String,  // bcrypt hash
+    pub role: UserRole,
+    pub active: bool,
+    pub bot_token: Option<BotToken>,
+    pub webhook_url: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
 
-// Account model - Rails singleton pattern
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct Account {
-    pub id: AccountId,
-    pub name: String,                    // Rails: account name
-    pub join_code: String,               // Rails: "XXXX-XXXX-XXXX" format
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-// Room model with STI pattern - Complete Rails parity
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct Room {
-    pub id: RoomId,
-    pub account_id: AccountId,           // Rails: belongs_to :account
-    pub name: String,
-    pub room_type: RoomType,             // Rails: STI type column (Open, Closed, Direct)
-    pub creator_id: UserId,              // Rails: belongs_to :creator, class_name: "User"
-    pub last_message_at: Option<DateTime<Utc>>, // Rails: updated on message creation
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-// Message model - Complete Rails parity with rich text
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct Message {
-    pub id: MessageId,
-    pub room_id: RoomId,                 // Rails: belongs_to :room
-    pub creator_id: UserId,              // Rails: belongs_to :creator, class_name: "User"
-    pub body: String,                    // Rails: ActionText rich_text body
-    pub client_message_id: Uuid,         // Rails: UUID for deduplication (Critical Gap #1)
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-// Membership model - Rails join table with involvement
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct Membership {
-    pub id: MembershipId,
-    pub user_id: UserId,                 // Rails: belongs_to :user
-    pub room_id: RoomId,                 // Rails: belongs_to :room
-    pub involvement: Involvement,        // Rails: enum (invisible: 0, nothing: 1, mentions: 2, everything: 3)
-    pub connections: i32,                // Rails: Connectable concern for presence (Critical Gap #5)
-    pub connected_at: Option<DateTime<Utc>>, // Rails: presence tracking timestamp
-    pub unread_at: Option<DateTime<Utc>>, // Rails: last unread message timestamp
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-// Session model - Rails session management (Critical Gap #4)
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct Session {
-    pub id: SessionId,
-    pub user_id: UserId,                 // Rails: belongs_to :user
-    pub token: String,                   // Rails: SecureRandom token
-    pub ip_address: Option<String>,      // Rails: request IP tracking
-    pub user_agent: Option<String>,      // Rails: browser identification
-    pub last_active_at: DateTime<Utc>,   // Rails: updated every hour
-    pub created_at: DateTime<Utc>,
-}
-
-// Boost model - Rails message reactions
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct Boost {
-    pub id: BoostId,
-    pub message_id: MessageId,           // Rails: belongs_to :message
-    pub booster_id: UserId,              // Rails: belongs_to :booster, class_name: "User"
-    pub content: String,                 // Rails: emoji content (max 16 chars)
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-// PushSubscription model - Rails Web Push integration
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct PushSubscription {
-    pub id: PushSubscriptionId,
-    pub user_id: UserId,                 // Rails: belongs_to :user
-    pub endpoint: String,                // Rails: Web Push endpoint
-    pub p256dh_key: String,              // Rails: encryption key
-    pub auth_key: String,                // Rails: authentication key
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-```
-
-### Type Safety with Comprehensive Newtypes
-
-```rust
-// Primary key newtypes for type safety
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(transparent)]
-pub struct UserId(pub i64);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(transparent)]
-pub struct AccountId(pub i64);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(transparent)]
-pub struct RoomId(pub i64);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(transparent)]
-pub struct MessageId(pub i64);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(transparent)]
-pub struct MembershipId(pub i64);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(transparent)]
-pub struct SessionId(pub i64);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(transparent)]
-pub struct BoostId(pub i64);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(transparent)]
-pub struct PushSubscriptionId(pub i64);
-```
-
-### Enums - Rails-Compatible Definitions
-
-```rust
-// UserRole enum - Rails: member: 0, administrator: 1, bot: 2
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(type_name = "INTEGER")]
-#[repr(i32)]
+/// User roles - matches Rails enum exactly
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum UserRole {
     Member = 0,
     Administrator = 1,
     Bot = 2,
 }
 
-// RoomType enum - Rails STI pattern
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(type_name = "TEXT")]
-pub enum RoomType {
-    #[sqlx(rename = "Rooms::Open")]
-    Open,
-    #[sqlx(rename = "Rooms::Closed")]
-    Closed,
-    #[sqlx(rename = "Rooms::Direct")]
-    Direct,
+/// Room model - supports Rails STI pattern
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Room {
+    pub id: RoomId,
+    pub name: String,
+    pub room_type: RoomType,
+    pub creator_id: UserId,
+    pub last_message_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
-// Involvement enum - Rails: invisible: 0, nothing: 1, mentions: 2, everything: 3
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(type_name = "INTEGER")]
-#[repr(i32)]
+/// Room types - Rails Single Table Inheritance
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum RoomType {
+    Open,
+    Closed { invited_users: Vec<UserId> },
+    Direct { participants: [UserId; 2] },  // Exactly 2 participants
+}
+
+/// Message model with phantom types for state safety
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Message<State = Persisted> {
+    pub id: MessageId,
+    pub client_message_id: Uuid,  // Critical Gap #1: deduplication
+    pub content: String,
+    pub room_id: RoomId,
+    pub creator_id: UserId,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    _state: std::marker::PhantomData<State>,
+}
+
+/// Message states for type safety
+pub struct Draft;
+pub struct Validated;
+pub struct Persisted;
+
+/// Room membership with involvement levels
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Membership {
+    pub id: i64,
+    pub user_id: UserId,
+    pub room_id: RoomId,
+    pub involvement: Involvement,
+    pub connections: i32,  // Critical Gap #5: presence tracking
+    pub connected_at: Option<DateTime<Utc>>,
+    pub unread_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Involvement levels - Rails enum
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Involvement {
     Invisible = 0,  // Hidden from sidebar
     Nothing = 1,    // No notifications
     Mentions = 2,   // @mention notifications only
     Everything = 3, // All message notifications
 }
+
+/// Session model for authentication
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Session {
+    pub id: SessionId,
+    pub user_id: UserId,
+    pub token: String,  // Critical Gap #4: secure token
+    pub ip_address: Option<String>,
+    pub user_agent: Option<String>,
+    pub last_active_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+}
+
+/// WebSocket connection with state machine
+#[derive(Debug, Clone)]
+pub struct WebSocketConnection<State> {
+    pub id: ConnectionId,
+    pub user_id: Option<UserId>,
+    pub room_id: Option<RoomId>,
+    pub last_seen_message_id: Option<MessageId>,  // Critical Gap #2: reconnection
+    pub connected_at: DateTime<Utc>,
+    _state: std::marker::PhantomData<State>,
+}
+
+/// WebSocket connection states
+pub struct Connected;
+pub struct Authenticated { pub user_id: UserId }
+pub struct Subscribed { pub room_id: RoomId }
 ```
 
-### Request/Response Models
+## Comprehensive Error Type Hierarchy
 
 ```rust
-// API request models
-#[derive(Debug, Deserialize)]
-pub struct CreateMessageRequest {
-    pub body: String,
-    pub client_message_id: Uuid,
-}
+use thiserror::Error;
 
-#[derive(Debug, Deserialize)]
-pub struct CreateRoomRequest {
-    pub name: String,
-    pub room_type: RoomType,
-    pub member_ids: Option<Vec<UserId>>, // For closed/direct rooms
-}
-
-#[derive(Debug, Deserialize)]
-pub struct LoginRequest {
-    pub email_address: String,
-    pub password: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct RegisterRequest {
-    pub email_address: String,
-    pub name: String,
-    pub password: String,
-    pub join_code: String,
-}
-
-// API response models
-#[derive(Debug, Serialize)]
-pub struct MessageResponse {
-    pub id: MessageId,
-    pub room_id: RoomId,
-    pub creator: UserSummary,
-    pub body: String,
-    pub client_message_id: Uuid,
-    pub boosts: Vec<BoostSummary>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct RoomResponse {
-    pub id: RoomId,
-    pub name: String,
-    pub room_type: RoomType,
-    pub creator: UserSummary,
-    pub members: Vec<MembershipSummary>,
-    pub last_message_at: Option<DateTime<Utc>>,
-    pub created_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct UserSummary {
-    pub id: UserId,
-    pub name: String,
-    pub role: UserRole,
-}
-
-#[derive(Debug, Serialize)]
-pub struct MembershipSummary {
-    pub user: UserSummary,
-    pub involvement: Involvement,
-    pub is_online: bool, // Computed from connections > 0
-}
-
-#[derive(Debug, Serialize)]
-pub struct BoostSummary {
-    pub id: BoostId,
-    pub booster: UserSummary,
-    pub content: String,
-    pub created_at: DateTime<Utc>,
-}
-```
-
-## Error Handling
-
-### Simple Error Strategy
-
-```rust
-// Application error type
-#[derive(Debug, thiserror::Error)]
-pub enum AppError {
-    #[error("Database error: {0}")]
+/// Message service errors - all validation, database, and authorization cases
+#[derive(Error, Debug)]
+pub enum MessageError {
+    #[error("Database operation failed: {0}")]
     Database(#[from] sqlx::Error),
     
-    #[error("Authentication failed")]
-    Unauthorized,
+    #[error("Message validation failed: {field} - {message}")]
+    Validation { field: String, message: String },
     
-    #[error("Resource not found")]
-    NotFound,
+    #[error("User {user_id:?} not authorized for room {room_id:?}")]
+    Authorization { user_id: UserId, room_id: RoomId },
     
-    #[error("Invalid input: {0}")]
-    Validation(String),
+    #[error("Room {room_id:?} not found")]
+    RoomNotFound { room_id: RoomId },
+    
+    #[error("Message {message_id:?} not found")]
+    MessageNotFound { message_id: MessageId },
+    
+    #[error("Content too long: {length} characters (max 10000)")]
+    ContentTooLong { length: usize },
+    
+    #[error("Empty message content not allowed")]
+    EmptyContent,
+    
+    #[error("Duplicate client message ID handled")]
+    DuplicateClientId { existing_message_id: MessageId },
+    
+    #[error("Database writer unavailable")]
+    WriterUnavailable,
 }
 
-// Convert to HTTP responses
-impl IntoResponse for AppError {
-    fn into_response(self) -> Response {
-        let (status, message) = match self {
-            AppError::Database(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
-            AppError::Unauthorized => (StatusCode::UNAUTHORIZED, "Authentication required"),
-            AppError::NotFound => (StatusCode::NOT_FOUND, "Resource not found"),
-            AppError::Validation(msg) => (StatusCode::BAD_REQUEST, msg.as_str()),
+/// Room service errors - access control and membership errors
+#[derive(Error, Debug)]
+pub enum RoomError {
+    #[error("Database operation failed: {0}")]
+    Database(#[from] sqlx::Error),
+    
+    #[error("Room validation failed: {field} - {message}")]
+    Validation { field: String, message: String },
+    
+    #[error("User {user_id:?} not authorized for this operation")]
+    NotAuthorized { user_id: UserId },
+    
+    #[error("Room {room_id:?} not found")]
+    NotFound { room_id: RoomId },
+    
+    #[error("User {user_id:?} not found")]
+    UserNotFound { user_id: UserId },
+    
+    #[error("Membership already exists for user {user_id:?} in room {room_id:?}")]
+    MembershipExists { user_id: UserId, room_id: RoomId },
+    
+    #[error("Direct room already exists between users")]
+    DirectRoomExists { room_id: RoomId },
+    
+    #[error("Cannot modify system room")]
+    SystemRoomProtected,
+    
+    #[error("Room name too long: {length} characters (max 100)")]
+    NameTooLong { length: usize },
+}
+
+/// Authentication service errors
+#[derive(Error, Debug)]
+pub enum AuthError {
+    #[error("Database operation failed: {0}")]
+    Database(#[from] sqlx::Error),
+    
+    #[error("Invalid credentials")]
+    InvalidCredentials,
+    
+    #[error("User not found: {email}")]
+    UserNotFound { email: String },
+    
+    #[error("User account is deactivated")]
+    AccountDeactivated,
+    
+    #[error("Session not found or expired")]
+    SessionNotFound,
+    
+    #[error("Invalid session token")]
+    InvalidToken,
+    
+    #[error("Rate limit exceeded: {attempts} attempts in {window_minutes} minutes")]
+    RateLimitExceeded { attempts: u32, window_minutes: u32 },
+    
+    #[error("Invalid join code format")]
+    InvalidJoinCode,
+    
+    #[error("Email already registered: {email}")]
+    EmailExists { email: String },
+    
+    #[error("Bot token invalid or expired")]
+    InvalidBotToken,
+    
+    #[error("Password validation failed: {reason}")]
+    PasswordValidation { reason: String },
+}
+
+/// WebSocket and presence errors
+#[derive(Error, Debug)]
+pub enum ConnectionError {
+    #[error("WebSocket error: {0}")]
+    WebSocket(String),
+    
+    #[error("Connection not authenticated")]
+    NotAuthenticated,
+    
+    #[error("Connection not subscribed to room")]
+    NotSubscribed,
+    
+    #[error("User {user_id:?} not authorized for room {room_id:?}")]
+    NotAuthorized { user_id: UserId, room_id: RoomId },
+    
+    #[error("Room {room_id:?} not found")]
+    RoomNotFound { room_id: RoomId },
+    
+    #[error("Connection {connection_id:?} not found")]
+    ConnectionNotFound { connection_id: ConnectionId },
+    
+    #[error("Broadcast failed: {reason}")]
+    BroadcastFailed { reason: String },
+    
+    #[error("Presence tracking error: {reason}")]
+    PresenceError { reason: String },
+    
+    #[error("Connection limit exceeded")]
+    ConnectionLimitExceeded,
+}
+
+/// Webhook and bot integration errors
+#[derive(Error, Debug)]
+pub enum WebhookError {
+    #[error("HTTP request failed: {0}")]
+    HttpError(#[from] reqwest::Error),
+    
+    #[error("Webhook timeout after {seconds} seconds")]
+    Timeout { seconds: u64 },
+    
+    #[error("Invalid webhook URL: {url}")]
+    InvalidUrl { url: String },
+    
+    #[error("Webhook response too large: {size} bytes")]
+    ResponseTooLarge { size: usize },
+    
+    #[error("Invalid response content type: {content_type}")]
+    InvalidContentType { content_type: String },
+    
+    #[error("Bot not found: {bot_id:?}")]
+    BotNotFound { bot_id: UserId },
+    
+    #[error("Webhook delivery failed: {status_code}")]
+    DeliveryFailed { status_code: u16 },
+}
+```
+
+## Service Trait Interfaces
+
+### MessageService - Complete Interface Contract
+
+```rust
+use async_trait::async_trait;
+
+/// Message service - handles all message operations with Rails parity
+#[async_trait]
+pub trait MessageService: Send + Sync {
+    /// Creates a message with automatic deduplication based on client_message_id
+    /// 
+    /// # Critical Gap #1: Deduplication
+    /// If client_message_id already exists in room, returns existing message
+    /// 
+    /// # Arguments
+    /// * `content` - Message content (1-10000 characters)
+    /// * `room_id` - Target room identifier
+    /// * `creator_id` - Message creator identifier  
+    /// * `client_message_id` - Client-generated UUID for deduplication
+    ///
+    /// # Returns
+    /// * `Ok(Message<Persisted>)` - Created or existing message
+    /// * `Err(MessageError::Validation)` - Invalid input parameters
+    /// * `Err(MessageError::Authorization)` - User cannot access room
+    /// * `Err(MessageError::Database)` - Database operation failed
+    ///
+    /// # Side Effects
+    /// * Updates room.last_message_at timestamp
+    /// * Broadcasts message to room subscribers via WebSocket
+    /// * Updates FTS5 search index
+    async fn create_message_with_deduplication(
+        &self,
+        content: String,
+        room_id: RoomId,
+        creator_id: UserId,
+        client_message_id: Uuid,
+    ) -> Result<Message<Persisted>, MessageError>;
+
+    /// Gets messages since a specific message ID (for reconnection)
+    /// 
+    /// # Critical Gap #2: Reconnection State
+    /// Returns all messages after the given ID in chronological order
+    /// 
+    /// # Arguments
+    /// * `room_id` - Room to get messages from
+    /// * `since_message_id` - Get messages after this ID
+    /// * `limit` - Maximum number of messages (default 50)
+    ///
+    /// # Returns
+    /// * `Ok(Vec<Message<Persisted>>)` - Messages in chronological order
+    /// * `Err(MessageError::Authorization)` - User cannot access room
+    /// * `Err(MessageError::Database)` - Database operation failed
+    async fn get_messages_since(
+        &self,
+        room_id: RoomId,
+        since_message_id: MessageId,
+        user_id: UserId,
+        limit: Option<u32>,
+    ) -> Result<Vec<Message<Persisted>>, MessageError>;
+
+    /// Gets recent messages for a room (pagination support)
+    /// 
+    /// # Arguments
+    /// * `room_id` - Room to get messages from
+    /// * `before_message_id` - Get messages before this ID (for pagination)
+    /// * `limit` - Maximum number of messages (default 50)
+    /// * `user_id` - User requesting messages (for authorization)
+    ///
+    /// # Returns
+    /// * `Ok(Vec<Message<Persisted>>)` - Messages in reverse chronological order
+    /// * `Err(MessageError::Authorization)` - User cannot access room
+    /// * `Err(MessageError::Database)` - Database operation failed
+    async fn get_recent_messages(
+        &self,
+        room_id: RoomId,
+        before_message_id: Option<MessageId>,
+        user_id: UserId,
+        limit: Option<u32>,
+    ) -> Result<Vec<Message<Persisted>>, MessageError>;
+
+    /// Updates an existing message (creator or admin only)
+    /// 
+    /// # Arguments
+    /// * `message_id` - Message to update
+    /// * `new_content` - New message content
+    /// * `user_id` - User requesting update
+    ///
+    /// # Returns
+    /// * `Ok(Message<Persisted>)` - Updated message
+    /// * `Err(MessageError::Authorization)` - User cannot edit this message
+    /// * `Err(MessageError::MessageNotFound)` - Message doesn't exist
+    /// * `Err(MessageError::Database)` - Database operation failed
+    ///
+    /// # Side Effects
+    /// * Broadcasts update to room subscribers
+    /// * Updates FTS5 search index
+    async fn update_message(
+        &self,
+        message_id: MessageId,
+        new_content: String,
+        user_id: UserId,
+    ) -> Result<Message<Persisted>, MessageError>;
+
+    /// Deletes a message (creator or admin only)
+    /// 
+    /// # Arguments
+    /// * `message_id` - Message to delete
+    /// * `user_id` - User requesting deletion
+    ///
+    /// # Returns
+    /// * `Ok(())` - Message deleted successfully
+    /// * `Err(MessageError::Authorization)` - User cannot delete this message
+    /// * `Err(MessageError::MessageNotFound)` - Message doesn't exist
+    /// * `Err(MessageError::Database)` - Database operation failed
+    ///
+    /// # Side Effects
+    /// * Broadcasts deletion to room subscribers
+    /// * Removes from FTS5 search index
+    async fn delete_message(
+        &self,
+        message_id: MessageId,
+        user_id: UserId,
+    ) -> Result<(), MessageError>;
+
+    /// Searches messages using FTS5 (Rails equivalent)
+    /// 
+    /// # Arguments
+    /// * `query` - Search query string
+    /// * `user_id` - User performing search (for room access filtering)
+    /// * `room_id` - Optional room filter
+    /// * `limit` - Maximum results (default 50)
+    ///
+    /// # Returns
+    /// * `Ok(Vec<Message<Persisted>>)` - Matching messages
+    /// * `Err(MessageError::Database)` - Search operation failed
+    async fn search_messages(
+        &self,
+        query: String,
+        user_id: UserId,
+        room_id: Option<RoomId>,
+        limit: Option<u32>,
+    ) -> Result<Vec<Message<Persisted>>, MessageError>;
+
+    /// Validates message content (Rails equivalent rules)
+    /// 
+    /// # Arguments
+    /// * `content` - Content to validate
+    ///
+    /// # Returns
+    /// * `Ok(())` - Content is valid
+    /// * `Err(MessageError::Validation)` - Content validation failed
+    fn validate_content(&self, content: &str) -> Result<(), MessageError>;
+}
+```
+
+### RoomService - Complete Interface Contract
+
+```rust
+/// Room service - handles room management with Rails STI pattern
+#[async_trait]
+pub trait RoomService: Send + Sync {
+    /// Creates a new room with automatic membership granting
+    /// 
+    /// # Arguments
+    /// * `name` - Room name (1-100 characters)
+    /// * `room_type` - Type of room (Open/Closed/Direct)
+    /// * `creator_id` - User creating the room
+    /// * `initial_members` - For closed rooms, initial member list
+    ///
+    /// # Returns
+    /// * `Ok(Room)` - Created room
+    /// * `Err(RoomError::Validation)` - Invalid room parameters
+    /// * `Err(RoomError::DirectRoomExists)` - Direct room already exists
+    /// * `Err(RoomError::Database)` - Database operation failed
+    ///
+    /// # Side Effects
+    /// * Creates memberships for appropriate users
+    /// * For Open rooms: grants membership to all active users
+    /// * For Direct rooms: enforces singleton pattern
+    /// * Broadcasts room creation to affected users
+    async fn create_room(
+        &self,
+        name: String,
+        room_type: RoomType,
+        creator_id: UserId,
+        initial_members: Option<Vec<UserId>>,
+    ) -> Result<Room, RoomError>;
+
+    /// Finds or creates a direct room between two users
+    /// 
+    /// # Arguments
+    /// * `user1_id` - First participant
+    /// * `user2_id` - Second participant
+    ///
+    /// # Returns
+    /// * `Ok(Room)` - Existing or newly created direct room
+    /// * `Err(RoomError::UserNotFound)` - One of the users doesn't exist
+    /// * `Err(RoomError::Database)` - Database operation failed
+    ///
+    /// # Side Effects
+    /// * Creates room if it doesn't exist
+    /// * Sets involvement to Everything for both users
+    /// * Auto-generates name from member list
+    async fn find_or_create_direct_room(
+        &self,
+        user1_id: UserId,
+        user2_id: UserId,
+    ) -> Result<Room, RoomError>;
+
+    /// Gets all rooms accessible to a user
+    /// 
+    /// # Arguments
+    /// * `user_id` - User to get rooms for
+    /// * `include_invisible` - Whether to include invisible memberships
+    ///
+    /// # Returns
+    /// * `Ok(Vec<Room>)` - Accessible rooms
+    /// * `Err(RoomError::Database)` - Database operation failed
+    async fn get_user_rooms(
+        &self,
+        user_id: UserId,
+        include_invisible: bool,
+    ) -> Result<Vec<Room>, RoomError>;
+
+    /// Grants membership to a user (admin or creator only)
+    /// 
+    /// # Arguments
+    /// * `room_id` - Room to grant access to
+    /// * `user_id` - User to grant membership
+    /// * `granter_id` - User granting membership (must be admin/creator)
+    /// * `involvement` - Initial involvement level
+    ///
+    /// # Returns
+    /// * `Ok(Membership)` - Created membership
+    /// * `Err(RoomError::NotAuthorized)` - Granter cannot modify this room
+    /// * `Err(RoomError::MembershipExists)` - User already has membership
+    /// * `Err(RoomError::Database)` - Database operation failed
+    ///
+    /// # Side Effects
+    /// * Broadcasts membership change to affected users
+    /// * For Open rooms: auto-grants to new users joining account
+    async fn grant_membership(
+        &self,
+        room_id: RoomId,
+        user_id: UserId,
+        granter_id: UserId,
+        involvement: Involvement,
+    ) -> Result<Membership, RoomError>;
+
+    /// Revokes membership from a user (admin or creator only)
+    /// 
+    /// # Arguments
+    /// * `room_id` - Room to revoke access from
+    /// * `user_id` - User to revoke membership
+    /// * `revoker_id` - User revoking membership (must be admin/creator)
+    ///
+    /// # Returns
+    /// * `Ok(())` - Membership revoked successfully
+    /// * `Err(RoomError::NotAuthorized)` - Revoker cannot modify this room
+    /// * `Err(RoomError::Database)` - Database operation failed
+    ///
+    /// # Side Effects
+    /// * Closes WebSocket connections for revoked user
+    /// * Broadcasts membership change to affected users
+    async fn revoke_membership(
+        &self,
+        room_id: RoomId,
+        user_id: UserId,
+        revoker_id: UserId,
+    ) -> Result<(), RoomError>;
+
+    /// Updates user's involvement level in a room
+    /// 
+    /// # Arguments
+    /// * `room_id` - Room to update involvement in
+    /// * `user_id` - User whose involvement to update
+    /// * `new_involvement` - New involvement level
+    ///
+    /// # Returns
+    /// * `Ok(Membership)` - Updated membership
+    /// * `Err(RoomError::NotAuthorized)` - User cannot access this room
+    /// * `Err(RoomError::Database)` - Database operation failed
+    ///
+    /// # Side Effects
+    /// * Broadcasts involvement change to user's connections
+    /// * Updates sidebar display for user
+    async fn update_involvement(
+        &self,
+        room_id: RoomId,
+        user_id: UserId,
+        new_involvement: Involvement,
+    ) -> Result<Membership, RoomError>;
+
+    /// Marks room as read for a user (clears unread_at)
+    /// 
+    /// # Arguments
+    /// * `room_id` - Room to mark as read
+    /// * `user_id` - User marking room as read
+    ///
+    /// # Returns
+    /// * `Ok(())` - Room marked as read
+    /// * `Err(RoomError::NotAuthorized)` - User cannot access this room
+    /// * `Err(RoomError::Database)` - Database operation failed
+    ///
+    /// # Side Effects
+    /// * Clears unread_at timestamp
+    /// * Broadcasts read state change to user's connections
+    async fn mark_room_as_read(
+        &self,
+        room_id: RoomId,
+        user_id: UserId,
+    ) -> Result<(), RoomError>;
+
+    /// Updates room when it receives a message (Rails pattern)
+    /// 
+    /// # Arguments
+    /// * `room_id` - Room that received message
+    /// * `message` - The message that was received
+    ///
+    /// # Returns
+    /// * `Ok(())` - Room updated successfully
+    /// * `Err(RoomError::Database)` - Database operation failed
+    ///
+    /// # Side Effects
+    /// * Updates last_message_at timestamp
+    /// * Sets unread_at for disconnected visible members (excluding creator)
+    async fn receive_message(
+        &self,
+        room_id: RoomId,
+        message: &Message<Persisted>,
+    ) -> Result<(), RoomError>;
+
+    /// Validates room parameters (Rails equivalent rules)
+    /// 
+    /// # Arguments
+    /// * `name` - Room name to validate
+    /// * `room_type` - Room type to validate
+    ///
+    /// # Returns
+    /// * `Ok(())` - Parameters are valid
+    /// * `Err(RoomError::Validation)` - Validation failed
+    fn validate_room_params(&self, name: &str, room_type: &RoomType) -> Result<(), RoomError>;
+}
+```
+
+I'll continue with the remaining service interfaces in the next part. This establishes the foundation with complete type contracts for the core domain models and the first two major services. 
+
+Would you like me to continue with the AuthService, WebSocketBroadcaster, and other service interfaces?
+###
+ AuthService - Complete Interface Contract
+
+```rust
+/// Authentication service - handles user auth with Rails session management
+#[async_trait]
+pub trait AuthService: Send + Sync {
+    /// Authenticates user with email and password (Rails equivalent)
+    /// 
+    /// # Arguments
+    /// * `email` - User email address
+    /// * `password` - Plain text password
+    /// * `ip_address` - Client IP for session tracking
+    /// * `user_agent` - Client user agent for session tracking
+    ///
+    /// # Returns
+    /// * `Ok(Session)` - Created session with secure token
+    /// * `Err(AuthError::InvalidCredentials)` - Wrong email/password
+    /// * `Err(AuthError::AccountDeactivated)` - User account is disabled
+    /// * `Err(AuthError::RateLimitExceeded)` - Too many login attempts
+    /// * `Err(AuthError::Database)` - Database operation failed
+    ///
+    /// # Side Effects
+    /// * Creates session record with secure token (Critical Gap #4)
+    /// * Updates user's last_active_at timestamp
+    /// * Logs security event
+    async fn authenticate_user(
+        &self,
+        email: String,
+        password: String,
+        ip_address: Option<String>,
+        user_agent: Option<String>,
+    ) -> Result<Session, AuthError>;
+
+    /// Authenticates bot with bot key (id-token format)
+    /// 
+    /// # Arguments
+    /// * `bot_key` - Bot key in "id-token" format
+    ///
+    /// # Returns
+    /// * `Ok(User)` - Authenticated bot user
+    /// * `Err(AuthError::InvalidBotToken)` - Invalid or expired bot token
+    /// * `Err(AuthError::AccountDeactivated)` - Bot account is disabled
+    /// * `Err(AuthError::Database)` - Database operation failed
+    async fn authenticate_bot(&self, bot_key: String) -> Result<User, AuthError>;
+
+    /// Validates session token and returns user
+    /// 
+    /// # Arguments
+    /// * `session_token` - Session token from cookie
+    ///
+    /// # Returns
+    /// * `Ok((User, Session))` - Valid user and session
+    /// * `Err(AuthError::SessionNotFound)` - Invalid or expired session
+    /// * `Err(AuthError::AccountDeactivated)` - User account is disabled
+    /// * `Err(AuthError::Database)` - Database operation failed
+    ///
+    /// # Side Effects
+    /// * Updates session's last_active_at if > 1 hour old
+    async fn validate_session(&self, session_token: String) -> Result<(User, Session), AuthError>;
+
+    /// Creates new user account with join code verification
+    /// 
+    /// # Arguments
+    /// * `email` - User email address
+    /// * `name` - User display name
+    /// * `password` - Plain text password (will be hashed)
+    /// * `join_code` - Account join code (XXXX-XXXX-XXXX format)
+    ///
+    /// # Returns
+    /// * `Ok(User)` - Created user account
+    /// * `Err(AuthError::InvalidJoinCode)` - Wrong join code
+    /// * `Err(AuthError::EmailExists)` - Email already registered
+    /// * `Err(AuthError::PasswordValidation)` - Password too weak
+    /// * `Err(AuthError::Database)` - Database operation failed
+    ///
+    /// # Side Effects
+    /// * Hashes password with bcrypt
+    /// * Auto-grants memberships to all Open rooms
+    /// * Creates default user role (member)
+    async fn create_user_account(
+        &self,
+        email: String,
+        name: String,
+        password: String,
+        join_code: String,
+    ) -> Result<User, AuthError>;
+
+    /// Creates bot user account (admin only)
+    /// 
+    /// # Arguments
+    /// * `name` - Bot display name
+    /// * `webhook_url` - Optional webhook URL for bot responses
+    /// * `creator_id` - Admin user creating the bot
+    ///
+    /// # Returns
+    /// * `Ok((User, BotToken))` - Created bot and its token
+    /// * `Err(AuthError::NotAuthorized)` - Creator is not admin
+    /// * `Err(AuthError::Database)` - Database operation failed
+    ///
+    /// # Side Effects
+    /// * Generates secure bot token (SecureRandom.alphanumeric(12))
+    /// * Sets user role to Bot
+    /// * Creates email with UUID suffix for uniqueness
+    async fn create_bot_account(
+        &self,
+        name: String,
+        webhook_url: Option<String>,
+        creator_id: UserId,
+    ) -> Result<(User, BotToken), AuthError>;
+
+    /// Destroys user session (logout)
+    /// 
+    /// # Arguments
+    /// * `session_token` - Session token to destroy
+    ///
+    /// # Returns
+    /// * `Ok(())` - Session destroyed successfully
+    /// * `Err(AuthError::Database)` - Database operation failed
+    ///
+    /// # Side Effects
+    /// * Removes session record from database
+    /// * Removes push notification subscription
+    async fn destroy_session(&self, session_token: String) -> Result<(), AuthError>;
+
+    /// Deactivates user account (admin only)
+    /// 
+    /// # Arguments
+    /// * `user_id` - User to deactivate
+    /// * `admin_id` - Admin performing deactivation
+    ///
+    /// # Returns
+    /// * `Ok(())` - User deactivated successfully
+    /// * `Err(AuthError::NotAuthorized)` - Admin lacks permission
+    /// * `Err(AuthError::UserNotFound)` - User doesn't exist
+    /// * `Err(AuthError::Database)` - Database operation failed
+    ///
+    /// # Side Effects
+    /// * Closes all remote connections
+    /// * Deletes non-direct memberships
+    /// * Anonymizes email with UUID suffix
+    /// * Sets active=false
+    /// * Deletes all sessions
+    async fn deactivate_user(
+        &self,
+        user_id: UserId,
+        admin_id: UserId,
+    ) -> Result<(), AuthError>;
+
+    /// Resets bot token (admin only)
+    /// 
+    /// # Arguments
+    /// * `bot_id` - Bot user to reset token for
+    /// * `admin_id` - Admin performing reset
+    ///
+    /// # Returns
+    /// * `Ok(BotToken)` - New bot token
+    /// * `Err(AuthError::NotAuthorized)` - Admin lacks permission
+    /// * `Err(AuthError::UserNotFound)` - Bot doesn't exist
+    /// * `Err(AuthError::Database)` - Database operation failed
+    ///
+    /// # Side Effects
+    /// * Generates new secure token
+    /// * Invalidates old token immediately
+    async fn reset_bot_token(
+        &self,
+        bot_id: UserId,
+        admin_id: UserId,
+    ) -> Result<BotToken, AuthError>;
+
+    /// Generates secure session token (Critical Gap #4)
+    /// 
+    /// # Returns
+    /// * `String` - Cryptographically secure token (Rails SecureRandom equivalent)
+    fn generate_secure_token(&self) -> String;
+
+    /// Validates password strength (Rails equivalent rules)
+    /// 
+    /// # Arguments
+    /// * `password` - Password to validate
+    ///
+    /// # Returns
+    /// * `Ok(())` - Password meets requirements
+    /// * `Err(AuthError::PasswordValidation)` - Password too weak
+    fn validate_password(&self, password: &str) -> Result<(), AuthError>;
+
+    /// Validates join code format (XXXX-XXXX-XXXX)
+    /// 
+    /// # Arguments
+    /// * `join_code` - Join code to validate
+    /// * `account_join_code` - Expected join code for account
+    ///
+    /// # Returns
+    /// * `Ok(())` - Join code is valid
+    /// * `Err(AuthError::InvalidJoinCode)` - Join code is invalid
+    fn validate_join_code(&self, join_code: &str, account_join_code: &str) -> Result<(), AuthError>;
+}
+```
+
+### WebSocketBroadcaster - Complete Interface Contract
+
+```rust
+/// WebSocket broadcaster - handles real-time communication (Rails ActionCable equivalent)
+#[async_trait]
+pub trait WebSocketBroadcaster: Send + Sync {
+    /// Adds a WebSocket connection to the broadcaster
+    /// 
+    /// # Arguments
+    /// * `connection` - WebSocket connection in Connected state
+    ///
+    /// # Returns
+    /// * `Ok(ConnectionId)` - Assigned connection ID
+    /// * `Err(ConnectionError::ConnectionLimitExceeded)` - Too many connections
+    ///
+    /// # Side Effects
+    /// * Stores connection for future broadcasts
+    /// * Starts heartbeat monitoring
+    async fn add_connection(
+        &self,
+        connection: WebSocketConnection<Connected>,
+    ) -> Result<ConnectionId, ConnectionError>;
+
+    /// Authenticates a WebSocket connection
+    /// 
+    /// # Arguments
+    /// * `connection_id` - Connection to authenticate
+    /// * `session_token` - Session token from cookie
+    ///
+    /// # Returns
+    /// * `Ok(WebSocketConnection<Authenticated>)` - Authenticated connection
+    /// * `Err(ConnectionError::NotAuthenticated)` - Invalid session
+    /// * `Err(ConnectionError::ConnectionNotFound)` - Connection doesn't exist
+    ///
+    /// # Side Effects
+    /// * Updates connection state to Authenticated
+    /// * Associates connection with user
+    async fn authenticate_connection(
+        &self,
+        connection_id: ConnectionId,
+        session_token: String,
+    ) -> Result<WebSocketConnection<Authenticated>, ConnectionError>;
+
+    /// Subscribes connection to a room
+    /// 
+    /// # Arguments
+    /// * `connection_id` - Authenticated connection
+    /// * `room_id` - Room to subscribe to
+    ///
+    /// # Returns
+    /// * `Ok(WebSocketConnection<Subscribed>)` - Subscribed connection
+    /// * `Err(ConnectionError::NotAuthorized)` - User cannot access room
+    /// * `Err(ConnectionError::RoomNotFound)` - Room doesn't exist
+    ///
+    /// # Side Effects
+    /// * Updates connection state to Subscribed
+    /// * Increments presence count for user in room (Critical Gap #5)
+    /// * Clears unread_at for user in room
+    /// * Broadcasts presence update to room
+    async fn subscribe_to_room(
+        &self,
+        connection_id: ConnectionId,
+        room_id: RoomId,
+    ) -> Result<WebSocketConnection<Subscribed>, ConnectionError>;
+
+    /// Handles WebSocket reconnection with state sync (Critical Gap #2)
+    /// 
+    /// # Arguments
+    /// * `connection_id` - Reconnecting connection
+    /// * `last_seen_message_id` - Last message ID client received
+    ///
+    /// # Returns
+    /// * `Ok(Vec<Message<Persisted>>)` - Missed messages since last_seen
+    /// * `Err(ConnectionError::ConnectionNotFound)` - Connection doesn't exist
+    ///
+    /// # Side Effects
+    /// * Sends missed messages to client
+    /// * Updates connection's last_seen_message_id
+    /// * Restores room subscriptions
+    async fn handle_reconnection(
+        &self,
+        connection_id: ConnectionId,
+        last_seen_message_id: Option<MessageId>,
+    ) -> Result<Vec<Message<Persisted>>, ConnectionError>;
+
+    /// Broadcasts message to all room subscribers (Rails ActionCable pattern)
+    /// 
+    /// # Arguments
+    /// * `room_id` - Room to broadcast to
+    /// * `message` - Message to broadcast
+    ///
+    /// # Returns
+    /// * `Ok(u32)` - Number of connections message was sent to
+    /// * `Err(ConnectionError::BroadcastFailed)` - Broadcast operation failed
+    ///
+    /// # Side Effects
+    /// * Sends message to all connected room members
+    /// * Updates last_seen_message_id for all connections
+    /// * Logs failed sends but continues (best-effort delivery)
+    async fn broadcast_to_room(
+        &self,
+        room_id: RoomId,
+        message: &Message<Persisted>,
+    ) -> Result<u32, ConnectionError>;
+
+    /// Broadcasts typing notification to room
+    /// 
+    /// # Arguments
+    /// * `room_id` - Room to broadcast to
+    /// * `user_id` - User who is typing
+    /// * `is_typing` - Whether user started or stopped typing
+    ///
+    /// # Returns
+    /// * `Ok(())` - Notification broadcast successfully
+    /// * `Err(ConnectionError::BroadcastFailed)` - Broadcast failed
+    ///
+    /// # Side Effects
+    /// * Sends typing notification to room subscribers (excluding sender)
+    /// * Throttles notifications to prevent spam
+    /// * Clears typing state after 5 seconds of inactivity
+    async fn broadcast_typing_notification(
+        &self,
+        room_id: RoomId,
+        user_id: UserId,
+        is_typing: bool,
+    ) -> Result<(), ConnectionError>;
+
+    /// Broadcasts presence update to room
+    /// 
+    /// # Arguments
+    /// * `room_id` - Room to broadcast to
+    /// * `user_id` - User whose presence changed
+    /// * `is_present` - Whether user is now present or absent
+    ///
+    /// # Returns
+    /// * `Ok(())` - Presence update broadcast successfully
+    /// * `Err(ConnectionError::BroadcastFailed)` - Broadcast failed
+    ///
+    /// # Side Effects
+    /// * Updates presence tracking for user (Critical Gap #5)
+    /// * Sends presence update to room subscribers
+    /// * Handles 5-second delay for visibility changes
+    async fn broadcast_presence_update(
+        &self,
+        room_id: RoomId,
+        user_id: UserId,
+        is_present: bool,
+    ) -> Result<(), ConnectionError>;
+
+    /// Removes WebSocket connection
+    /// 
+    /// # Arguments
+    /// * `connection_id` - Connection to remove
+    ///
+    /// # Returns
+    /// * `Ok(())` - Connection removed successfully
+    /// * `Err(ConnectionError::ConnectionNotFound)` - Connection doesn't exist
+    ///
+    /// # Side Effects
+    /// * Decrements presence count for user in subscribed rooms
+    /// * Broadcasts presence updates if user goes offline
+    /// * Cleans up connection resources
+    async fn remove_connection(&self, connection_id: ConnectionId) -> Result<(), ConnectionError>;
+
+    /// Refreshes connection heartbeat (prevents timeout)
+    /// 
+    /// # Arguments
+    /// * `connection_id` - Connection to refresh
+    ///
+    /// # Returns
+    /// * `Ok(())` - Heartbeat refreshed successfully
+    /// * `Err(ConnectionError::ConnectionNotFound)` - Connection doesn't exist
+    ///
+    /// # Side Effects
+    /// * Updates connection's last_active timestamp
+    /// * Prevents connection from being cleaned up
+    async fn refresh_heartbeat(&self, connection_id: ConnectionId) -> Result<(), ConnectionError>;
+
+    /// Gets online users for a room (presence tracking)
+    /// 
+    /// # Arguments
+    /// * `room_id` - Room to get online users for
+    ///
+    /// # Returns
+    /// * `Ok(Vec<UserId>)` - Currently online users in room
+    /// * `Err(ConnectionError::RoomNotFound)` - Room doesn't exist
+    async fn get_online_users(&self, room_id: RoomId) -> Result<Vec<UserId>, ConnectionError>;
+
+    /// Cleans up stale connections (background task)
+    /// 
+    /// # Returns
+    /// * `Ok(u32)` - Number of connections cleaned up
+    ///
+    /// # Side Effects
+    /// * Removes connections inactive for > 60 seconds
+    /// * Updates presence tracking for affected users
+    /// * Broadcasts presence updates for users who went offline
+    async fn cleanup_stale_connections(&self) -> Result<u32, ConnectionError>;
+}
+```
+
+### DatabaseWriter - Write Serialization Interface (Critical Gap #3)
+
+```rust
+/// Database writer - serializes all write operations (Critical Gap #3)
+#[async_trait]
+pub trait DatabaseWriter: Send + Sync {
+    /// Submits a write operation to the serialized writer queue
+    /// 
+    /// # Arguments
+    /// * `operation` - Write operation to execute
+    ///
+    /// # Returns
+    /// * `Ok(WriteResult)` - Operation completed successfully
+    /// * `Err(MessageError::WriterUnavailable)` - Writer task is not running
+    /// * `Err(MessageError::Database)` - Database operation failed
+    ///
+    /// # Side Effects
+    /// * Queues operation for sequential execution
+    /// * Ensures all writes are serialized (Rails connection pool equivalent)
+    async fn submit_write(&self, operation: WriteOperation) -> Result<WriteResult, MessageError>;
+
+    /// Gracefully shuts down the writer (drains pending operations)
+    /// 
+    /// # Returns
+    /// * `Ok(u32)` - Number of operations drained
+    ///
+    /// # Side Effects
+    /// * Processes all queued operations before shutdown
+    /// * Prevents new operations from being queued
+    async fn shutdown(&self) -> Result<u32, MessageError>;
+}
+
+/// Write operations that can be serialized
+#[derive(Debug)]
+pub enum WriteOperation {
+    CreateMessage {
+        content: String,
+        room_id: RoomId,
+        creator_id: UserId,
+        client_message_id: Uuid,
+    },
+    UpdateMessage {
+        message_id: MessageId,
+        new_content: String,
+    },
+    DeleteMessage {
+        message_id: MessageId,
+    },
+    CreateRoom {
+        name: String,
+        room_type: RoomType,
+        creator_id: UserId,
+    },
+    UpdateRoomTimestamp {
+        room_id: RoomId,
+        timestamp: DateTime<Utc>,
+    },
+    CreateMembership {
+        user_id: UserId,
+        room_id: RoomId,
+        involvement: Involvement,
+    },
+    UpdateMembership {
+        user_id: UserId,
+        room_id: RoomId,
+        involvement: Option<Involvement>,
+        unread_at: Option<DateTime<Utc>>,
+        connections: Option<i32>,
+        connected_at: Option<DateTime<Utc>>,
+    },
+    CreateSession {
+        user_id: UserId,
+        token: String,
+        ip_address: Option<String>,
+        user_agent: Option<String>,
+    },
+    DeleteSession {
+        token: String,
+    },
+}
+
+/// Results from write operations
+#[derive(Debug)]
+pub enum WriteResult {
+    MessageCreated(Message<Persisted>),
+    MessageUpdated(Message<Persisted>),
+    MessageDeleted,
+    RoomCreated(Room),
+    RoomUpdated(Room),
+    MembershipCreated(Membership),
+    MembershipUpdated(Membership),
+    SessionCreated(Session),
+    SessionDeleted,
+}
+```
+
+### NotificationService - Push Notifications Interface
+
+```rust
+/// Notification service - handles Web Push notifications
+#[async_trait]
+pub trait NotificationService: Send + Sync {
+    /// Sends push notification to user
+    /// 
+    /// # Arguments
+    /// * `user_id` - User to send notification to
+    /// * `title` - Notification title
+    /// * `body` - Notification body
+    /// * `room_id` - Optional room context
+    ///
+    /// # Returns
+    /// * `Ok(u32)` - Number of devices notified
+    /// * `Err(NotificationError)` - Notification failed
+    ///
+    /// # Side Effects
+    /// * Sends Web Push to all user's subscribed devices
+    /// * Respects user's involvement level settings
+    async fn send_push_notification(
+        &self,
+        user_id: UserId,
+        title: String,
+        body: String,
+        room_id: Option<RoomId>,
+    ) -> Result<u32, NotificationError>;
+
+    /// Subscribes device to push notifications
+    /// 
+    /// # Arguments
+    /// * `user_id` - User subscribing device
+    /// * `subscription` - Web Push subscription details
+    ///
+    /// # Returns
+    /// * `Ok(())` - Subscription created successfully
+    /// * `Err(NotificationError)` - Subscription failed
+    async fn subscribe_device(
+        &self,
+        user_id: UserId,
+        subscription: PushSubscription,
+    ) -> Result<(), NotificationError>;
+
+    /// Unsubscribes device from push notifications
+    /// 
+    /// # Arguments
+    /// * `user_id` - User unsubscribing device
+    /// * `endpoint` - Push subscription endpoint to remove
+    ///
+    /// # Returns
+    /// * `Ok(())` - Subscription removed successfully
+    /// * `Err(NotificationError)` - Unsubscription failed
+    async fn unsubscribe_device(
+        &self,
+        user_id: UserId,
+        endpoint: String,
+    ) -> Result<(), NotificationError>;
+}
+
+#[derive(Error, Debug)]
+pub enum NotificationError {
+    #[error("Database operation failed: {0}")]
+    Database(#[from] sqlx::Error),
+    
+    #[error("Push service error: {0}")]
+    PushService(String),
+    
+    #[error("Invalid subscription: {reason}")]
+    InvalidSubscription { reason: String },
+    
+    #[error("User has no push subscriptions")]
+    NoSubscriptions,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PushSubscription {
+    pub endpoint: String,
+    pub keys: PushKeys,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PushKeys {
+    pub p256dh: String,
+    pub auth: String,
+}
+```
+
+### WebhookService - Bot Integration Interface
+
+```rust
+/// Webhook service - handles bot webhook delivery
+#[async_trait]
+pub trait WebhookService: Send + Sync {
+    /// Delivers webhook to bot
+    /// 
+    /// # Arguments
+    /// * `bot_id` - Bot to deliver webhook to
+    /// * `payload` - Webhook payload data
+    ///
+    /// # Returns
+    /// * `Ok(Option<String>)` - Bot response content (if any)
+    /// * `Err(WebhookError)` - Webhook delivery failed
+    ///
+    /// # Side Effects
+    /// * POSTs to bot's webhook_url with 7-second timeout
+    /// * Processes bot response and creates reply message if applicable
+    /// * Logs delivery success/failure
+    async fn deliver_webhook(
+        &self,
+        bot_id: UserId,
+        payload: WebhookPayload,
+    ) -> Result<Option<String>, WebhookError>;
+
+    /// Checks if webhook should be triggered for message
+    /// 
+    /// # Arguments
+    /// * `message` - Message that was created
+    /// * `room` - Room the message was sent to
+    ///
+    /// # Returns
+    /// * `Ok(Vec<UserId>)` - Bot IDs that should receive webhook
+    ///
+    /// # Side Effects
+    /// * Checks for @mentions of bots
+    /// * Checks for messages in Direct rooms with bot membership
+    async fn get_webhook_targets(
+        &self,
+        message: &Message<Persisted>,
+        room: &Room,
+    ) -> Result<Vec<UserId>, WebhookError>;
+
+    /// Builds webhook payload for bot
+    /// 
+    /// # Arguments
+    /// * `message` - Message that triggered webhook
+    /// * `room` - Room the message was sent to
+    /// * `user` - User who sent the message
+    ///
+    /// # Returns
+    /// * `Ok(WebhookPayload)` - Constructed payload
+    fn build_webhook_payload(
+        &self,
+        message: &Message<Persisted>,
+        room: &Room,
+        user: &User,
+    ) -> Result<WebhookPayload, WebhookError>;
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebhookPayload {
+    pub user: WebhookUser,
+    pub room: WebhookRoom,
+    pub message: WebhookMessage,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebhookUser {
+    pub id: UserId,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebhookRoom {
+    pub id: RoomId,
+    pub name: String,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Serialize)]
+pub struct WebhookMessage {
+    pub id: MessageId,
+    pub body: WebhookMessageBody,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebhookMessageBody {
+    pub html: String,
+    pub plain: String,
+}
+```
+
+## Implementation State Machine Contracts
+
+### Message State Transitions
+
+```rust
+impl Message<Draft> {
+    /// Creates a new draft message
+    pub fn new_draft(
+        content: String,
+        room_id: RoomId,
+        creator_id: UserId,
+        client_message_id: Uuid,
+    ) -> Self {
+        Self {
+            id: MessageId(0), // Will be set on persistence
+            client_message_id,
+            content,
+            room_id,
+            creator_id,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            _state: std::marker::PhantomData,
+        }
+    }
+
+    /// Validates message content and transitions to Validated state
+    pub fn validate(self) -> Result<Message<Validated>, MessageError> {
+        if self.content.trim().is_empty() {
+            return Err(MessageError::EmptyContent);
+        }
+        
+        if self.content.len() > 10000 {
+            return Err(MessageError::ContentTooLong { 
+                length: self.content.len() 
+            });
+        }
+        
+        Ok(Message {
+            id: self.id,
+            client_message_id: self.client_message_id,
+            content: self.content,
+            room_id: self.room_id,
+            creator_id: self.creator_id,
+            created_at: self.created_at,
+            updated_at: self.updated_at,
+            _state: std::marker::PhantomData,
+        })
+    }
+}
+
+impl Message<Validated> {
+    /// Persists message to database and transitions to Persisted state
+    pub async fn persist(
+        self,
+        writer: &dyn DatabaseWriter,
+    ) -> Result<Message<Persisted>, MessageError> {
+        let operation = WriteOperation::CreateMessage {
+            content: self.content.clone(),
+            room_id: self.room_id,
+            creator_id: self.creator_id,
+            client_message_id: self.client_message_id,
         };
         
-        (status, Json(json!({"error": message}))).into_response()
-    }
-}
-```
-
-**Key Design Decisions**:
-- Simple error enum with user-friendly messages
-- No complex error recovery or retry logic
-- Basic logging for debugging
-- Convert technical errors to user messages## Te
-sting Strategy
-
-### Property Tests for Invariants
-
-```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use proptest::prelude::*;
-    
-    proptest! {
-        #[test]
-        fn messages_are_ordered_by_created_at_then_id(
-            messages in prop::collection::vec(arbitrary_message(), 1..100)
-        ) {
-            let mut sorted_messages = messages.clone();
-            sorted_messages.sort_by(|a, b| {
-                a.created_at.cmp(&b.created_at)
-                    .then_with(|| a.id.cmp(&b.id))
-            });
-            
-            // Verify ordering invariant holds
-            for window in sorted_messages.windows(2) {
-                assert!(window[0].created_at <= window[1].created_at);
-                if window[0].created_at == window[1].created_at {
-                    assert!(window[0].id < window[1].id);
-                }
-            }
+        match writer.submit_write(operation).await? {
+            WriteResult::MessageCreated(persisted_message) => Ok(persisted_message),
+            _ => Err(MessageError::Database(sqlx::Error::RowNotFound)),
         }
     }
 }
-```
 
-### Integration Testing
-
-```rust
-#[tokio::test]
-async fn test_message_creation_and_broadcast() {
-    let app = test_app().await;
-    let room_id = create_test_room(&app).await;
+impl Message<Persisted> {
+    /// Only persisted messages can be broadcast
+    pub fn can_broadcast(&self) -> bool {
+        true
+    }
     
-    // Create message via API
-    let response = app
-        .post(&format!("/api/rooms/{}/messages", room_id))
-        .json(&json!({
-            "body": "Test message",
-            "client_message_id": "test-uuid"
-        }))
-        .send()
-        .await;
-        
-    assert_eq!(response.status(), 201);
+    /// Extract mentions from persisted message
+    pub fn extract_mentions(&self) -> Vec<String> {
+        // Implementation would parse @mentions from content
+        todo!("Extract @mentions from message content")
+    }
     
-    // Verify message was stored and broadcast
-    let message: Message = response.json().await;
-    assert_eq!(message.body, "Test message");
+    /// Check if message is a sound command
+    pub fn is_sound_command(&self) -> bool {
+        self.content.starts_with("/play ")
+    }
+    
+    /// Get sound name from command
+    pub fn get_sound_name(&self) -> Option<&str> {
+        self.content.strip_prefix("/play ")
+    }
 }
 ```
 
-## Feature Flag Implementation
-
-### Configuration-Driven Features
+### WebSocket Connection State Transitions
 
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FeatureFlags {
-    pub files_enabled: bool,
-    pub avatars_enabled: bool,
-    pub opengraph_enabled: bool,
-    pub search_enabled: bool,
-    pub push_notifications: bool,
-    pub bot_integrations: bool,
-}
-
-impl FeatureFlags {
-    pub fn from_env() -> Self {
+impl WebSocketConnection<Connected> {
+    /// Creates a new connected WebSocket connection
+    pub fn new_connected(id: ConnectionId) -> Self {
         Self {
-            files_enabled: env::var("FILES_ENABLED").unwrap_or_default() == "true",
-            avatars_enabled: env::var("AVATARS_ENABLED").unwrap_or_default() == "true",
-            opengraph_enabled: env::var("OPENGRAPH_ENABLED").unwrap_or_default() == "true",
-            search_enabled: env::var("SEARCH_ENABLED").unwrap_or("true") == "true",
-            push_notifications: env::var("PUSH_NOTIFICATIONS").unwrap_or("true") == "true",
-            bot_integrations: env::var("BOT_INTEGRATIONS").unwrap_or("true") == "true",
+            id,
+            user_id: None,
+            room_id: None,
+            last_seen_message_id: None,
+            connected_at: Utc::now(),
+            _state: std::marker::PhantomData,
         }
+    }
+
+    /// Authenticates connection and transitions to Authenticated state
+    pub fn authenticate(self, user_id: UserId) -> WebSocketConnection<Authenticated> {
+        WebSocketConnection {
+            id: self.id,
+            user_id: Some(user_id),
+            room_id: self.room_id,
+            last_seen_message_id: self.last_seen_message_id,
+            connected_at: self.connected_at,
+            _state: std::marker::PhantomData,
+        }
+    }
+}
+
+impl WebSocketConnection<Authenticated> {
+    /// Subscribes to room and transitions to Subscribed state
+    pub fn subscribe_to_room(self, room_id: RoomId) -> WebSocketConnection<Subscribed> {
+        WebSocketConnection {
+            id: self.id,
+            user_id: self.user_id,
+            room_id: Some(room_id),
+            last_seen_message_id: self.last_seen_message_id,
+            connected_at: self.connected_at,
+            _state: std::marker::PhantomData,
+        }
+    }
+    
+    /// Gets authenticated user ID
+    pub fn user_id(&self) -> UserId {
+        self.user_id.expect("Authenticated connection must have user_id")
+    }
+}
+
+impl WebSocketConnection<Subscribed> {
+    /// Only subscribed connections can receive room messages
+    pub fn can_receive_messages(&self) -> bool {
+        true
+    }
+    
+    /// Gets subscribed room ID
+    pub fn room_id(&self) -> RoomId {
+        self.room_id.expect("Subscribed connection must have room_id")
+    }
+    
+    /// Updates last seen message ID for reconnection support
+    pub fn update_last_seen(&mut self, message_id: MessageId) {
+        self.last_seen_message_id = Some(message_id);
     }
 }
 ```
 
-## Application State and Configuration
+## Summary
 
-### Application State Management
+This design document establishes complete type contracts for the Campfire Rust rewrite with:
 
-```rust
-use std::sync::Arc;
+1. **Complete Domain Models** - All structs match Rails schema exactly
+2. **Comprehensive Error Hierarchy** - Every error case enumerated
+3. **Service Trait Interfaces** - All methods with full documentation
+4. **State Machine Safety** - Phantom types prevent invalid transitions
+5. **Critical Gap Solutions** - Type-safe implementations of all 5 gaps
+6. **Rails Parity Compliance** - Every interface mirrors Rails behavior
 
-// Central application state (Rails: Application.config equivalent)
-#[derive(Clone)]
-pub struct AppState {
-    // Core services
-    pub database: Arc<Database>,
-    pub broadcaster: Arc<WebSocketBroadcaster>,
-    pub background_tasks: Arc<BackgroundTaskManager>,
-    
-    // Business logic services (Rails-style service objects)
-    pub auth_service: Arc<AuthService>,
-    pub user_service: Arc<UserService>,
-    pub room_service: Arc<RoomService>,
-    pub message_service: Arc<MessageService>,
-    pub membership_service: Arc<MembershipService>,
-    pub search_service: Arc<SearchService>,
-    pub webhook_service: Arc<WebhookService>,
-    pub push_service: Arc<PushNotificationService>,
-    
-    // Configuration
-    pub config: Arc<AppConfig>,
-    pub feature_flags: Arc<FeatureFlags>,
-}
+**Next Steps:**
+1. Create property-based test specifications for all interfaces
+2. Implement integration test contracts for service boundaries  
+3. Begin type-guided implementation following these contracts
 
-impl AppState {
-    pub async fn new(config: AppConfig) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        // Initialize database with migrations
-        let database = Arc::new(Database::new(&config.database_url).await?);
-        database.run_migrations().await?;
-        
-        // Initialize WebSocket broadcaster
-        let broadcaster = Arc::new(WebSocketBroadcaster::new());
-        
-        // Initialize feature flags
-        let feature_flags = Arc::new(FeatureFlags::from_env());
-        
-        // Initialize background task manager
-        let background_tasks = Arc::new(BackgroundTaskManager::new(feature_flags.as_ref().clone()));
-        
-        // Initialize services
-        let auth_service = Arc::new(AuthService::new(
-            database.clone(),
-            config.secret_key.clone(),
-        ));
-        
-        let user_service = Arc::new(UserService::new(database.clone()));
-        let room_service = Arc::new(RoomService::new(database.clone()));
-        let message_service = Arc::new(MessageService::new(database.clone()));
-        let membership_service = Arc::new(MembershipService::new(database.clone()));
-        let search_service = Arc::new(SearchService::new(database.clone()));
-        let webhook_service = Arc::new(WebhookService::new(
-            database.clone(),
-            background_tasks.clone(),
-        ));
-        let push_service = Arc::new(PushNotificationService::new(
-            database.clone(),
-            background_tasks.clone(),
-            config.vapid_keys.clone(),
-        ));
-        
-        Ok(Self {
-            database,
-            broadcaster,
-            background_tasks,
-            auth_service,
-            user_service,
-            room_service,
-            message_service,
-            membership_service,
-            search_service,
-            webhook_service,
-            push_service,
-            config: Arc::new(config),
-            feature_flags,
-        })
-    }
-}
-```
-
-### Configuration Management
-
-```rust
-use serde::{Deserialize, Serialize};
-use std::env;
-
-// Application configuration (Rails: config/application.rb equivalent)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AppConfig {
-    // Server configuration
-    pub bind_address: String,
-    pub port: u16,
-    pub secret_key: String,
-    
-    // Database configuration
-    pub database_url: String,
-    pub database_max_connections: u32,
-    
-    // WebSocket configuration
-    pub websocket_heartbeat_interval: Duration,
-    pub websocket_connection_timeout: Duration,
-    
-    // Security configuration
-    pub session_duration: Duration,
-    pub rate_limit_requests: u32,
-    pub rate_limit_window: Duration,
-    
-    // Push notification configuration
-    pub vapid_keys: VapidKeys,
-    
-    // Asset configuration
-    pub asset_cache_duration: Duration,
-    
-    // Logging configuration
-    pub log_level: String,
-    pub log_format: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VapidKeys {
-    pub public_key: String,
-    pub private_key: String,
-    pub subject: String, // mailto: or https: URL
-}
-
-impl AppConfig {
-    pub fn from_env() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        Ok(Self {
-            bind_address: env::var("BIND_ADDRESS").unwrap_or_else(|_| "0.0.0.0".to_string()),
-            port: env::var("PORT")
-                .unwrap_or_else(|_| "3000".to_string())
-                .parse()?,
-            secret_key: env::var("SECRET_KEY_BASE")
-                .map_err(|_| "SECRET_KEY_BASE environment variable is required")?,
-            
-            database_url: env::var("DATABASE_URL")
-                .unwrap_or_else(|_| "sqlite:campfire.db".to_string()),
-            database_max_connections: env::var("DATABASE_MAX_CONNECTIONS")
-                .unwrap_or_else(|_| "10".to_string())
-                .parse()
-                .unwrap_or(10),
-            
-            websocket_heartbeat_interval: Duration::from_secs(
-                env::var("WEBSOCKET_HEARTBEAT_INTERVAL")
-                    .unwrap_or_else(|_| "50".to_string())
-                    .parse()
-                    .unwrap_or(50)
-            ),
-            websocket_connection_timeout: Duration::from_secs(
-                env::var("WEBSOCKET_CONNECTION_TIMEOUT")
-                    .unwrap_or_else(|_| "60".to_string())
-                    .parse()
-                    .unwrap_or(60)
-            ),
-            
-            session_duration: Duration::from_secs(
-                env::var("SESSION_DURATION_SECONDS")
-                    .unwrap_or_else(|_| "2592000".to_string()) // 30 days
-                    .parse()
-                    .unwrap_or(2592000)
-            ),
-            rate_limit_requests: env::var("RATE_LIMIT_REQUESTS")
-                .unwrap_or_else(|_| "10".to_string())
-                .parse()
-                .unwrap_or(10),
-            rate_limit_window: Duration::from_secs(
-                env::var("RATE_LIMIT_WINDOW_SECONDS")
-                    .unwrap_or_else(|_| "180".to_string()) // 3 minutes
-                    .parse()
-                    .unwrap_or(180)
-            ),
-            
-            vapid_keys: VapidKeys {
-                public_key: env::var("VAPID_PUBLIC_KEY")
-                    .map_err(|_| "VAPID_PUBLIC_KEY environment variable is required")?,
-                private_key: env::var("VAPID_PRIVATE_KEY")
-                    .map_err(|_| "VAPID_PRIVATE_KEY environment variable is required")?,
-                subject: env::var("VAPID_SUBJECT")
-                    .unwrap_or_else(|_| "mailto:admin@campfire.local".to_string()),
-            },
-            
-            asset_cache_duration: Duration::from_secs(
-                env::var("ASSET_CACHE_DURATION_SECONDS")
-                    .unwrap_or_else(|_| "31536000".to_string()) // 1 year
-                    .parse()
-                    .unwrap_or(31536000)
-            ),
-            
-            log_level: env::var("LOG_LEVEL").unwrap_or_else(|_| "info".to_string()),
-            log_format: env::var("LOG_FORMAT").unwrap_or_else(|_| "json".to_string()),
-        })
-    }
-}
-```
-
-### Application Startup and Routing
-
-```rust
-use axum::{
-    routing::{get, post, put, delete},
-    Router,
-    middleware,
-};
-use tower::ServiceBuilder;
-use tower_http::{
-    cors::CorsLayer,
-    trace::TraceLayer,
-    compression::CompressionLayer,
-};
-
-// Main application entry point
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // Load configuration
-    let config = AppConfig::from_env()?;
-    
-    // Initialize logging
-    init_logging(&config)?;
-    
-    // Initialize application state
-    let app_state = AppState::new(config.clone()).await?;
-    
-    // Build router with all routes
-    let app = create_router(app_state.clone());
-    
-    // Start server
-    let bind_address = format!("{}:{}", config.bind_address, config.port);
-    let listener = tokio::net::TcpListener::bind(&bind_address).await?;
-    
-    tracing::info!("Campfire server starting on {}", bind_address);
-    
-    axum::serve(listener, app).await?;
-    
-    Ok(())
-}
-
-// Create complete application router
-fn create_router(app_state: AppState) -> Router {
-    Router::new()
-        // Authentication routes
-        .route("/api/auth/login", post(api::auth::login))
-        .route("/api/auth/register", post(api::auth::register))
-        .route("/api/auth/logout", post(api::auth::logout))
-        
-        // Message routes
-        .route("/api/rooms/:room_id/messages", post(api::messages::create_message))
-        .route("/api/rooms/:room_id/messages", get(api::messages::list_messages))
-        .route("/api/messages/:message_id", put(api::messages::update_message))
-        .route("/api/messages/:message_id", delete(api::messages::delete_message))
-        
-        // Room routes
-        .route("/api/rooms", get(api::rooms::list_rooms))
-        .route("/api/rooms", post(api::rooms::create_room))
-        .route("/api/rooms/:room_id", get(api::rooms::get_room))
-        .route("/api/rooms/:room_id", put(api::rooms::update_room))
-        .route("/api/rooms/:room_id/membership", put(api::rooms::update_membership))
-        
-        // User routes
-        .route("/api/users/me", get(api::users::get_current_user))
-        .route("/api/users/:user_id", get(api::users::get_user))
-        
-        // Search routes
-        .route("/api/search/messages", get(api::search::search_messages))
-        
-        // Bot routes
-        .route("/api/bots/:bot_id/messages", post(api::bots::create_bot_message))
-        
-        // WebSocket upgrade
-        .route("/ws", get(api::websocket::websocket_handler))
-        
-        // Asset serving (catch-all for SPA)
-        .route("/assets/*path", get(api::assets::serve_asset))
-        .fallback(api::assets::serve_spa)
-        
-        // Middleware stack
-        .layer(
-            ServiceBuilder::new()
-                .layer(TraceLayer::new_for_http())
-                .layer(CompressionLayer::new())
-                .layer(CorsLayer::permissive())
-                .layer(middleware::from_fn_with_state(
-                    app_state.clone(),
-                    middleware::auth::session_auth,
-                ))
-                .layer(middleware::from_fn_with_state(
-                    app_state.clone(),
-                    middleware::rate_limit::rate_limit,
-                ))
-        )
-        .with_state(app_state)
-}
-
-// Initialize structured logging
-fn init_logging(config: &AppConfig) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-    
-    let log_level = config.log_level.parse::<tracing::Level>()?;
-    
-    match config.log_format.as_str() {
-        "json" => {
-            tracing_subscriber::registry()
-                .with(tracing_subscriber::fmt::layer().json())
-                .with(tracing_subscriber::filter::LevelFilter::from_level(log_level))
-                .init();
-        }
-        _ => {
-            tracing_subscriber::registry()
-                .with(tracing_subscriber::fmt::layer())
-                .with(tracing_subscriber::filter::LevelFilter::from_level(log_level))
-                .init();
-        }
-    }
-    
-    Ok(())
-}
-```
-
-### Health Check and Monitoring
-
-```rust
-// Health check endpoint
-pub async fn health_check(State(app_state): State<AppState>) -> Json<serde_json::Value> {
-    let database_healthy = app_state.database.health_check().await.is_ok();
-    let websocket_connections = app_state.broadcaster.connection_count().await;
-    
-    Json(json!({
-        "status": if database_healthy { "healthy" } else { "unhealthy" },
-        "timestamp": Utc::now(),
-        "version": env!("CARGO_PKG_VERSION"),
-        "database": {
-            "healthy": database_healthy,
-            "pool_size": app_state.database.pool_size().await,
-        },
-        "websocket": {
-            "active_connections": websocket_connections,
-        },
-        "features": {
-            "files_enabled": app_state.feature_flags.files_enabled,
-            "avatars_enabled": app_state.feature_flags.avatars_enabled,
-            "search_enabled": app_state.feature_flags.search_enabled,
-            "push_notifications": app_state.feature_flags.push_notifications,
-            "bot_integrations": app_state.feature_flags.bot_integrations,
-        }
-    }))
-}
-
-// Metrics endpoint (Prometheus format)
-pub async fn metrics(State(app_state): State<AppState>) -> String {
-    format!(
-        "# HELP campfire_websocket_connections Active WebSocket connections\n\
-         # TYPE campfire_websocket_connections gauge\n\
-         campfire_websocket_connections {}\n\
-         # HELP campfire_database_pool_size Database connection pool size\n\
-         # TYPE campfire_database_pool_size gauge\n\
-         campfire_database_pool_size {}\n",
-        app_state.broadcaster.connection_count().await,
-        app_state.database.pool_size().await
-    )
-}
-```
-
-## Design Summary
-
-This comprehensive design document provides a complete, implementable specification for the Campfire Rust Rewrite MVP that:
-
-### ✅ **Adheres to All Requirements**
-- **Anti-coordination constraints**: No coordination layers, direct operations only
-- **Rails parity**: Replicates Rails ActionCable behavior exactly
-- **5 Critical Gaps**: Implements all critical gap fixes with detailed specifications
-- **Feature flags**: Graceful degradation for disabled features
-- **Complete UI**: Full asset embedding with professional appearance
-
-### ✅ **Provides Implementation-Ready Specifications**
-- **Complete data models** with Rails-compatible schema
-- **Comprehensive API specifications** with request/response formats
-- **Detailed WebSocket protocol** with message types and connection management
-- **Database layer** with Dedicated Writer Task pattern and read operations
-- **Background task processing** with webhook delivery and push notifications
-- **Asset integration** with embedded resources and sound command processing
-- **Application state management** with configuration and startup procedures
-
-### ✅ **Enables Direct Implementation**
-- **Type-safe domain models** with comprehensive newtypes and enums
-- **Complete service layer** with Rails-style business logic organization
-- **Error handling strategy** with user-friendly messages and proper HTTP responses
-- **Testing approach** with property tests and integration test patterns
-- **Monitoring and health checks** with Prometheus metrics and structured logging
-
-This design provides a clear, implementable path to building the Campfire Rust Rewrite MVP while strictly adhering to the anti-coordination constraints and Rails-inspired simplicity mandated in the requirements. Every component is designed to avoid coordination complexity while maintaining Rails-equivalent functionality and professional user experience.
+This foundation ensures compile-first success and prevents coordination complexity through the type system.
