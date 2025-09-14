@@ -97,6 +97,21 @@ The simplified MVP implementation includes these core components:
 
 **Governing Thought (Minto Apex)**: These gaps represent the only coordination complexity we accept - each has proven Rails solutions that we replicate exactly, avoiding over-engineering while ensuring reliability.
 
+## Executable Specification Methodology
+
+**Philosophy**: This specification serves as an **executable blueprint** for LLMs to generate flawless, one-shot code. Every function follows the **STUB → RED → GREEN → REFACTOR** TDD cycle with complete decision tables and property-based test specifications.
+
+### Verification Harness - Definition of Done
+
+The implementation is considered "flawless" when all steps below pass without error:
+
+1. **Static Analysis**: `cargo fmt --check && cargo clippy -- -D warnings` (Zero errors/warnings)
+2. **L3 TDD Harness (Unit/Property)**: `cargo test --lib` (100% Pass Rate)
+3. **L3 TDD Harness (Integration)**: `cargo test --test integration` (100% Pass Rate)
+4. **L4 User Journeys (E2E)**: `npm run test:e2e` (All defined journeys must pass)
+5. **Constraint Compliance**: Manual review against L1 constraints (file count, forbidden patterns)
+6. **Rails Parity Validation**: `cargo test --test rails_parity` (Behavioral equivalence verified)
+
 **Gap Analysis & Impact Table**:
 
 | Gap ID | Problem | Rails Solution | Impact if Unfixed | TDD Verification Strategy |
@@ -121,19 +136,109 @@ These gaps represent the core technical challenges that Rails solves but require
 3. **Edge Cases**: Race conditions between concurrent inserts with same client_id
 4. **Verification**: Property test ensures same client_id always returns same message
 
+**Decision Table for Message Deduplication**:
+
+| Conditions | `client_message_id` Exists? | User Authorized? | Content Valid? | Action/Output | Side Effects Triggered? |
+|:-----------|:---------------------------:|:----------------:|:--------------:|:--------------|:-----------------------:|
+| **C1** | Yes | N/A | N/A | SELECT existing message; Return `Ok(ExistingMessage)` | No |
+| **C2** | No | No | N/A | Return `Err(MessageError::Authorization)` | No |
+| **C3** | No | Yes | No | Return `Err(MessageError::Validation)` | No |
+| **C4** | No | Yes | Yes | INSERT new message; Return `Ok(NewMessage)` | Yes (Broadcast, Update Room) |
+
+**Algorithmic Steps**:
+1. Validate content (length 1-10000 chars, sanitize HTML)
+2. Check room authorization via membership table
+3. Send `WriteCommand::CreateMessage` to DatabaseWriter
+4. Handle response according to Decision Table above
+5. On success (C4): Trigger broadcast and FTS5 index update
+
 **TDD Verification Stub**:
 ```rust
+// RED: Unit Test for Deduplication Idempotency
+#[tokio::test]
+async fn test_dedup_returns_existing_message_and_preserves_content() {
+    let fixture = setup_test_fixture().await;
+    let client_id = Uuid::new_v4();
+    
+    // First call
+    let msg1 = fixture.service.create_message_with_deduplication(
+        "Original", room_id, user_id, client_id
+    ).await.unwrap();
+    
+    // Second call with SAME client_id, DIFFERENT content
+    let msg2 = fixture.service.create_message_with_deduplication(
+        "Duplicate", room_id, user_id, client_id
+    ).await.unwrap();
+    
+    // Assertions
+    assert_eq!(msg1.id, msg2.id, "IDs must match for same client_message_id");
+    assert_eq!(msg2.content, "Original", "Content must match original call");
+    
+    // Verify DB state (ensure only one row exists)
+    let count = fixture.db.count_messages_with_client_id(client_id).await.unwrap();
+    assert_eq!(count, 1, "Database must contain exactly one message");
+}
+
+// RED: Property Test Invariant
 proptest! {
     #[test]
-    fn prop_dedup_idempotent(
+    fn prop_deduplication_is_idempotent(
         content1 in ".*", content2 in ".*",
-        client_id in any::<Uuid>()
+        room_id in any::<u64>().prop_map(RoomId),
+        user_id in any::<u64>().prop_map(UserId),
+        client_id in any::<Uuid>(),
     ) {
-        let msg1 = create_message(content1, client_id).await.unwrap();
-        let msg2 = create_message(content2, client_id).await.unwrap();
-        // Property: Same client_id always returns same message
-        prop_assert_eq!(msg1.id, msg2.id);
-        prop_assert_eq!(msg1.content, msg2.content); // Original preserved
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let service = setup_test_message_service().await;
+            
+            let msg1 = service.create_message_with_deduplication(
+                content1, room_id, user_id, client_id
+            ).await.unwrap();
+            
+            let msg2 = service.create_message_with_deduplication(
+                content2, room_id, user_id, client_id  // Same client_id
+            ).await.unwrap();
+            
+            // INVARIANT: Same client_id always returns same message
+            prop_assert_eq!(msg1.id, msg2.id);
+            prop_assert_eq!(msg1.content, msg2.content); // Original preserved
+            prop_assert_eq!(msg1.client_message_id, msg2.client_message_id);
+        });
+    }
+}
+
+// REFACTOR: Rails-Equivalent Imperfection Test
+#[tokio::test]
+async fn test_accepts_rails_level_race_conditions() {
+    // Goal: Handle UNIQUE constraint violations gracefully like Rails
+    // Constraint: Do NOT use application-level pre-checking (SELECT before INSERT)
+    //            as this introduces TOCTOU race conditions
+    // Rails Approach: Rely solely on database UNIQUE constraint for atomicity
+    
+    let service = setup_test_message_service().await;
+    let client_id = Uuid::new_v4();
+    
+    // Simulate concurrent inserts with same client_id
+    let handles: Vec<_> = (0..10).map(|i| {
+        let service = service.clone();
+        let client_id = client_id;
+        tokio::spawn(async move {
+            service.create_message_with_deduplication(
+                format!("Concurrent message {}", i),
+                room_id, user_id, client_id
+            ).await
+        })
+    }).collect();
+    
+    let results: Vec<_> = futures::future::join_all(handles).await
+        .into_iter().map(|h| h.unwrap()).collect();
+    
+    // All should succeed and return the same message ID
+    let first_result = &results[0].as_ref().unwrap();
+    for result in &results[1..] {
+        let msg = result.as_ref().unwrap();
+        assert_eq!(msg.id, first_result.id, "All concurrent calls return same message");
     }
 }
 ```
@@ -167,29 +272,137 @@ graph TD
     J --> K[Resume normal broadcasting]
 ```
 
+**Decision Table for WebSocket Reconnection**:
+
+| Conditions | Auth Valid? | `last_seen_id` Provided? | Messages Since Last Seen? | Action/Output | Side Effects |
+|:-----------|:-----------:|:------------------------:|:-------------------------:|:--------------|:-------------|
+| **R1** | No | N/A | N/A | Reject with 401 Unauthorized | Connection closed |
+| **R2** | Yes | No | N/A | Send recent 50 messages | Update connection state |
+| **R3** | Yes | Yes | No | Send empty array `[]` | Update connection state |
+| **R4** | Yes | Yes | Yes | Send missed messages in chronological order | Update connection state |
+
+**Algorithmic Steps**:
+1. Validate session token from WebSocket headers
+2. Extract `last_seen_message_id` from reconnection payload
+3. Query messages: `SELECT * FROM messages WHERE id > ? AND room_id = ? ORDER BY created_at ASC, id ASC`
+4. Handle response according to Decision Table above
+5. Update connection state and resume normal broadcasting
+
 **TDD Verification Stub**:
 ```rust
+// RED: Integration Test for Missed Message Delivery
 #[tokio::test]
 async fn test_reconnection_delivers_missed_messages() {
-    let broadcaster = setup_test_broadcaster().await;
+    let fixture = setup_websocket_test_fixture().await;
     
-    // 1. Send messages while "connected"
-    let msg1 = send_message("Message 1").await;
-    let msg2 = send_message("Message 2").await;
+    // 1. Establish initial connection and send messages
+    let connection = fixture.connect_user(user_id, room_id).await;
+    let msg1 = fixture.send_message("Message 1").await;
+    let msg2 = fixture.send_message("Message 2").await;
     
-    // 2. Simulate disconnect (track last_seen = msg1.id)
+    // 2. Simulate disconnect (client tracks last_seen = msg1.id)
     let last_seen = msg1.id;
+    fixture.disconnect_user(connection.id).await;
     
-    // 3. Send more messages while "disconnected"
-    let msg3 = send_message("Message 3").await;
+    // 3. Send more messages while client "offline"
+    let msg3 = fixture.send_message("Message 3").await;
+    let msg4 = fixture.send_message("Message 4").await;
     
-    // 4. Reconnect and get missed messages
-    let missed = broadcaster.handle_reconnection(user_id, room_id, Some(last_seen)).await.unwrap();
+    // 4. Reconnect with last_seen_id
+    let missed_messages = fixture.broadcaster
+        .handle_reconnection(user_id, room_id, Some(last_seen))
+        .await.unwrap();
     
-    // Verification: Should receive msg2 and msg3
-    assert_eq!(missed.len(), 2);
-    assert_eq!(missed[0].id, msg2.id);
-    assert_eq!(missed[1].id, msg3.id);
+    // Verification: Should receive msg2, msg3, msg4 in chronological order
+    assert_eq!(missed_messages.len(), 3);
+    assert_eq!(missed_messages[0].id, msg2.id);
+    assert_eq!(missed_messages[1].id, msg3.id);
+    assert_eq!(missed_messages[2].id, msg4.id);
+    
+    // Verify chronological ordering
+    for window in missed_messages.windows(2) {
+        assert!(window[0].created_at <= window[1].created_at);
+    }
+}
+
+// RED: Property Test for Reconnection Consistency
+proptest! {
+    #[test]
+    fn prop_reconnection_delivers_all_missed_messages(
+        room_id in any::<RoomId>(),
+        user_id in any::<UserId>(),
+        message_count in 1..20usize,
+        disconnect_after in 0..10usize
+    ) {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let fixture = setup_websocket_test_fixture().await;
+            
+            // Create sequence of messages
+            let mut all_messages = Vec::new();
+            for i in 0..message_count {
+                let msg = fixture.send_message(format!("Message {}", i)).await;
+                all_messages.push(msg);
+            }
+            
+            // Simulate disconnect after some messages
+            let last_seen = if disconnect_after < all_messages.len() {
+                Some(all_messages[disconnect_after].id)
+            } else {
+                None
+            };
+            
+            // Reconnect and get missed messages
+            let missed = fixture.broadcaster
+                .handle_reconnection(user_id, room_id, last_seen)
+                .await.unwrap();
+            
+            // Property: All messages after last_seen are delivered
+            if let Some(last_seen_id) = last_seen {
+                let expected_missed: Vec<_> = all_messages
+                    .into_iter()
+                    .skip_while(|m| m.id <= last_seen_id)
+                    .collect();
+                
+                prop_assert_eq!(missed.len(), expected_missed.len());
+                for (received, expected) in missed.iter().zip(expected_missed.iter()) {
+                    prop_assert_eq!(received.id, expected.id);
+                }
+            }
+        });
+    }
+}
+
+// REFACTOR: Rails-Equivalent Imperfection Test
+#[tokio::test]
+async fn test_accepts_rails_level_message_loss() {
+    // Goal: Accept ActionCable-equivalent best-effort delivery
+    // Constraint: Do NOT implement distributed consensus or delivery guarantees
+    // Rails Reality: ActionCable can lose messages during network partitions
+    
+    let fixture = setup_websocket_test_fixture().await;
+    
+    // Simulate network partition during message broadcast
+    let connection = fixture.connect_user(user_id, room_id).await;
+    fixture.simulate_network_partition(connection.id).await;
+    
+    // Send message during partition (should be lost)
+    let msg_during_partition = fixture.send_message("Lost message").await;
+    
+    // Restore network and reconnect
+    fixture.restore_network(connection.id).await;
+    let missed = fixture.broadcaster
+        .handle_reconnection(user_id, room_id, None)
+        .await.unwrap();
+    
+    // Rails Reality: Message sent during partition may be lost
+    // We accept this limitation - no complex delivery guarantees
+    let contains_lost_message = missed.iter()
+        .any(|m| m.id == msg_during_partition.id);
+    
+    // Test passes whether message is recovered or lost (Rails-equivalent)
+    println!("Message recovery during partition: {}", contains_lost_message);
+    // No assertion - we accept Rails-level imperfection
 }
 ```
 

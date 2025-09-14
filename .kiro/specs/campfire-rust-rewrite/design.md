@@ -615,14 +615,186 @@ pub trait MessageService: Send + Sync {
     ) -> Result<Boost, MessageError>;
 }
 
-#### MessageService Test Plan
+#### MessageService TDD Cycle - STUB → RED → GREEN → REFACTOR
 
-**Scenario 1: Successful Message Creation**
-- **Given** a valid user in room and valid content
-- **When** `create_message_with_deduplication` is called
-- **Then** it returns `Ok(Message<Persisted>)` and the new message is saved, `room.last_message_at` is updated, and a WebSocket broadcast is triggered
-- **Test Stub**: `test_create_message_success()`
-- **Requirements**: Covers Requirement 1.1, 1.2
+**STUB (Interface Contract)**:
+```rust
+pub trait MessageService: Send + Sync {
+    /// Creates message with deduplication (Critical Gap #1).
+    /// Side Effects:
+    /// 1. Inserts row into 'messages' table with UNIQUE constraint
+    /// 2. Updates room.last_message_at timestamp
+    /// 3. Broadcasts 'MessageCreated' WebSocket event to room subscribers
+    /// 4. Updates FTS5 search index for message content
+    async fn create_message_with_deduplication(
+        &self,
+        content: String,           // Invariant: 1-10000 chars, sanitized HTML
+        room_id: RoomId,
+        creator_id: UserId,
+        client_message_id: Uuid,   // For idempotency
+    ) -> Result<Message<Persisted>, MessageError>;
+}
+```
+
+**RED (Behavioral Specification - Failing Tests)**:
+
+*Unit Test for Deduplication Idempotency*:
+```rust
+#[tokio::test]
+async fn test_dedup_returns_existing_message_and_preserves_content() {
+    let fixture = setup_test_fixture().await;
+    let client_id = Uuid::new_v4();
+    
+    // First call
+    let msg1 = fixture.service.create_message_with_deduplication(
+        "Original", room_id, user_id, client_id
+    ).await.unwrap();
+    
+    // Second call with SAME client_id, DIFFERENT content
+    let msg2 = fixture.service.create_message_with_deduplication(
+        "Duplicate", room_id, user_id, client_id
+    ).await.unwrap();
+    
+    // Assertions
+    assert_eq!(msg1.id, msg2.id, "IDs must match for same client_message_id");
+    assert_eq!(msg2.content, "Original", "Content must match original call");
+    
+    // Verify DB state (ensure only one row exists)
+    let count = fixture.db.count_messages_with_client_id(client_id).await.unwrap();
+    assert_eq!(count, 1, "Database must contain exactly one message");
+}
+```
+
+*Property Test for Idempotency Invariant*:
+```rust
+proptest! {
+    #[test]
+    fn prop_deduplication_is_idempotent(
+        content1 in ".*", content2 in ".*",
+        room_id in any::<u64>().prop_map(RoomId),
+        user_id in any::<u64>().prop_map(UserId),
+        client_id in any::<Uuid>(),
+    ) {
+        // Invariant: Calling create twice with same client_id always yields same MessageId
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let service = setup_test_message_service().await;
+            
+            let msg1 = service.create_message_with_deduplication(
+                content1, room_id, user_id, client_id
+            ).await.unwrap();
+            
+            let msg2 = service.create_message_with_deduplication(
+                content2, room_id, user_id, client_id
+            ).await.unwrap();
+            
+            prop_assert_eq!(msg1.id, msg2.id);
+            prop_assert_eq!(msg1.content, msg2.content); // Original preserved
+        });
+    }
+}
+```
+
+*Integration Test for Side Effects*:
+```rust
+#[tokio::test]
+async fn test_message_creation_triggers_all_side_effects() {
+    let fixture = setup_integration_fixture().await;
+    let mut ws_receiver = fixture.subscribe_to_room_broadcasts(room_id).await;
+    
+    let message = fixture.service.create_message_with_deduplication(
+        "Test message", room_id, user_id, Uuid::new_v4()
+    ).await.unwrap();
+    
+    // Verify side effect 1: Message stored in database
+    let stored = fixture.db.get_message(message.id).await.unwrap().unwrap();
+    assert_eq!(stored.content, "Test message");
+    
+    // Verify side effect 2: Room timestamp updated
+    let room = fixture.db.get_room(room_id).await.unwrap().unwrap();
+    assert_eq!(room.last_message_at, message.created_at);
+    
+    // Verify side effect 3: WebSocket broadcast sent
+    let broadcast = tokio::time::timeout(
+        Duration::from_millis(100),
+        ws_receiver.recv()
+    ).await.unwrap().unwrap();
+    
+    match broadcast {
+        WebSocketMessage::MessageCreated { message: broadcast_msg } => {
+            assert_eq!(broadcast_msg.id, message.id);
+        }
+        _ => panic!("Expected MessageCreated broadcast"),
+    }
+    
+    // Verify side effect 4: FTS5 index updated
+    let search_results = fixture.db.search_messages("Test", user_id, 10).await.unwrap();
+    assert_eq!(search_results.len(), 1);
+    assert_eq!(search_results[0].id, message.id);
+}
+```
+
+**GREEN (Implementation Guidance & Logic)**:
+
+*Decision Table for `create_message_with_deduplication`*:
+
+| Conditions | `client_message_id` Exists? | User Authorized? | Content Valid? | Action/Output | Side Effects Triggered? |
+|:-----------|:---------------------------:|:----------------:|:--------------:|:--------------|:-----------------------:|
+| **C1** | Yes | N/A | N/A | SELECT existing message; Return `Ok(ExistingMessage)` | No |
+| **C2** | No | No | N/A | Return `Err(MessageError::Authorization)` | No |
+| **C3** | No | Yes | No | Return `Err(MessageError::Validation)` | No |
+| **C4** | No | Yes | Yes | INSERT new message; Return `Ok(NewMessage)` | Yes (Broadcast, Update Room) |
+
+*Algorithmic Steps*:
+1. Validate content (length 1-10000 chars, sanitize HTML)
+2. Check authorization via membership table lookup
+3. Send `WriteCommand::CreateMessage` to DatabaseWriter
+4. Handle response according to Decision Table
+5. On success (C4): Trigger broadcast and FTS5 index update
+
+**REFACTOR (Constraints, Patterns, and Imperfections)**:
+
+*Optimization Requirements*:
+- Ensure database indexing on `(client_message_id, room_id)` for fast deduplication
+- Use prepared statements for all database queries
+- Batch FTS5 index updates for performance
+
+*Anti-Patterns (FORBIDDEN)*:
+- **DO NOT** use application-level pre-checking (SELECT before INSERT) as this introduces TOCTOU race conditions
+- **DO NOT** implement complex retry logic or circuit breakers
+- **DO NOT** add distributed coordination for message ordering
+
+*Rails-Equivalent Imperfection*:
+```rust
+// Rails Reality: Occasional message ordering inconsistencies acceptable
+// Goal: Database timestamp ordering with occasional out-of-order messages
+// Constraint: Do not implement vector clocks or distributed coordination
+#[tokio::test]
+async fn test_accepts_rails_level_message_ordering() {
+    let service = setup_test_message_service().await;
+    
+    // Send messages rapidly (may arrive out of order)
+    let handles: Vec<_> = (0..10).map(|i| {
+        let service = service.clone();
+        tokio::spawn(async move {
+            service.create_message_with_deduplication(
+                format!("Message {}", i), room_id, user_id, Uuid::new_v4()
+            ).await
+        })
+    }).collect();
+    
+    let messages: Vec<_> = futures::future::join_all(handles).await
+        .into_iter().map(|h| h.unwrap().unwrap()).collect();
+    
+    // Rails Reality: Messages may not be perfectly ordered by send time
+    // We accept this limitation - database timestamp ordering is sufficient
+    let mut sorted_by_db = messages.clone();
+    sorted_by_db.sort_by(|a, b| a.created_at.cmp(&b.created_at).then_with(|| a.id.cmp(&b.id)));
+    
+    // Test passes regardless of ordering - Rails-equivalent behavior
+    println!("Message ordering consistency: {}", messages == sorted_by_db);
+}
+```
 
 **Scenario 2: Deduplication of Message**
 - **Given** a message with `client_message_id` X already exists

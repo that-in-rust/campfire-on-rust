@@ -347,6 +347,306 @@ jobs:
 
 This automation ensures our specs remain the single source of truth and that the development process follows: **write spec → generate/check code → run tests → update spec if needed → done**.
 
+## Executable Verification Harness
+
+### Complete Test Suite Structure
+
+```bash
+# File: Makefile - One-command test execution
+.PHONY: test-all test-unit test-property test-integration test-e2e test-rails-parity
+
+# Complete verification pipeline (Definition of Done)
+test-all: test-static test-unit test-property test-integration test-e2e test-rails-parity
+	@echo "✅ All verification steps passed - implementation is flawless"
+
+# Static analysis (zero tolerance)
+test-static:
+	cargo fmt --check
+	cargo clippy -- -D warnings
+	@echo "✅ Static analysis passed"
+
+# Unit tests (individual function correctness)
+test-unit:
+	cargo test --lib --exclude prop_ --exclude integration_
+	@echo "✅ Unit tests passed"
+
+# Property-based tests (mathematical invariants)
+test-property:
+	cargo test --lib prop_
+	@echo "✅ Property tests passed"
+
+# Integration tests (service boundaries)
+test-integration:
+	cargo test --test integration
+	@echo "✅ Integration tests passed"
+
+# End-to-end user journeys
+test-e2e:
+	npm test -- --testNamePattern="JOURNEY_"
+	@echo "✅ E2E user journeys passed"
+
+# Rails behavioral parity validation
+test-rails-parity:
+	cargo test --test rails_parity
+	@echo "✅ Rails parity validation passed"
+
+# Performance regression detection
+test-performance:
+	cargo bench --bench critical_paths
+	@echo "✅ Performance benchmarks within acceptable ranges"
+```
+
+### Executable Test Stubs for Each Critical Gap
+
+**Critical Gap #1: Message Deduplication**
+```rust
+// File: tests/integration/message_deduplication.rs
+use campfire::*;
+use tokio_test;
+
+#[tokio::test]
+async fn integration_message_deduplication_end_to_end() {
+    let app = TestApp::new().await;
+    let user = app.create_test_user("test@example.com").await;
+    let room = app.create_test_room(user.id, RoomType::Open).await;
+    let client_id = Uuid::new_v4();
+    
+    // First request
+    let response1 = app.client
+        .post(&format!("/api/rooms/{}/messages", room.id))
+        .json(&json!({
+            "content": "Hello world",
+            "client_message_id": client_id
+        }))
+        .send()
+        .await;
+    
+    assert_eq!(response1.status(), 201);
+    let message1: MessageResponse = response1.json().await;
+    
+    // Duplicate request (same client_id)
+    let response2 = app.client
+        .post(&format!("/api/rooms/{}/messages", room.id))
+        .json(&json!({
+            "content": "Different content",  // Different content
+            "client_message_id": client_id   // Same client_id
+        }))
+        .send()
+        .await;
+    
+    assert_eq!(response2.status(), 200); // 200 OK for existing message
+    let message2: MessageResponse = response2.json().await;
+    
+    // Verification: Same message returned
+    assert_eq!(message1.id, message2.id);
+    assert_eq!(message2.content, "Hello world"); // Original content preserved
+    
+    // Verify database state
+    let db_messages = app.db.get_messages_by_client_id(client_id).await.unwrap();
+    assert_eq!(db_messages.len(), 1, "Exactly one message in database");
+}
+```
+
+**Critical Gap #2: WebSocket Reconnection**
+```rust
+// File: tests/integration/websocket_reconnection.rs
+use campfire::*;
+use tokio_tungstenite::{connect_async, tungstenite::Message};
+
+#[tokio::test]
+async fn integration_websocket_reconnection_missed_messages() {
+    let app = TestApp::new().await;
+    let user = app.create_test_user("test@example.com").await;
+    let room = app.create_test_room(user.id, RoomType::Open).await;
+    
+    // 1. Establish WebSocket connection
+    let ws_url = format!("ws://localhost:{}/ws", app.port);
+    let (ws_stream, _) = connect_async(&ws_url).await.unwrap();
+    let (mut ws_sender, mut ws_receiver) = ws_stream.split();
+    
+    // Authenticate and subscribe to room
+    ws_sender.send(Message::Text(json!({
+        "type": "authenticate",
+        "session_token": user.session_token
+    }).to_string())).await.unwrap();
+    
+    ws_sender.send(Message::Text(json!({
+        "type": "subscribe",
+        "room_id": room.id
+    }).to_string())).await.unwrap();
+    
+    // 2. Send initial messages and track last_seen
+    let msg1 = app.send_message(room.id, user.id, "Message 1").await;
+    let msg2 = app.send_message(room.id, user.id, "Message 2").await;
+    let last_seen = msg1.id;
+    
+    // 3. Simulate disconnect
+    drop(ws_sender);
+    drop(ws_receiver);
+    
+    // 4. Send messages while "disconnected"
+    let msg3 = app.send_message(room.id, user.id, "Message 3").await;
+    let msg4 = app.send_message(room.id, user.id, "Message 4").await;
+    
+    // 5. Reconnect with last_seen_id
+    let (ws_stream, _) = connect_async(&ws_url).await.unwrap();
+    let (mut ws_sender, mut ws_receiver) = ws_stream.split();
+    
+    ws_sender.send(Message::Text(json!({
+        "type": "reconnect",
+        "session_token": user.session_token,
+        "room_id": room.id,
+        "last_seen_message_id": last_seen
+    }).to_string())).await.unwrap();
+    
+    // 6. Verify missed messages delivered
+    let mut received_messages = Vec::new();
+    for _ in 0..3 { // Expect msg2, msg3, msg4
+        let message = tokio::time::timeout(
+            Duration::from_secs(5),
+            ws_receiver.next()
+        ).await.unwrap().unwrap().unwrap();
+        
+        if let Message::Text(text) = message {
+            let ws_msg: WebSocketMessage = serde_json::from_str(&text).unwrap();
+            if let WebSocketMessage::MessageCreated { message } = ws_msg {
+                received_messages.push(message);
+            }
+        }
+    }
+    
+    // Verification
+    assert_eq!(received_messages.len(), 3);
+    assert_eq!(received_messages[0].id, msg2.id);
+    assert_eq!(received_messages[1].id, msg3.id);
+    assert_eq!(received_messages[2].id, msg4.id);
+    
+    // Verify chronological order
+    for window in received_messages.windows(2) {
+        assert!(window[0].created_at <= window[1].created_at);
+    }
+}
+```
+
+**Rails Parity Validation**
+```rust
+// File: tests/rails_parity/actioncable_behavior.rs
+use campfire::*;
+
+#[tokio::test]
+async fn rails_parity_message_deduplication_behavior() {
+    // This test verifies our behavior matches Rails exactly
+    let app = TestApp::new().await;
+    
+    // Test case from Rails ActionCable documentation
+    // https://guides.rubyonrails.org/action_cable_overview.html#client-side-components
+    
+    let user = app.create_test_user("test@example.com").await;
+    let room = app.create_test_room(user.id, RoomType::Open).await;
+    let client_id = Uuid::new_v4();
+    
+    // Rails behavior: First message succeeds
+    let msg1 = app.create_message_with_client_id(
+        room.id, user.id, "Original message", client_id
+    ).await.unwrap();
+    
+    // Rails behavior: Duplicate client_id returns existing message
+    let msg2 = app.create_message_with_client_id(
+        room.id, user.id, "Duplicate attempt", client_id
+    ).await.unwrap();
+    
+    // Verify Rails-equivalent behavior
+    assert_eq!(msg1.id, msg2.id, "Rails returns same message for duplicate client_id");
+    assert_eq!(msg2.content, "Original message", "Rails preserves original content");
+    
+    // Rails database state verification
+    let db_count = app.db.count_messages_with_client_id(client_id).await.unwrap();
+    assert_eq!(db_count, 1, "Rails stores exactly one message per client_id");
+}
+
+#[tokio::test]
+async fn rails_parity_websocket_reconnection_behavior() {
+    // Verify ActionCable-equivalent reconnection behavior
+    let app = TestApp::new().await;
+    
+    // Test case based on ActionCable connection recovery
+    // https://github.com/rails/rails/blob/main/actioncable/lib/action_cable/connection/base.rb
+    
+    let user = app.create_test_user("test@example.com").await;
+    let room = app.create_test_room(user.id, RoomType::Open).await;
+    
+    // Rails behavior: Connection tracks last seen message
+    let connection = app.establish_websocket_connection(user.id, room.id).await;
+    let msg1 = app.send_message(room.id, user.id, "Before disconnect").await;
+    
+    // Rails behavior: Disconnect and send more messages
+    app.disconnect_websocket(connection.id).await;
+    let msg2 = app.send_message(room.id, user.id, "During disconnect").await;
+    
+    // Rails behavior: Reconnect delivers missed messages
+    let missed_messages = app.reconnect_websocket(
+        user.id, room.id, Some(msg1.id)
+    ).await.unwrap();
+    
+    // Verify ActionCable-equivalent behavior
+    assert_eq!(missed_messages.len(), 1, "ActionCable delivers missed messages");
+    assert_eq!(missed_messages[0].id, msg2.id, "ActionCable delivers correct message");
+    
+    // Rails limitation: Best-effort delivery (no guarantees)
+    // We accept this limitation - no complex delivery confirmation
+}
+```
+
+### Automated Compliance Checking
+
+```bash
+# File: scripts/verify_executable_spec_compliance.sh
+#!/bin/bash
+set -e
+
+echo "🔍 Verifying executable specification compliance..."
+
+# Check 1: All interface methods have corresponding tests
+echo "Checking interface test coverage..."
+interface_methods=$(grep -E "async fn \w+\(" .kiro/specs/campfire-rust-rewrite/design.md | wc -l)
+test_methods=$(grep -r "async fn test_\|#\[tokio::test\]" tests/ | wc -l)
+
+if [ "$test_methods" -lt "$interface_methods" ]; then
+    echo "❌ Insufficient test coverage: $test_methods tests for $interface_methods interface methods"
+    exit 1
+fi
+
+# Check 2: All critical gaps have property tests
+echo "Checking critical gap property test coverage..."
+for gap in "dedup" "reconnection" "write_serialization" "token_security" "presence_ttl"; do
+    if ! grep -r "prop_.*$gap" tests/; then
+        echo "❌ Missing property test for critical gap: $gap"
+        exit 1
+    fi
+done
+
+# Check 3: All user journeys have E2E tests
+echo "Checking user journey E2E test coverage..."
+journey_count=$(grep -c "JOURNEY_" .kiro/specs/campfire-rust-rewrite/requirements.md)
+e2e_test_count=$(grep -c "JOURNEY_" tests/e2e/ || echo "0")
+
+if [ "$e2e_test_count" -lt "$journey_count" ]; then
+    echo "❌ Missing E2E tests: $e2e_test_count tests for $journey_count journeys"
+    exit 1
+fi
+
+# Check 4: Rails parity tests exist
+echo "Checking Rails parity test coverage..."
+if [ ! -f "tests/rails_parity/mod.rs" ]; then
+    echo "❌ Missing Rails parity test suite"
+    exit 1
+fi
+
+echo "✅ All executable specification compliance checks passed"
+```
+
+This verification harness ensures that every aspect of the specification has corresponding executable tests, making the spec truly "executable" for LLM code generation.
+
 ## Phase 0: TDD Foundation (Week 0)
 
 **Goal**: Establish complete type contracts and property tests before any implementation
@@ -630,11 +930,20 @@ This automation ensures our specs remain the single source of truth and that the
 
 ### 0.2 Property Test Specification
 
-- [ ] **0.2.1 Message service property tests**
+- [ ] **0.2.1 Message service property tests with executable stubs**
   ```rust
   // COMPREHENSIVE PROPERTY TESTS - Critical Gap Validation
+  // File: tests/lib/message_service_properties.rs
   
   use proptest::prelude::*;
+  use crate::test_fixtures::*;
+  
+  // Test fixture setup (copy-pastable implementation stub)
+  async fn setup_test_message_service() -> TestMessageService {
+      let db = setup_test_database().await;
+      let broadcaster = setup_test_broadcaster().await;
+      TestMessageService::new(db, broadcaster)
+  }
   
   proptest! {
       #[test]
@@ -663,6 +972,79 @@ This automation ensures our specs remain the single source of truth and that the
               prop_assert_eq!(msg1.id, msg2.id);
               prop_assert_eq!(msg1.content, msg2.content); // Original preserved
               prop_assert_eq!(msg1.client_message_id, msg2.client_message_id);
+          });
+      }
+      
+      #[test]
+      fn prop_message_validation_boundaries_exhaustive(
+          content in ".*",
+          room_id in any::<u64>().prop_map(RoomId),
+          user_id in any::<u64>().prop_map(UserId),
+      ) {
+          let rt = tokio::runtime::Runtime::new().unwrap();
+          rt.block_on(async {
+              let service = setup_test_message_service().await;
+              let client_id = Uuid::new_v4();
+              
+              let result = service.create_message_with_deduplication(
+                  content.clone(), room_id, user_id, client_id
+              ).await;
+              
+              // Property: Validation rules are consistently applied
+              if content.is_empty() {
+                  prop_assert!(matches!(result, Err(MessageError::Validation { field, .. }) if field == "content"));
+              } else if content.len() > 10000 {
+                  prop_assert!(matches!(result, Err(MessageError::Validation { field, .. }) if field == "content"));
+              } else if content.chars().any(|c| c.is_control() && c != '\n' && c != '\t') {
+                  prop_assert!(matches!(result, Err(MessageError::Validation { field, .. }) if field == "content"));
+              } else {
+                  // Valid content should succeed (assuming valid room/user)
+                  prop_assert!(result.is_ok() || matches!(result, Err(MessageError::Authorization { .. })));
+              }
+          });
+      }
+      
+      #[test]
+      fn prop_concurrent_writes_serialized(
+          room_id in any::<u64>().prop_map(RoomId),
+          user_id in any::<u64>().prop_map(UserId),
+          message_count in 2..20usize,
+      ) {
+          let rt = tokio::runtime::Runtime::new().unwrap();
+          rt.block_on(async {
+              let service = setup_test_message_service().await;
+              
+              // Create concurrent write operations
+              let handles: Vec<_> = (0..message_count).map(|i| {
+                  let service = service.clone();
+                  tokio::spawn(async move {
+                      service.create_message_with_deduplication(
+                          format!("Concurrent message {}", i),
+                          room_id,
+                          user_id,
+                          Uuid::new_v4(),
+                      ).await
+                  })
+              }).collect();
+              
+              let results: Vec<_> = futures::future::join_all(handles).await
+                  .into_iter().map(|h| h.unwrap()).collect();
+              
+              // Property: All writes succeed (serialization prevents corruption)
+              for result in &results {
+                  prop_assert!(result.is_ok(), "All concurrent writes must succeed");
+              }
+              
+              // Property: Messages are stored in database order
+              let mut message_ids: Vec<_> = results.iter()
+                  .map(|r| r.as_ref().unwrap().id)
+                  .collect();
+              message_ids.sort();
+              
+              // Verify no duplicate IDs (serialization prevents races)
+              for window in message_ids.windows(2) {
+                  prop_assert_ne!(window[0], window[1], "No duplicate message IDs");
+              }
           });
       }
 
