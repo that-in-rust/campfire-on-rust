@@ -1,10 +1,12 @@
 # Architecture L2: TDD-Driven Implementation Patterns for Option 5 MVP
 
-## Overview
+## Overview: "Rails-Equivalent Imperfection" Implementation
 
-This document provides detailed implementation patterns for the Option 5 "UI-Complete, Files-Disabled MVP" that strictly adheres to the anti-coordination constraints from requirements.md. Every pattern follows Test-Driven Development (TDD) principles and Rails-inspired simplicity.
+This document provides detailed implementation patterns for the realistic MVP that accepts Rails-level limitations while fixing only the 5 critical gaps that Rails actually solves. Every pattern follows Test-Driven Development (TDD) principles and Rails-inspired simplicity.
 
-**Core Philosophy**: Build the simplest thing that works first, using direct operations and Rails patterns. No coordination layers, no complex state management, no distributed complexity.
+**Core Philosophy**: Build "works well enough" rather than "perfect" - exactly matching Rails behavior and limitations. Fix only gaps that Rails actually solves, accept Rails-level imperfections as acceptable for MVP.
+
+**5 Critical Gaps Strategy**: Focus only on gaps that Rails actually solves, avoid over-engineering problems that Rails itself doesn't solve perfectly.
 
 **Anti-Coordination Compliance**: This document implements ONLY patterns that comply with the FORBIDDEN and MANDATORY constraints from requirements.md.
 
@@ -12,16 +14,271 @@ This document provides detailed implementation patterns for the Option 5 "UI-Com
 
 ## TDD-Driven Development Workflow
 
-### Red-Green-Refactor-Rails-Check Cycle
+### Signature-First TDD Cycle
 
 ```
-RED → GREEN → REFACTOR → RAILS-CHECK → INTEGRATE
- ↓      ↓        ↓          ↓            ↓
-Write  Minimal   Extract    Verify       Simple
-Test   Code      Patterns   Rails        Integration
+SIGNATURES → RED → GREEN → REFACTOR → RAILS-CHECK → ACCEPT-LIMITATIONS
+     ↓        ↓     ↓        ↓          ↓            ↓
+  Complete  Write Minimal  Extract    Verify       Accept Rails
+  Function  Test  Working  Patterns   Rails        Imperfections
+  Contract        Code               Behavior
 ```
 
-**Rails Compatibility Testing**: Every component replicates Rails behavior without coordination complexity.
+**Function Signature Philosophy**: Define complete function signatures with all error cases before writing any tests or implementation. This eliminates design ambiguity and ensures comprehensive error handling.
+
+### TDD Implementation Strategy
+
+#### Phase 1: Signature Definition
+```rust
+// Define complete function signature with documentation
+/// Creates a message with automatic deduplication based on client_message_id
+/// 
+/// # Arguments
+/// * `content` - Message content (1-10000 characters)
+/// * `room_id` - Target room identifier
+/// * `creator_id` - Message creator identifier  
+/// * `client_message_id` - Client-generated UUID for deduplication
+///
+/// # Returns
+/// * `Ok(Message)` - Created or existing message
+/// * `Err(MessageError::Validation)` - Invalid input parameters
+/// * `Err(MessageError::Authorization)` - User cannot access room
+/// * `Err(MessageError::Database)` - Database operation failed
+///
+/// # Side Effects
+/// * Updates room.last_message_at timestamp
+/// * Broadcasts message to room subscribers
+/// * Updates FTS5 search index
+pub async fn create_message_with_deduplication(
+    db: &Database,
+    content: String,
+    room_id: RoomId,
+    creator_id: UserId,
+    client_message_id: Uuid,
+) -> Result<Message, MessageError>;
+```
+
+#### Phase 2: Test Cases (RED)
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+    
+    #[tokio::test]
+    async fn test_create_message_success() {
+        let db = setup_test_database().await;
+        let room_id = create_test_room(&db).await;
+        let creator_id = create_test_user(&db).await;
+        let client_id = Uuid::new_v4();
+        
+        let result = create_message_with_deduplication(
+            &db,
+            "Hello, world!".to_string(),
+            room_id,
+            creator_id,
+            client_id,
+        ).await;
+        
+        assert!(result.is_ok());
+        let message = result.unwrap();
+        assert_eq!(message.content, "Hello, world!");
+        assert_eq!(message.client_message_id, client_id);
+    }
+    
+    #[tokio::test]
+    async fn test_duplicate_client_message_id_returns_existing() {
+        let db = setup_test_database().await;
+        let room_id = create_test_room(&db).await;
+        let creator_id = create_test_user(&db).await;
+        let client_id = Uuid::new_v4();
+        
+        // Create first message
+        let first = create_message_with_deduplication(
+            &db, "First".to_string(), room_id, creator_id, client_id
+        ).await.unwrap();
+        
+        // Attempt duplicate with same client_id
+        let second = create_message_with_deduplication(
+            &db, "Second".to_string(), room_id, creator_id, client_id
+        ).await.unwrap();
+        
+        // Should return the same message
+        assert_eq!(first.id, second.id);
+        assert_eq!(first.content, second.content); // Original content preserved
+    }
+    
+    proptest! {
+        #[test]
+        fn test_message_content_validation(
+            content in ".*",
+            room_id in any::<u64>().prop_map(|n| RoomId(n)),
+            creator_id in any::<u64>().prop_map(|n| UserId(n)),
+        ) {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let db = setup_test_database().await;
+                let client_id = Uuid::new_v4();
+                
+                let result = create_message_with_deduplication(
+                    &db, content.clone(), room_id, creator_id, client_id
+                ).await;
+                
+                if content.is_empty() || content.len() > 10000 {
+                    assert!(matches!(result, Err(MessageError::Validation { .. })));
+                } else {
+                    // Valid content should succeed (assuming valid room/user)
+                    // This test will fail until we implement proper validation
+                }
+            });
+        }
+    }
+}
+```
+
+#### Phase 3: Minimal Implementation (GREEN)
+```rust
+pub async fn create_message_with_deduplication(
+    db: &Database,
+    content: String,
+    room_id: RoomId,
+    creator_id: UserId,
+    client_message_id: Uuid,
+) -> Result<Message, MessageError> {
+    // Validate input
+    if content.is_empty() || content.len() > 10000 {
+        return Err(MessageError::Validation {
+            field: "content".to_string(),
+            message: "Content must be between 1 and 10000 characters".to_string(),
+        });
+    }
+    
+    // Check authorization
+    verify_room_access(db, creator_id, room_id).await?;
+    
+    // Start transaction for atomic operation
+    let mut tx = db.pool().begin().await
+        .map_err(MessageError::Database)?;
+    
+    // Check for existing message with same client_message_id
+    let existing = sqlx::query_as!(
+        Message,
+        "SELECT * FROM messages WHERE client_message_id = ? AND room_id = ?",
+        client_message_id,
+        room_id.0
+    )
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(MessageError::Database)?;
+    
+    if let Some(existing_message) = existing {
+        tx.commit().await.map_err(MessageError::Database)?;
+        return Ok(existing_message);
+    }
+    
+    // Create new message
+    let message = Message {
+        id: MessageId(generate_id()),
+        content,
+        room_id,
+        creator_id,
+        client_message_id,
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    };
+    
+    // Insert message
+    sqlx::query!(
+        "INSERT INTO messages (id, content, room_id, creator_id, client_message_id, created_at, updated_at) 
+         VALUES (?, ?, ?, ?, ?, ?, ?)",
+        message.id.0,
+        message.content,
+        message.room_id.0,
+        message.creator_id.0,
+        message.client_message_id,
+        message.created_at,
+        message.updated_at
+    )
+    .execute(&mut *tx)
+    .await
+    .map_err(MessageError::Database)?;
+    
+    // Update room timestamp
+    sqlx::query!(
+        "UPDATE rooms SET last_message_at = ?, updated_at = ? WHERE id = ?",
+        message.created_at,
+        message.created_at,
+        room_id.0
+    )
+    .execute(&mut *tx)
+    .await
+    .map_err(MessageError::Database)?;
+    
+    tx.commit().await.map_err(MessageError::Database)?;
+    
+    Ok(message)
+}
+```
+
+#### Phase 4: Refactor and Extract Patterns
+```rust
+// Extract validation into separate function
+fn validate_message_content(content: &str) -> Result<(), MessageError> {
+    if content.is_empty() {
+        return Err(MessageError::Validation {
+            field: "content".to_string(),
+            message: "Content cannot be empty".to_string(),
+        });
+    }
+    
+    if content.len() > 10000 {
+        return Err(MessageError::Validation {
+            field: "content".to_string(),
+            message: "Content cannot exceed 10000 characters".to_string(),
+        });
+    }
+    
+    Ok(())
+}
+
+// Extract authorization check
+async fn verify_room_access(
+    db: &Database,
+    user_id: UserId,
+    room_id: RoomId,
+) -> Result<(), MessageError> {
+    let membership = sqlx::query!(
+        "SELECT 1 FROM memberships WHERE user_id = ? AND room_id = ? AND involvement != ?",
+        user_id.0,
+        room_id.0,
+        Involvement::Invisible as i32
+    )
+    .fetch_optional(db.pool())
+    .await
+    .map_err(MessageError::Database)?;
+    
+    membership.ok_or(MessageError::Authorization { user_id, room_id })?;
+    Ok(())
+}
+```
+
+### Rails Compatibility Testing
+
+#### Rails Behavior Verification
+```rust
+#[tokio::test]
+async fn test_rails_equivalent_behavior() {
+    // Test that our implementation matches Rails ActionCable behavior
+    let db = setup_test_database().await;
+    
+    // Rails behavior: Duplicate client_message_id returns existing message
+    // Rails behavior: Message ordering by created_at, then id
+    // Rails behavior: Room last_message_at updated on message creation
+    // Rails behavior: Presence tracking with connection counting
+    
+    // Verify each Rails behavior is replicated exactly
+}
+```
 
 ---
 
@@ -121,12 +378,241 @@ campfire-on-rust/
 
 ---
 
-## Anti-Coordination Implementation Principles
+## 5 Critical Gaps Implementation Principles
 
-### 1. Direct Operations Only
+### Gap #1: client_message_id Deduplication (Rails Pattern)
 
-**✅ COMPLIANT**: All operations use direct function calls and simple database transactions.
-**❌ FORBIDDEN**: No coordination layers, event buses, or complex state management.
+**✅ RAILS SOLUTION**: Database UNIQUE constraints prevent duplicates
+**✅ OUR IMPLEMENTATION**: UNIQUE constraint on (client_message_id, room_id)
+
+```rust
+// ✅ RAILS-EQUIVALENT: Handle constraint violations gracefully
+pub async fn create_message_with_deduplication(
+    &self,
+    content: String,
+    room_id: RoomId,
+    creator_id: UserId,
+    client_message_id: Uuid,
+) -> Result<Message, MessageError> {
+    // Check for existing message first (Rails pattern)
+    if let Some(existing) = self.find_by_client_id(client_message_id).await? {
+        return Ok(existing); // Return existing message like Rails
+    }
+    
+    // Try to insert, handle UNIQUE constraint violation
+    match self.insert_message(content, room_id, creator_id, client_message_id).await {
+        Ok(message) => Ok(message),
+        Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => {
+            // Race condition occurred, fetch the existing message
+            self.find_by_client_id(client_message_id).await?
+                .ok_or(MessageError::UnexpectedError)
+        }
+        Err(e) => Err(e.into()),
+    }
+}
+```
+
+### Gap #2: WebSocket Reconnection State (Rails ActionCable Pattern)
+
+**✅ RAILS SOLUTION**: ActionCable tracks connection state for missed messages
+**✅ OUR IMPLEMENTATION**: Track last_seen_message_id per connection
+
+```rust
+// ✅ RAILS-EQUIVALENT: Simple reconnection state tracking
+pub struct ConnectionState {
+    user_id: UserId,
+    room_id: RoomId,
+    last_seen_message_id: Option<MessageId>,
+    connected_at: DateTime<Utc>,
+}
+
+impl SimpleBroadcaster {
+    pub async fn handle_reconnection(
+        &self,
+        user_id: UserId,
+        room_id: RoomId,
+        last_seen_id: Option<MessageId>,
+    ) -> Result<Vec<Message>, BroadcastError> {
+        // Send missed messages since last_seen_id (Rails equivalent)
+        if let Some(last_id) = last_seen_id {
+            let missed_messages = self.get_messages_since(room_id, last_id).await?;
+            return Ok(missed_messages);
+        }
+        
+        // No last_seen_id, send recent messages (Rails behavior)
+        let recent_messages = self.get_recent_messages(room_id, 50).await?;
+        Ok(recent_messages)
+    }
+}
+```
+
+### Gap #3: SQLite Write Serialization (Rails Connection Pool Pattern)
+
+**✅ RAILS SOLUTION**: Connection pooling effectively serializes writes
+**✅ OUR IMPLEMENTATION**: Dedicated Writer Task pattern with mpsc channel
+
+```rust
+// ✅ RAILS-EQUIVALENT: Single writer task (Rails connection pool equivalent)
+pub struct DedicatedWriter {
+    tx: mpsc::Sender<WriteCommand>,
+}
+
+pub enum WriteCommand {
+    CreateMessage {
+        message: NewMessage,
+        response_tx: oneshot::Sender<Result<Message, MessageError>>,
+    },
+    UpdateMessage {
+        id: MessageId,
+        content: String,
+        response_tx: oneshot::Sender<Result<Message, MessageError>>,
+    },
+}
+
+impl DedicatedWriter {
+    pub fn new(db: SqlitePool) -> Self {
+        let (tx, mut rx) = mpsc::channel(100);
+        
+        // Single writer task (Rails equivalent)
+        tokio::spawn(async move {
+            while let Some(command) = rx.recv().await {
+                match command {
+                    WriteCommand::CreateMessage { message, response_tx } => {
+                        let result = Self::execute_create_message(&db, message).await;
+                        let _ = response_tx.send(result);
+                    }
+                    WriteCommand::UpdateMessage { id, content, response_tx } => {
+                        let result = Self::execute_update_message(&db, id, content).await;
+                        let _ = response_tx.send(result);
+                    }
+                }
+            }
+        });
+        
+        Self { tx }
+    }
+    
+    pub async fn create_message(&self, message: NewMessage) -> Result<Message, MessageError> {
+        let (response_tx, response_rx) = oneshot::channel();
+        
+        self.tx.send(WriteCommand::CreateMessage { message, response_tx }).await
+            .map_err(|_| MessageError::WriterUnavailable)?;
+            
+        response_rx.await
+            .map_err(|_| MessageError::WriterUnavailable)?
+    }
+}
+```
+
+### Gap #4: Session Token Security (Rails SecureRandom Pattern)
+
+**✅ RAILS SOLUTION**: SecureRandom for session tokens with proper validation
+**✅ OUR IMPLEMENTATION**: Rails-equivalent secure token generation
+
+```rust
+// ✅ RAILS-EQUIVALENT: Secure token generation like Rails
+use rand::{thread_rng, Rng};
+use rand::distributions::Alphanumeric;
+
+pub struct SessionService {
+    secret_key: String,
+}
+
+impl SessionService {
+    pub fn generate_secure_token() -> String {
+        // Rails SecureRandom.alphanumeric(32) equivalent
+        thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(32)
+            .map(char::from)
+            .collect()
+    }
+    
+    pub async fn create_session(&self, user_id: UserId) -> Result<Session, SessionError> {
+        let session = Session {
+            id: SessionId(Uuid::new_v4()),
+            user_id,
+            token: Self::generate_secure_token(),
+            expires_at: Utc::now() + Duration::hours(24), // Rails default
+            created_at: Utc::now(),
+        };
+        
+        // Store in database (Rails pattern)
+        sqlx::query!(
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) 
+             VALUES ($1, $2, $3, $4, $5)",
+            session.id.0, session.user_id.0, session.token,
+            session.expires_at, session.created_at
+        ).execute(&self.db).await?;
+        
+        Ok(session)
+    }
+}
+```
+
+### Gap #5: Basic Presence Tracking (Rails Simple Pattern)
+
+**✅ RAILS SOLUTION**: Simple connection counting with heartbeat cleanup
+**✅ OUR IMPLEMENTATION**: HashMap<UserId, connection_count> with TTL
+
+```rust
+// ✅ RAILS-EQUIVALENT: Simple presence tracking (Rails level)
+pub struct SimplePresenceTracker {
+    connections: Arc<RwLock<HashMap<UserId, PresenceInfo>>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PresenceInfo {
+    connection_count: i32,
+    last_seen: DateTime<Utc>,
+}
+
+impl SimplePresenceTracker {
+    pub async fn user_connected(&self, user_id: UserId) {
+        let mut connections = self.connections.write().await;
+        let info = connections.entry(user_id).or_insert(PresenceInfo {
+            connection_count: 0,
+            last_seen: Utc::now(),
+        });
+        
+        info.connection_count += 1;
+        info.last_seen = Utc::now();
+    }
+    
+    pub async fn user_disconnected(&self, user_id: UserId) {
+        let mut connections = self.connections.write().await;
+        if let Some(info) = connections.get_mut(&user_id) {
+            info.connection_count = std::cmp::max(0, info.connection_count - 1);
+            info.last_seen = Utc::now();
+            
+            // Remove if no connections (Rails cleanup pattern)
+            if info.connection_count == 0 {
+                connections.remove(&user_id);
+            }
+        }
+    }
+    
+    pub async fn cleanup_stale_connections(&self) {
+        let mut connections = self.connections.write().await;
+        let cutoff = Utc::now() - Duration::seconds(60); // Rails 60-second TTL
+        
+        connections.retain(|_, info| info.last_seen > cutoff);
+    }
+    
+    pub async fn is_user_online(&self, user_id: UserId) -> bool {
+        let connections = self.connections.read().await;
+        connections.get(&user_id)
+            .map(|info| info.connection_count > 0)
+            .unwrap_or(false)
+    }
+}
+```
+
+### Rails-Level Limitations We Accept
+
+**✅ LIMITATION ACCEPTED**: All operations use direct function calls and simple database transactions.
+**✅ LIMITATION ACCEPTED**: No coordination layers, event buses, or complex state management.
+**✅ LIMITATION ACCEPTED**: Rails-equivalent reliability and performance, not theoretical perfection.
 ### 2. Simple Error Handling
 
 ```rust

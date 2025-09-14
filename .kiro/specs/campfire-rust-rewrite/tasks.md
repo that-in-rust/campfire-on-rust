@@ -1,387 +1,451 @@
-# Implementation Plan - Campfire Rust Rewrite MVP
+# Realistic Implementation Plan - Campfire MVP 1.0
 
-## Overview
+## Overview: "Rails-Equivalent Imperfection" Strategy
 
-This implementation plan follows a **TDD-driven, 3-checkpoint approach** to build the Campfire MVP with maximum correctness and minimal debugging. Each checkpoint builds incrementally, with comprehensive testing ensuring "one-shot correct" implementation.
+This implementation plan focuses on **"works well enough"** rather than **"perfect"** - exactly matching Rails behavior and limitations. We implement only what Rails actually does, accepting Rails-level imperfections as acceptable for MVP.
 
-**Core Principles**:
-- **Compile-first correctness**: Strong types prevent bugs at compile time
-- **Test-driven development**: Tests as executable specifications
-- **Anti-coordination compliance**: Simple, Rails-equivalent patterns only
-- **Incremental implementation**: One feature at a time, freeze and move on
+**Core Philosophy**:
+- **Rails Parity Rule**: If Rails doesn't do it perfectly, we don't need to either
+- **"Good Enough" Quality**: Match Rails reliability, not theoretical perfection
+- **5 Critical Gaps Only**: Fix only gaps that Rails actually solves
+- **Accept Known Limitations**: Document and accept Rails-equivalent limitations
 
----
+**Success Criteria**: Works as well as Rails ActionCable, with similar limitations and edge cases.
 
-## Checkpoint 1: Scaffolding & Compile-First Correctness
+## MVP 1.0 Focus: Complete UI with Text-Only Backend
 
-**Goal**: Create a compiling "walking skeleton" with all module interfaces defined but no logic implemented.
+**What's Included in MVP 1.0**:
+- ✅ **Complete React UI** - All components, styling, and interactions (26 CSS files)
+- ✅ **Rich text messaging** - Trix editor with HTML formatting, sounds, boosts
+- ✅ **Real-time features** - WebSocket broadcasting, presence, typing notifications
+- ✅ **Room management** - Open/Closed/Direct rooms with membership controls
+- ✅ **Authentication** - Session management, bot integration, role-based access
+- ✅ **Search functionality** - FTS5-powered message search
+- ✅ **Push notifications** - Web Push with VAPID keys
+- ✅ **Sound system** - 59 embedded MP3 files with /play commands
 
-### 1.1 Project Structure Setup
+**What's Gracefully Deferred to v2.0**:
+- 🚫 **File attachments** - Complete UI shown with "Coming in v2.0" messaging
+- 🚫 **Avatar uploads** - Text-based initials with upload UI for future
+- 🚫 **OpenGraph previews** - Link detection with placeholder for future unfurling
 
-- [ ] **1.1.1 Initialize Rust project structure**
-  - Create Cargo.toml with required dependencies (axum, sqlx, tokio, serde)
-  - Set up workspace structure following 50-file limit
-  - Configure development dependencies (mockall, proptest, criterion)
-  - _Requirements: Anti-coordination file limits, tech stack constraints_
+## 5 Critical Gaps That Rails Actually Solves
 
-- [ ] **1.1.2 Create core module structure**
-  - Create models/ directory with mod.rs exports
-  - Create handlers/ directory for HTTP endpoints
-  - Create services/ directory for business logic
-  - Create database/ directory for SQLite operations
-  - _Requirements: Rails-style organization, clear module boundaries_
+**Gap #1: client_message_id Deduplication**
+- **Rails Reality**: Uses database UNIQUE constraints for duplicate prevention
+- **Our Fix**: Add UNIQUE constraint on (client_message_id, room_id)
+- **Requirements**: Requirement 1.14 - prevent duplicate messages from rapid clicking
 
-- [ ] **1.1.3 Set up frontend structure**
-  - Initialize React project with Vite
-  - Configure TypeScript and testing setup
-  - Create component directory structure
-  - Set up build integration with Rust binary
-  - _Requirements: Complete UI with graceful degradation_
+**Gap #2: WebSocket Reconnection State**
+- **Rails Reality**: ActionCable tracks connection state for missed message delivery
+- **Our Fix**: Track last_seen_message_id per connection, send missed messages
+- **Requirements**: Requirement 4.14 - state reconciliation after reconnection
 
-### 1.2 Domain Types & Interfaces
+**Gap #3: SQLite Write Serialization**
+- **Rails Reality**: Connection pooling effectively serializes writes
+- **Our Fix**: Dedicated Writer Task pattern with mpsc channel
+- **Requirements**: Requirement 4.11 - handle concurrent updates properly
 
-- [ ] **1.2.1 Define core domain types**
-  - Implement UserId, RoomId, MessageId newtypes for type safety
-  - Create User, Room, Message structs with all fields
-  - Define RoomType enum (Open, Closed, Direct) with permissions
-  - Create error types for each domain (UserError, RoomError, MessageError)
-  - _Requirements: Type safety, prevent ID mix-ups at compile time_
+**Gap #4: Session Token Security**
+- **Rails Reality**: Uses SecureRandom for session tokens with proper validation
+- **Our Fix**: Implement Rails-equivalent secure token generation
+- **Requirements**: Requirement 3.3 - secure session management
 
-- [ ] **1.2.2 Define service interfaces**
-  - Create MessageService trait with create/update/delete signatures
-  - Create RoomService trait with room management operations
-  - Create AuthService trait with login/logout/session operations
-  - Create WebSocketBroadcaster trait for real-time messaging
-  - _Requirements: Clear interfaces, testable design_
+**Gap #5: Basic Presence Tracking**
+- **Rails Reality**: Simple connection counting with heartbeat cleanup
+- **Our Fix**: HashMap<UserId, connection_count> with 60-second TTL
+- **Requirements**: Requirement 4.2-4.7 - presence tracking with connection management
 
-- [ ] **1.2.3 Define database interfaces**
-  - Create Database trait with all required operations
-  - Define repository traits for each domain entity
-  - Create migration types and schema definitions
-  - Set up connection pool configuration types
-  - _Requirements: Direct SQLite operations, no ORM complexity_
+## Rails-Level Limitations We Accept (Don't Over-Engineer)
 
-### 1.3 HTTP Handler Signatures
+**Limitation #1: Imperfect Message Ordering**
+- **Rails Reality**: Uses created_at timestamps, occasional out-of-order acceptable
+- **Our Approach**: Database timestamps, no complex vector clocks or coordination
+- **Requirements**: Requirement 4.11 - "maintain message order consistency" = Rails-level
 
-- [ ] **1.3.1 Create message handlers**
-  - POST /api/rooms/:id/messages (create message)
-  - GET /api/rooms/:id/messages (list messages with pagination)
-  - PUT /api/messages/:id (update message)
-  - DELETE /api/messages/:id (delete message)
-  - _Requirements: RESTful API, Rails-style routing_
+**Limitation #2: Multi-tab Connection Independence**
+- **Rails Reality**: Each tab creates independent ActionCable connection
+- **Our Approach**: No cross-tab coordination, each connection is separate
+- **Requirements**: Requirement 4.10 - "across multiple browser tabs" = Rails behavior
 
-- [ ] **1.3.2 Create room handlers**
-  - GET /api/rooms (list user's rooms)
-  - POST /api/rooms (create room)
-  - GET /api/rooms/:id (get room details)
-  - PUT /api/rooms/:id (update room)
-  - DELETE /api/rooms/:id (delete room)
-  - _Requirements: Room management, membership handling_
+**Limitation #3: Best-Effort WebSocket Delivery**
+- **Rails Reality**: ActionCable doesn't guarantee message delivery
+- **Our Approach**: Simple broadcast with timeout, no delivery confirmation
+- **Requirements**: Requirement 4.1 - "broadcast within 100ms" = best effort like Rails
 
-- [ ] **1.3.3 Create auth handlers**
-  - POST /api/auth/login (authenticate user)
-  - POST /api/auth/logout (end session)
-  - GET /api/auth/me (current user info)
-  - POST /api/auth/register (create account - first run only)
-  - _Requirements: Session-based auth, Rails-style security_
-
-- [ ] **1.3.4 Create WebSocket handlers**
-  - WebSocket upgrade endpoint at /ws
-  - Connection authentication and room subscription
-  - Message broadcasting infrastructure
-  - Presence tracking endpoints
-  - _Requirements: ActionCable-equivalent real-time features_
-
-### 1.4 Stub Implementations
-
-- [ ] **1.4.1 Create service stubs**
-  - Implement all service traits with todo!() or simple returns
-  - Ensure all function signatures compile correctly
-  - Add comprehensive documentation for each method
-  - Verify interfaces make sense for intended use cases
-  - _Requirements: Freeze interfaces before implementation_
-
-- [ ] **1.4.2 Create database stubs**
-  - Implement Database trait with in-memory HashMap for testing
-  - Create migration runner that sets up SQLite schema
-  - Implement connection pool with basic configuration
-  - Add health check functionality
-  - _Requirements: SQLite with WAL mode, FTS5 search_
-
-- [ ] **1.4.3 Create handler stubs**
-  - Implement all HTTP handlers with placeholder responses
-  - Set up middleware stack (auth, CORS, rate limiting)
-  - Configure static asset serving for React app
-  - Add basic error handling and logging
-  - _Requirements: Complete API surface, graceful degradation_
-
-### 1.5 Compilation & Basic Testing
-
-- [ ] **1.5.1 Ensure clean compilation**
-  - Fix all compiler errors and warnings
-  - Run cargo clippy and address all suggestions
-  - Set up CI/CD pipeline with compilation checks
-  - Configure development environment with hot reload
-  - _Requirements: Compile-first correctness_
-
-- [ ] **1.5.2 Basic smoke tests**
-  - Create health check endpoint test
-  - Test server startup and shutdown
-  - Verify static asset serving works
-  - Test basic WebSocket connection
-  - _Requirements: Walking skeleton functionality_
+**Limitation #4: Presence Tracking Delays**
+- **Rails Reality**: Connection cleanup has delays, occasional inaccuracy
+- **Our Approach**: 60-second heartbeat, accept brief inaccuracy
+- **Requirements**: Requirement 4.4 - "handle browser crashes gracefully" = Rails level
 
 ---
 
-## Checkpoint 2: Core Chat Flow Implementation
+## Phase 1: Core Infrastructure (Week 1)
 
-**Goal**: Implement the essential "send message in room" flow end-to-end with full testing.
+**Goal**: Get basic server running with Rails-equivalent patterns
 
-### 2.1 Integration Test Suite
+### 1.1 Project Setup
 
-- [ ] **2.1.1 Write end-to-end chat flow test**
-  - Test: user login → join room → send message → receive via WebSocket
-  - Use real HTTP client and WebSocket client for testing
-  - Verify message persistence and real-time broadcasting
-  - Test graceful degradation for disabled features (file uploads)
-  - _Requirements: Core user journey, MVP scope validation_
+- [ ] **1.1.1 Initialize Rust project with anti-coordination constraints**
+  - Create Cargo.toml with minimal dependencies: axum, sqlx, tokio, serde, rust-embed
+  - Set up basic project structure (≤50 files total per Requirement 0.8)
+  - Configure development environment with Rails-equivalent patterns
+  - _Requirements: Requirement 0.1 - direct function calls, single-threaded logic_
 
-- [ ] **2.1.2 Write authentication flow tests**
-  - Test successful login with valid credentials
-  - Test failed login with invalid credentials
-  - Test session cookie creation and validation
-  - Test logout and session cleanup
-  - _Requirements: Rails-style session management_
+- [ ] **1.1.2 Create type-safe domain models**
+  - UserId(i64), RoomId(i64), MessageId(i64) newtypes for type safety
+  - User, Room, Message structs matching Rails schema from Requirement 7.2
+  - UserRole enum (member: 0, administrator: 1, bot: 2) from Requirement 3.7
+  - Basic AppError enum with user-friendly messages per Requirement 0.4
+  - _Requirements: Requirement 3.7 - role enum, Requirement 0.4 - simple error handling_
 
-- [ ] **2.1.3 Write room management tests**
-  - Test room creation for different types (Open, Closed, Direct)
-  - Test room membership and permissions
-  - Test room listing and filtering
-  - Test room deletion and cleanup
-  - _Requirements: Room types and membership management_
+- [ ] **1.1.3 Set up SQLite database with Critical Gap Fix #1**
+  - Create schema matching Rails conventions from Requirement 7.2
+  - Add UNIQUE constraint on (client_message_id, room_id) - **Critical Gap Fix #1**
+  - Set up WAL mode and connection pooling per Requirement 6.5
+  - Create FTS5 search index for messages per Requirement 7.5
+  - _Requirements: Requirement 1.14 - prevent duplicates, Requirement 7.5 - FTS5 search_
 
-### 2.2 Core Domain Implementation
+### 1.2 Basic HTTP Server
 
-- [ ] **2.2.1 Implement MessageService**
-  - Implement create_message with validation and persistence
-  - Add duplicate detection using client_message_id
-  - Implement message updates and deletions with permissions
-  - Add rich text processing (mentions, sound commands)
-  - _Requirements: Rich text messaging, optimistic UI support_
+- [ ] **1.2.1 Create Axum server with embedded assets**
+  - Basic health check endpoint
+  - Embedded React SPA serving using rust-embed per Requirement 8.7
+  - CORS and basic middleware matching Rails patterns
+  - Static asset serving with proper caching headers per Requirement 6.7
+  - _Requirements: Requirement 8.7 - embedded assets, Requirement 6.7 - static serving_
 
-- [ ] **2.2.2 Implement AuthService**
-  - Implement password hashing with bcrypt
-  - Create session management with secure tokens
-  - Add rate limiting for login attempts (10 per 3 minutes)
-  - Implement session validation and cleanup
-  - _Requirements: Security, rate limiting, session management_
-
-- [ ] **2.2.3 Implement RoomService**
-  - Implement room creation with proper type handling
-  - Add membership management and permissions
-  - Implement room listing with user filtering
-  - Add presence tracking and connection counting
-  - _Requirements: Room types, membership, presence tracking_
-
-### 2.3 Database Layer Implementation
-
-- [ ] **2.3.1 Implement SQLite database layer**
-  - Set up SQLite connection pool with WAL mode
-  - Implement all CRUD operations with sqlx
-  - Add database migrations and schema management
-  - Create FTS5 search index for messages
-  - _Requirements: Direct SQLite operations, FTS5 search_
-
-- [ ] **2.3.2 Implement data persistence**
-  - Create all database tables with proper indexes
-  - Implement foreign key constraints and relationships
-  - Add data validation at database level
-  - Implement backup and recovery procedures
-  - _Requirements: Data integrity, Rails-compatible schema_
-
-### 2.4 WebSocket Broadcasting
-
-- [ ] **2.4.1 Implement simple WebSocket broadcaster**
-  - Create room-based message broadcasting (ActionCable-style)
-  - Implement connection management with cleanup
-  - Add presence tracking with connection counting
-  - Implement typing notifications
-  - _Requirements: Real-time communication, Rails ActionCable equivalent_
-
-- [ ] **2.4.2 Implement WebSocket handlers**
-  - Handle WebSocket upgrade and authentication
-  - Implement room subscription and unsubscription
-  - Add message broadcasting to room subscribers
-  - Implement connection cleanup on disconnect
-  - _Requirements: WebSocket connection management_
-
-### 2.5 HTTP API Implementation
-
-- [ ] **2.5.1 Implement message API endpoints**
-  - POST /api/rooms/:id/messages with validation
-  - GET /api/rooms/:id/messages with pagination
-  - PUT /api/messages/:id with permission checks
-  - DELETE /api/messages/:id with authorization
-  - _Requirements: RESTful API, proper error handling_
-
-- [ ] **2.5.2 Implement authentication middleware**
-  - Session validation middleware for protected routes
-  - CSRF protection with bot API bypass
-  - Rate limiting middleware implementation
-  - Error handling and logging middleware
-  - _Requirements: Security middleware, Rails-style protection_
+- [ ] **1.2.2 Implement Rails-style session authentication - Critical Gap Fix #4**
+  - Secure token generation using SecureRandom equivalent per Requirement 3.3
+  - Cookie-based sessions with httponly SameSite=Lax per Requirement 3.3
+  - Basic login/logout endpoints matching Rails SessionsController
+  - Rate limiting (10 attempts per 3 minutes) per Requirement 3.4
+  - _Requirements: Requirement 3.3 - session management, Requirement 3.4 - rate limiting_
 
 ---
 
-## Checkpoint 3: MVP Feature Parity
+## Phase 2: Core Chat Functionality (Week 2)
 
-**Goal**: Complete all MVP features with comprehensive testing and graceful degradation.
+**Goal**: Basic message sending/receiving that works "well enough"
 
-### 3.1 Advanced Features Implementation
+### 2.1 Database Operations with Write Serialization
 
-- [ ] **3.1.1 Implement search functionality**
-  - Set up FTS5 full-text search with Porter stemming
-  - Implement search API with proper ranking
-  - Add search result pagination and filtering
-  - Optimize search performance for large message volumes
-  - _Requirements: Full search functionality, FTS5 implementation_
+- [ ] **2.1.1 Implement dedicated writer pattern - Critical Gap Fix #3**
+  - Single writer task with mpsc channel for write serialization
+  - All writes go through single task (Rails connection pool equivalent)
+  - Read operations can be concurrent per Requirement 6.5
+  - Handle SQLite SQLITE_BUSY errors gracefully without complex retry
+  - _Requirements: Requirement 4.11 - concurrent updates, Requirement 6.5 - connection pooling_
 
-- [ ] **3.1.2 Implement bot integration**
-  - Create bot authentication with API keys
-  - Implement webhook delivery with 7-second timeout
-  - Add bot response processing (text and binary)
-  - Create bot management interface for administrators
-  - _Requirements: Bot integration, webhook system_
+- [ ] **2.1.2 Rich text message CRUD with Rails patterns**
+  - create_message with client_message_id deduplication (Critical Gap Fix #1)
+  - Support HTML body with Trix formatting per Requirement 1.2
+  - get_messages with before/after pagination per Requirement 1.7
+  - Handle UNIQUE constraint violations by returning existing message per Requirement 1.14
+  - _Requirements: Requirement 1.1-1.2 - message creation, Requirement 1.7 - pagination_
 
-- [ ] **3.1.3 Implement push notifications**
-  - Set up WebPush with VAPID keys
-  - Implement subscription management
-  - Add notification payload creation and delivery
-  - Create service worker for PWA support
-  - _Requirements: Push notifications, PWA support_
+- [ ] **2.1.3 Room management with STI pattern**
+  - Room types: Open, Closed, Direct using STI per Requirement 2.10
+  - Membership management with involvement levels per Requirement 2.4
+  - Simple permission checks (creator/admin or member) per Requirement 3.12
+  - Auto-grant Open room memberships per Requirement 2.1
+  - _Requirements: Requirement 2.1-2.12 - room management, Requirement 3.12 - authorization_
 
-### 3.2 Frontend Implementation
+### 2.2 WebSocket Broadcasting (Rails ActionCable Equivalent)
 
-- [ ] **3.2.1 Implement React components**
-  - Create MessageList component with virtualization
-  - Implement MessageComposer with rich text support
-  - Build RoomList component with real-time updates
-  - Create UserList component with presence indicators
-  - _Requirements: Complete React UI, real-time updates_
+- [ ] **2.2.1 ActionCable-style connection management**
+  - HashMap<RoomId, Vec<WebSocketSender>> for room-based connections
+  - Authenticate via session cookies per Requirement 4.8
+  - Basic connection cleanup on disconnect (accept Rails-level imperfection)
+  - Reject unauthorized connections per Requirement 4.9
+  - _Requirements: Requirement 4.8-4.9 - WebSocket authentication and authorization_
 
-- [ ] **3.2.2 Implement feature flag components**
-  - Create FeatureGate component for graceful degradation
-  - Implement file upload placeholders with upgrade messaging
-  - Add avatar upload placeholders with text initials
-  - Create upgrade messaging system for disabled features
-  - _Requirements: Graceful degradation, professional appearance_
+- [ ] **2.2.2 Turbo Streams message broadcasting**
+  - Broadcast messages using Turbo Streams format per Requirement 4.1
+  - broadcast_append_to for new messages, broadcast_replace_to for edits
+  - Best-effort delivery within 100ms per Requirement 4.1 (Rails limitation)
+  - Simple timeout handling (7 seconds max like webhook timeout)
+  - _Requirements: Requirement 4.1 - Turbo Streams broadcasting within 100ms_
 
-- [ ] **3.2.3 Implement WebSocket client**
-  - Create WebSocket connection with automatic reconnection
-  - Implement message handling and state synchronization
-  - Add typing indicators and presence updates
-  - Create optimistic UI updates with rollback
-  - _Requirements: Real-time frontend, connection management_
-
-### 3.3 Security & Performance
-
-- [ ] **3.3.1 Implement security measures**
-  - Add input validation and sanitization
-  - Implement CSRF protection and rate limiting
-  - Add SQL injection prevention with parameterized queries
-  - Create security headers and CORS configuration
-  - _Requirements: Security implementation, input validation_
-
-- [ ] **3.3.2 Performance optimization**
-  - Optimize database queries with proper indexing
-  - Implement connection pooling and prepared statements
-  - Add caching for frequently accessed data
-  - Optimize WebSocket broadcasting for multiple connections
-  - _Requirements: Performance targets, scalability_
-
-### 3.4 Testing & Quality Assurance
-
-- [ ] **3.4.1 Comprehensive test suite**
-  - Unit tests for all service methods
-  - Integration tests for all API endpoints
-  - Property tests for data validation and invariants
-  - End-to-end tests for complete user workflows
-  - _Requirements: Test coverage, quality assurance_
-
-- [ ] **3.4.2 Performance testing**
-  - Load testing for concurrent users and messages
-  - WebSocket connection stress testing
-  - Database performance testing with large datasets
-  - Memory usage and resource consumption testing
-  - _Requirements: Performance validation, resource limits_
-
-### 3.5 Deployment & Documentation
-
-- [ ] **3.5.1 Production deployment setup**
-  - Create Docker container with embedded assets
-  - Set up database volume mounting (never in container)
-  - Configure environment variables and secrets
-  - Create deployment scripts and documentation
-  - _Requirements: Single binary deployment, database safety_
-
-- [ ] **3.5.2 Documentation and monitoring**
-  - Create API documentation with examples
-  - Add deployment and configuration guides
-  - Implement health checks and monitoring endpoints
-  - Create troubleshooting and maintenance documentation
-  - _Requirements: Operational readiness, maintainability_
+- [ ] **2.2.3 Basic reconnection with state sync - Critical Gap Fix #2**
+  - Track last_seen_message_id per connection for missed messages
+  - Send missed events since last known state per Requirement 4.14
+  - Prevent duplicate message delivery during reconnection
+  - Accept race conditions in edge cases (Rails ActionCable limitation)
+  - _Requirements: Requirement 4.14 - state reconciliation after reconnection_
 
 ---
 
-## Success Criteria
+## Phase 3: Real-time Features (Week 3)
 
-### Checkpoint 1 Success
-- [ ] All modules compile without errors or warnings
-- [ ] Basic health check endpoint returns 200
-- [ ] Static assets serve correctly
-- [ ] All interfaces are defined and documented
+**Goal**: "Good enough" real-time features matching Rails quality
 
-### Checkpoint 2 Success
-- [ ] End-to-end chat flow test passes
-- [ ] Users can authenticate and join rooms
-- [ ] Messages can be sent and received in real-time
-- [ ] Core domain logic is fully tested
+### 3.1 Presence Tracking (Rails-Equivalent Imperfection) - Critical Gap Fix #5
 
-### Checkpoint 3 Success
-- [ ] All MVP requirements are implemented and tested
-- [ ] Performance targets are met (Rails-equivalent)
-- [ ] Security measures are in place and tested
-- [ ] System is ready for production deployment
+- [ ] **3.1.1 Connectable concern pattern for presence**
+  - Track connections count per membership per Requirement 4.2
+  - connected_at timestamp with 60-second TTL per Requirement 4.2
+  - Increment atomically on present, decrement on disconnected per Requirement 4.3-4.4
+  - Accept occasional inaccuracy during network hiccups (Rails limitation)
+  - _Requirements: Requirement 4.2-4.4 - presence tracking with connection counting_
+
+- [ ] **3.1.2 Heartbeat and visibility management**
+  - Refresh connection every 50 seconds per Requirement 4.5
+  - 5-second delay for visibility changes per Requirement 4.7
+  - Handle tab switching/minimization with present/absent actions
+  - Background cleanup for stale connections (Rails equivalent)
+  - _Requirements: Requirement 4.5 - refresh heartbeat, Requirement 4.7 - visibility handling_
+
+### 3.2 Typing Notifications (Rails ActionCable Pattern)
+
+- [ ] **3.2.1 TypingNotificationsChannel implementation**
+  - Broadcast start/stop actions with user attributes per Requirement 4.6
+  - Throttle notifications to prevent spam (Rails pattern)
+  - Track active typers per room with simple HashMap
+  - Clear indicators on message send per Requirement 4.6
+  - _Requirements: Requirement 4.6 - typing notifications with throttling_
+
+- [ ] **3.2.2 Auto-cleanup typing state**
+  - Clear typing after 5 seconds of inactivity (Rails timeout pattern)
+  - Simple timer-based cleanup without complex coordination
+  - Accept edge cases like network interruptions (Rails limitation)
+  - Handle multiple connections per user gracefully
+  - _Requirements: Requirement 4.6 - typing notification management_
 
 ---
+
+## Phase 4: Frontend Integration (Week 4)
+
+**Goal**: React frontend that works with Rails-equivalent backend
+
+### 4.1 Complete React UI with Graceful Degradation
+
+- [ ] **4.1.1 Rich text message interface**
+  - Trix editor with HTML formatting per Requirement 1.2
+  - Sound commands (/play soundname) with 59 embedded MP3s per Requirement 1.5
+  - Message boosts with emoji content per Requirement 1.6
+  - Emoji-only message detection and enlargement per Requirement 1.9
+  - _Requirements: Requirement 1.2-1.6, 1.9 - rich text messaging features_
+
+- [ ] **4.1.2 Complete file upload UI with v2.0 messaging**
+  - Drag-and-drop zones with professional styling per Requirement 1.4
+  - "File sharing available in v2.0" messaging per Requirement 1.4
+  - Avatar upload UI with text-based initials per Requirement 3.6
+  - Maintain all CSS styling and components for future functionality
+  - _Requirements: Requirement 1.4 - graceful file degradation, Requirement 3.6 - avatar UI_
+
+### 4.2 ActionCable-Equivalent WebSocket Integration
+
+- [ ] **4.2.1 Connection management with Rails patterns**
+  - Auto-reconnect with exponential backoff per Requirement 1.13
+  - Connection state synchronization per Requirement 4.11
+  - Show connection status to user (Rails ActionCable behavior)
+  - Handle WebSocket connection loss within 60 seconds per Requirement 4.13
+  - _Requirements: Requirement 1.13 - retry logic, Requirement 4.13 - connection loss detection_
+
+- [ ] **4.2.2 Real-time updates via Turbo Streams**
+  - Receive Turbo Streams messages per Requirement 4.1
+  - Update presence indicators per Requirement 4.2-4.7
+  - Show typing notifications per Requirement 4.6
+  - Maintain message order consistency per Requirement 4.11 (Rails-level)
+  - _Requirements: Requirement 4.1 - Turbo Streams, Requirement 4.11 - message consistency_
+
+---
+
+## Phase 5: Additional MVP Features (Week 5)
+
+### 5.1 Bot Integration System
+
+- [ ] **5.1.1 Bot authentication and management**
+  - User.create_bot! with SecureRandom.alphanumeric(12) token per Requirement 5.1
+  - Bot authentication via "id-token" format per Requirement 5.2
+  - Accounts::BotsController for administrator management per Requirement 5.10
+  - Bot token reset functionality per Requirement 5.8
+  - _Requirements: Requirement 5.1-5.2, 5.8, 5.10 - bot creation and management_
+
+- [ ] **5.1.2 Webhook delivery system**
+  - Bot::WebhookJob for @mention and DM triggers per Requirement 5.3
+  - Webhook payload with user, room, message details per Requirement 5.4
+  - 7-second timeout with async delivery per Requirement 5.5
+  - Handle webhook responses and create reply messages per Requirement 5.6-5.7
+  - _Requirements: Requirement 5.3-5.7 - webhook system_
+
+### 5.2 Search and Additional Features
+
+- [ ] **5.2.1 FTS5 message search**
+  - SQLite FTS5 with Porter stemming per Requirement 6.9
+  - Sub-millisecond search times with proper indexing
+  - Search across message content with room filtering
+  - Maintain search index during message operations
+  - _Requirements: Requirement 6.9 - FTS5 search performance_
+
+- [ ] **5.2.2 Push notification system**
+  - Web Push with VAPID keys for message notifications
+  - Service worker integration for PWA functionality
+  - @mention notifications per involvement level
+  - Push subscription management in database
+  - _Requirements: Requirement 8.8 - push notifications_
+
+## What We're NOT Implementing (Rails Doesn't Do It Either)
+
+### ❌ Perfect Message Ordering (Rails Limitation #1)
+- **Rails Reality**: Rails uses created_at timestamps, accepts occasional out-of-order
+- **Our Approach**: Use database timestamps per Requirement 4.11, accept Rails-level ordering
+- **Requirements**: Requirement 4.11 - "maintain message order consistency" = Rails-level
+
+### ❌ Perfect Multi-tab Coordination (Rails Limitation #2)
+- **Rails Reality**: Rails doesn't coordinate multiple tabs perfectly
+- **Our Approach**: Each tab is independent connection per Requirement 4.10 (Rails behavior)
+- **Requirements**: Requirement 4.10 - "across multiple browser tabs" = Rails behavior
+
+### ❌ Guaranteed Message Delivery (Rails Limitation #3)
+- **Rails Reality**: ActionCable is best-effort, no delivery guarantees
+- **Our Approach**: Best-effort broadcast per Requirement 4.1, log failures
+- **Requirements**: Requirement 4.1 - "broadcast within 100ms" = best effort like Rails
+
+### ❌ Perfect Presence Accuracy (Rails Limitation #4)
+- **Rails Reality**: Rails presence has delays and edge cases
+- **Our Approach**: "Good enough" presence per Requirement 4.2-4.4 with known limitations
+- **Requirements**: Requirement 4.4 - "handle browser crashes gracefully" = Rails level
+
+---
+
+## Known Limitations (Rails-Equivalent)
+
+### Connection Management
+- Multiple tabs create multiple connections (Rails behavior)
+- Connection cleanup may be delayed (Rails limitation)
+- Presence may be briefly inaccurate (Rails limitation)
+
+### Message Handling
+- Rare duplicate messages possible in edge cases (Rails has this)
+- Message ordering by timestamp, not perfect sequence (Rails approach)
+- WebSocket failures require client retry (Rails behavior)
+
+### Performance
+- Single SQLite database limits concurrent writes (Rails has similar limits)
+- Memory usage grows with connections (Rails limitation)
+- No horizontal scaling (Rails single-server equivalent)
+
+---
+
+## Success Metrics
+
+### Functional Requirements
+- [ ] Users can send/receive messages in real-time
+- [ ] Basic presence tracking works "most of the time"
+- [ ] Reconnection works after network issues
+- [ ] No obvious duplicate messages under normal use
+- [ ] Session authentication works reliably
+
+### Performance Requirements (Rails-Equivalent)
+- [ ] Handle 50 concurrent users (Rails single-server equivalent)
+- [ ] Message delivery within 1 second under normal load
+- [ ] Reconnection within 5 seconds
+- [ ] Memory usage stays reasonable (< 100MB)
+
+### Reliability Requirements
+- [ ] Works reliably for 8-hour sessions
+- [ ] Handles network hiccups gracefully
+- [ ] Database corruption recovery
+- [ ] Graceful degradation under load
+
+---
+
+## Implementation Notes
+
+### Code Organization
+- Maximum 500 lines per file
+- Rails-style modules: models/, handlers/, services/
+- Single responsibility per module
+- No circular dependencies
+
+### Error Handling
+- Result<T, E> patterns throughout
+- User-friendly error messages
+- Log technical details, show simple messages to users
+- No complex retry logic (Rails keeps it simple)
+
+### Testing Strategy
+- Unit tests for core business logic
+- Integration tests for API endpoints
+- WebSocket connection tests
+- Database constraint tests
+- No mocking - use real SQLite in tests
+
+### Deployment
+- Single binary with embedded React assets
+- SQLite database in mounted volume
+- Environment variables for configuration
+- Simple Docker container (Rails equivalent)
+
+---
+
+## Timeline Summary
+
+**Week 1**: Core infrastructure with 5 critical gap fixes
+**Week 2**: Database operations and ActionCable-equivalent WebSocket broadcasting  
+**Week 3**: Real-time features with Rails-equivalent quality and limitations
+**Week 4**: Complete React UI with graceful v2.0 degradation messaging
+**Week 5**: Bot integration, search, and push notifications
+
+**Total**: 5 weeks for fully functional Rails-equivalent chat application with complete UI
 
 ## Anti-Coordination Compliance Checklist
 
-Throughout implementation, ensure compliance with anti-coordination mandates:
+### ✅ MANDATORY PATTERNS (Per Requirement 0)
+- [ ] Direct SQLite operations with basic connection pooling
+- [ ] Basic WebSocket broadcasting (ActionCable-style)
+- [ ] Rails-style session management with secure cookies
+- [ ] Simple Result<T, E> error handling with user-friendly messages
+- [ ] Direct function calls, no async coordination between components
+- [ ] Single binary deployment with embedded assets
 
-- [ ] **No coordination layers**: Direct function calls only
-- [ ] **No event buses**: Simple WebSocket broadcasting only
-- [ ] **No complex state machines**: Basic enums and simple state only
-- [ ] **File limit compliance**: Maximum 50 files total
-- [ ] **Line limit compliance**: Maximum 500 lines per file
-- [ ] **Rails parity rule**: If Rails doesn't do it, we don't do it
-- [ ] **Simple error handling**: Basic Result<T, E> patterns only
-- [ ] **Direct database operations**: No ORM, direct SQL with sqlx
+### 🚫 FORBIDDEN PATTERNS (Will Cause Spec Rejection)
+- [ ] ❌ NO coordination layers, coordinators, or event buses
+- [ ] ❌ NO distributed transactions, sagas, or event sourcing
+- [ ] ❌ NO circuit breakers, retry queues, or complex error recovery
+- [ ] ❌ NO cross-tab coordination or global state synchronization
+- [ ] ❌ NO microservices, service mesh, or distributed architecture
+- [ ] ❌ NO message queues, event streams, or async coordination
 
----
+### 📏 COMPLEXITY LIMITS (Per Requirement 0.8)
+- [ ] Maximum 50 total files in entire codebase
+- [ ] No file over 500 lines
+- [ ] Maximum 3 async operations per request
+- [ ] No more than 2 levels of error handling
+- [ ] Single database connection pool
 
-## Kiro Integration Strategy
+## 5 Critical Gaps Implementation Summary
 
-### Agent Hooks Setup
-- [ ] **On save .rs files**: Run cargo check and clippy
-- [ ] **On save test files**: Run relevant test suite
-- [ ] **On create migration**: Generate corresponding query macros
-- [ ] **On save frontend files**: Run TypeScript compilation and tests
+**Gap #1: client_message_id Deduplication** ✅
+- UNIQUE constraint on (client_message_id, room_id) prevents duplicates
+- Handle constraint violations by returning existing message
+- _Task: 2.1.2 - message CRUD with deduplication_
 
-### Kiro Usage Patterns
-- [ ] **Scaffolding**: Use Kiro to generate module templates and signatures
-- [ ] **Test generation**: Use Kiro to create tests from requirements
-- [ ] **Implementation**: Use Kiro as pair-programmer for TDD cycles
-- [ ] **Code review**: Use Kiro to check anti-coordination compliance
+**Gap #2: WebSocket Reconnection State** ✅
+- Track last_seen_message_id per connection
+- Send missed messages on reconnect
+- _Task: 2.2.3 - reconnection with state sync_
 
-This implementation plan ensures a systematic, test-driven approach to building the Campfire MVP while maintaining strict adherence to anti-coordination principles and achieving "one-shot correct" implementation through comprehensive testing and incremental development.
+**Gap #3: SQLite Write Serialization** ✅
+- Dedicated Writer Task pattern with mpsc channel
+- All writes serialized through single task
+- _Task: 2.1.1 - dedicated writer pattern_
+
+**Gap #4: Session Token Security** ✅
+- SecureRandom equivalent for token generation
+- Rails-style httponly SameSite=Lax cookies
+- _Task: 1.2.2 - session authentication_
+
+**Gap #5: Basic Presence Tracking** ✅
+- Connection counting with 60-second TTL
+- Heartbeat refresh every 50 seconds
+- _Task: 3.1.1-3.1.2 - presence tracking_
+
+This plan is **realistic and achievable** because it:
+1. **Fixes only the 5 critical gaps** that Rails actually solves
+2. **Accepts Rails-level limitations** rather than over-engineering
+3. **Follows anti-coordination constraints** strictly
+4. **Provides complete UI** with graceful v2.0 messaging
+5. **References specific requirements** for every task

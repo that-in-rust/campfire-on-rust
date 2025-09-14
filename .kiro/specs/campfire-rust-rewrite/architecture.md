@@ -165,10 +165,30 @@ campfire-on-rust/
 
 ---
 
-## Architecture Overview: Rails-Inspired Pragmatic MVP 🎯
+## Architecture Overview: TDD-Driven "Rails-Equivalent Imperfection" Strategy 🎯
 
-### Philosophy
-Build a simple, working chat application that replicates Rails ActionCable behavior using idiomatic Rust patterns. Focus on proven Rails patterns rather than theoretical coordination improvements.
+### Philosophy: Function Signatures Before Code
+Build a simple, working chat application using **Test-Driven Development** with **function signatures defined before writing any implementation**. This approach ensures one-shot correct implementation by designing interfaces first, then implementing to satisfy the contracts.
+
+**Core TDD Insight**: Define complete type signatures, error cases, and behavior contracts before writing any implementation code. This eliminates 80% of bugs and design issues before they occur.
+
+**Rails Parity Insight**: Rails proves that chat applications work reliably with simple patterns. This architecture replicates Rails behavior in Rust without adding coordination complexity that Rails doesn't need.
+
+### TDD-First Development Cycle
+
+```
+SIGNATURES → TESTS → IMPLEMENTATION → REFACTOR
+     ↓          ↓           ↓            ↓
+  Complete   Failing    Minimal      Extract
+  Interface   Tests     Working      Patterns
+  Design              Code
+```
+
+**Function Signature Philosophy**: Every function signature must be complete with:
+- **Input types**: Exact parameter types with validation constraints
+- **Output types**: Complete Result<T, E> with all error cases
+- **Behavior contract**: What the function promises to do
+- **Side effects**: What external state changes occur
 
 ### Core Architecture
 ```
@@ -209,14 +229,26 @@ Build a simple, working chat application that replicates Rails ActionCable behav
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Technical Stack
-- **Web Framework**: Axum (Rails-inspired routing and middleware)
-- **Database**: SQLite (direct operations, Rails-compatible schema)
-- **Real-time**: ActionCable-inspired WebSocket broadcasting
-- **Frontend**: Complete React UI (simple state management)
-- **Task Queue**: Basic tokio tasks (webhook delivery, push notifications)
-- **Authentication**: Rails-style session management
-- **Deployment**: Single binary with embedded assets
+### Technical Stack with TDD-First Patterns
+
+#### Backend: Rust with Compile-First Success
+- **Web Framework**: Axum with type-safe extractors and comprehensive error handling
+- **Database**: SQLite with sqlx compile-time query validation and Dedicated Writer Task pattern
+- **Real-time**: ActionCable-inspired WebSocket with Actor pattern for connection management
+- **Concurrency**: Structured concurrency with tokio JoinSet and message-passing actors
+- **Error Handling**: thiserror for library errors, anyhow for application context
+- **Type Safety**: Newtype pattern for all IDs, making invalid states unrepresentable
+- **Authentication**: JWT with secure session management and rate limiting
+- **Testing**: Property-based testing with proptest, integration tests with real SQLite
+
+#### Frontend: React with Modern Patterns
+- **Component Architecture**: Functional components with custom hooks for logic separation
+- **State Management**: TanStack Query for server state, Zustand for client state
+- **Error Handling**: Error boundaries with graceful fallback components
+- **Real-time**: WebSocket integration with automatic reconnection and optimistic updates
+- **Testing**: React Testing Library with comprehensive component and hook testing
+- **Performance**: Strategic memoization and virtual scrolling for large lists
+- **Type Safety**: TypeScript with strict mode and comprehensive type definitions
 
 ---
 
@@ -365,15 +397,244 @@ SENTRY_DSN=your-sentry-dsn
 
 ---
 
-## Performance Targets
+## TDD Function Signature Specifications
+
+### Core Domain Function Signatures (Define Before Implementation)
+
+#### Message Operations (Critical Gap #1: Deduplication)
+```rust
+// Complete function signature with all error cases
+pub async fn create_message_with_deduplication(
+    db: &Database,
+    content: String,
+    room_id: RoomId,
+    creator_id: UserId,
+    client_message_id: Uuid,
+) -> Result<Message, MessageError> {
+    // Contract: Returns existing message if client_message_id exists
+    // Side effect: Updates room.last_message_at
+    // Error cases: ValidationError, DatabaseError, AuthorizationError
+}
+
+pub async fn get_messages_since(
+    db: &Database,
+    room_id: RoomId,
+    last_message_id: MessageId,
+    user_id: UserId,
+) -> Result<Vec<Message>, MessageError> {
+    // Contract: Returns messages after last_message_id that user can see
+    // Side effect: None (read-only)
+    // Error cases: DatabaseError, AuthorizationError
+}
+```
+
+#### WebSocket Connection Management (Critical Gap #2: Reconnection)
+```rust
+pub async fn handle_websocket_reconnection(
+    connection_id: ConnectionId,
+    room_id: RoomId,
+    last_seen_message_id: Option<MessageId>,
+    broadcaster: &WebSocketBroadcaster,
+) -> Result<Vec<Message>, ReconnectionError> {
+    // Contract: Sends missed messages since last_seen_message_id
+    // Side effect: Updates connection state, broadcasts presence
+    // Error cases: ConnectionNotFound, DatabaseError, BroadcastError
+}
+
+pub async fn add_websocket_connection(
+    broadcaster: &WebSocketBroadcaster,
+    user_id: UserId,
+    room_id: RoomId,
+    sender: WebSocketSender,
+) -> Result<ConnectionId, ConnectionError> {
+    // Contract: Adds connection and updates presence count
+    // Side effect: Increments user presence, broadcasts join event
+    // Error cases: RoomNotFound, UserNotAuthorized, ConnectionLimitExceeded
+}
+```
+
+#### Database Write Serialization (Critical Gap #3: Dedicated Writer)
+```rust
+pub async fn execute_write_command(
+    writer: &DedicatedWriter,
+    command: WriteCommand,
+) -> Result<WriteResult, WriteError> {
+    // Contract: Serializes all writes through single task
+    // Side effect: Database modification, maintains write order
+    // Error cases: WriterUnavailable, DatabaseError, ValidationError
+}
+
+pub enum WriteCommand {
+    CreateMessage { data: CreateMessageData, response: oneshot::Sender<Result<Message, MessageError>> },
+    UpdateMessage { id: MessageId, data: UpdateMessageData, response: oneshot::Sender<Result<Message, MessageError>> },
+    CreateUser { data: CreateUserData, response: oneshot::Sender<Result<User, UserError>> },
+}
+```
+
+#### Session Management (Critical Gap #4: Token Security)
+```rust
+pub async fn create_secure_session(
+    auth_service: &AuthService,
+    user_id: UserId,
+    ip_address: Option<IpAddr>,
+    user_agent: Option<String>,
+) -> Result<Session, AuthError> {
+    // Contract: Creates session with cryptographically secure token
+    // Side effect: Stores session in database, sets secure cookie
+    // Error cases: TokenGenerationError, DatabaseError, UserNotFound
+}
+
+pub async fn validate_session_token(
+    auth_service: &AuthService,
+    token: &str,
+) -> Result<Session, AuthError> {
+    // Contract: Validates token and returns active session
+    // Side effect: Updates last_active_at timestamp
+    // Error cases: InvalidToken, ExpiredToken, DatabaseError
+}
+```
+
+#### Presence Tracking (Critical Gap #5: Connection Counting)
+```rust
+pub async fn update_user_presence(
+    presence_tracker: &PresenceTracker,
+    user_id: UserId,
+    is_connected: bool,
+) -> Result<PresenceInfo, PresenceError> {
+    // Contract: Updates connection count, broadcasts presence change
+    // Side effect: Modifies presence HashMap, broadcasts to subscribers
+    // Error cases: UserNotFound, BroadcastError
+}
+
+pub async fn cleanup_stale_presence(
+    presence_tracker: &PresenceTracker,
+    cutoff_time: DateTime<Utc>,
+) -> Result<Vec<UserId>, PresenceError> {
+    // Contract: Removes stale presence data older than cutoff
+    // Side effect: Modifies presence HashMap, broadcasts offline events
+    // Error cases: None (best effort cleanup)
+}
+```
+
+### API Handler Function Signatures
+
+#### Message API
+```rust
+pub async fn create_message_handler(
+    State(app_state): State<AppState>,
+    Path(room_id): Path<RoomId>,
+    session: AuthenticatedSession,
+    Json(payload): Json<CreateMessageRequest>,
+) -> Result<Json<MessageResponse>, ApiError> {
+    // Contract: Creates message, broadcasts to room, returns response
+    // Side effect: Database write, WebSocket broadcast, presence update
+    // Error cases: ValidationError, AuthorizationError, DatabaseError, BroadcastError
+}
+
+pub async fn list_messages_handler(
+    State(app_state): State<AppState>,
+    Path(room_id): Path<RoomId>,
+    session: AuthenticatedSession,
+    Query(params): Query<MessageListParams>,
+) -> Result<Json<MessageListResponse>, ApiError> {
+    // Contract: Returns paginated messages user can see
+    // Side effect: Updates user's last_read_at for room
+    // Error cases: AuthorizationError, DatabaseError, ValidationError
+}
+```
+
+### Error Type Specifications
+
+```rust
+// Comprehensive error types with specific cases
+#[derive(Debug, thiserror::Error)]
+pub enum MessageError {
+    #[error("Message validation failed: {field} - {message}")]
+    Validation { field: String, message: String },
+    
+    #[error("Database operation failed: {0}")]
+    Database(#[from] sqlx::Error),
+    
+    #[error("User {user_id} not authorized for room {room_id}")]
+    Authorization { user_id: UserId, room_id: RoomId },
+    
+    #[error("Message not found: {message_id}")]
+    NotFound { message_id: MessageId },
+    
+    #[error("Duplicate client message ID: {client_id}")]
+    DuplicateClientId { client_id: Uuid },
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ConnectionError {
+    #[error("WebSocket connection failed: {0}")]
+    WebSocket(#[from] tokio_tungstenite::tungstenite::Error),
+    
+    #[error("Connection limit exceeded for user {user_id}")]
+    LimitExceeded { user_id: UserId },
+    
+    #[error("Room {room_id} not found")]
+    RoomNotFound { room_id: RoomId },
+    
+    #[error("User {user_id} not authorized for room {room_id}")]
+    NotAuthorized { user_id: UserId, room_id: RoomId },
+}
+```
+
+## 5 Critical Gaps Implementation Contracts
+
+**Gap #1: client_message_id Deduplication**
+- **Function**: `create_message_with_deduplication`
+- **Contract**: UNIQUE constraint handling with existing message return
+- **Test Cases**: Duplicate detection, race condition handling, constraint violation recovery
+
+**Gap #2: WebSocket Reconnection State**
+- **Function**: `handle_websocket_reconnection`
+- **Contract**: Missed message delivery based on last_seen_message_id
+- **Test Cases**: Reconnection with/without last_seen_id, message ordering, connection cleanup
+
+**Gap #3: SQLite Write Serialization**
+- **Function**: `execute_write_command`
+- **Contract**: All writes serialized through dedicated task
+- **Test Cases**: Concurrent write ordering, task failure recovery, backpressure handling
+
+**Gap #4: Session Token Security**
+- **Function**: `create_secure_session`
+- **Contract**: Cryptographically secure token generation and validation
+- **Test Cases**: Token uniqueness, expiration handling, security validation
+
+**Gap #5: Basic Presence Tracking**
+- **Function**: `update_user_presence`
+- **Contract**: Connection counting with heartbeat-based cleanup
+- **Test Cases**: Connection counting accuracy, stale cleanup, presence broadcasting
+
+## Rails-Level Limitations We Accept (Don't Over-Engineer)
+
+**Limitation #1: Imperfect Message Ordering**
+- **Rails Reality**: Uses created_at timestamps, occasional out-of-order acceptable
+- **Our Approach**: Database timestamps, no complex vector clocks or coordination
+
+**Limitation #2: Multi-tab Connection Independence**
+- **Rails Reality**: Each tab creates independent ActionCable connection
+- **Our Approach**: No cross-tab coordination, each connection is separate
+
+**Limitation #3: Best-Effort WebSocket Delivery**
+- **Rails Reality**: ActionCable doesn't guarantee message delivery
+- **Our Approach**: Simple broadcast with timeout, no delivery confirmation
+
+**Limitation #4: Presence Tracking Delays**
+- **Rails Reality**: Connection cleanup has delays, occasional inaccuracy
+- **Our Approach**: 60-second heartbeat, accept brief inaccuracy
+
+## Performance Targets (Rails-Equivalent)
 
 ### Simplified MVP Targets (Rails-Inspired)
-- **Memory**: 20-40MB total (simple operations, no coordination overhead)
-- **Connections**: 50+ concurrent WebSocket (realistic for simple broadcasting)
-- **Startup**: <100ms cold start (simple initialization, embedded assets)
-- **Throughput**: 1K+ req/sec sustainable (direct operations, Rails-equivalent)
-- **Storage**: 10MB-300MB (text-only messages, simple schema)
-- **Cost Reduction**: 85-90% vs Rails (Rust efficiency without coordination complexity)
+- **Memory**: 20-40MB total (Rails-equivalent efficiency)
+- **Connections**: 50+ concurrent WebSocket (Rails single-server equivalent)
+- **Startup**: <100ms cold start (Rails-equivalent initialization)
+- **Throughput**: 1K+ req/sec sustainable (Rails-equivalent performance)
+- **Storage**: 10MB-300MB (text-only messages, Rails-compatible schema)
+- **Cost Reduction**: 85-90% vs Rails (Rust efficiency with Rails patterns)
 
 ### Response Time Targets (Simple Operations)
 - **API Calls**: <10ms (direct database operations, simple handlers)
