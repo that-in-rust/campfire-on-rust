@@ -1,5 +1,15 @@
 # Claude Configuration & Context Management Strategies
 
+## CRITICAL: Large File Reading Protocol
+**BEFORE reading any text, PDF, JSON, JS, or similar files:**
+1. **ALWAYS** get a line count first: `wc -l filename`
+2. If file is **> 500 lines**, use chunked reading strategy:
+   - Read in 500-line chunks using `head -n N` and `tail -n +M`
+   - Track chunks read vs total file size
+   - Ensure comprehensive coverage of entire file
+3. **NEVER** read large files without first understanding their size
+4. **ALWAYS** verify complete file coverage when using chunked approach
+
 ## Documentation Pyramid Steering System
 
 ### Meta-Pattern: Cascading Detail Principle
@@ -175,6 +185,121 @@ feat(message-service): implement deduplication [REQ-GAP-001.0]
 3. **Implementation**: Complete code in tasks.md
 4. **Test**: Property test validating behavior
 5. **Traceability**: REQ-ID references in code and commits
+
+## Minto Pyramid Principle for Documentation
+
+### Meta-Pattern: Minto Pyramid Principle
+
+**Core Philosophy**: All documentation must follow the Minto Pyramid Principle - **Conclusion and Recommendation First**, then Supporting Arguments, then Detailed Evidence. This creates a communication structure that enables immediate understanding while providing comprehensive detail for implementers.
+
+#### Minto Pyramid Structure for Documentation
+
+```
+CONCLUSION/RECOMMENDATION (Essence - What we should do)
+    ↓ [The "So What?" - Immediate Action]
+SUPPORTING ARGUMENTS (Why - Key reasons and logic)
+    ↓ [The "Why" - Rationale and reasoning]
+DETAILED EVIDENCE (How - Implementation details and proof)
+    ↓ [The "How" - Specific execution steps]
+```
+
+#### Implementation in Documentation Pyramid
+
+Each level of our documentation pyramid now follows Minto structure:
+
+**Level 1: requirements.md**
+- **Conclusion**: What we must build (anti-coordination + 5 Critical Gaps)
+- **Supporting**: Why these constraints are non-negotiable
+- **Evidence**: Specific, measurable requirements and acceptance criteria
+
+**Level 2: architecture.md**
+- **Conclusion**: System architecture and component relationships
+- **Supporting**: Why this architecture solves our problems
+- **Evidence**: Detailed design decisions, API contracts, data models
+
+**Level 3: architecture-L2.md**
+- **Conclusion**: Implementation patterns and methodologies
+- **Supporting**: Why these patterns ensure quality and maintainability
+- **Evidence**: Code examples, TDD workflows, best practices
+
+**Level 4: design.md**
+- **Conclusion**: Complete technical contracts and interfaces
+- **Supporting**: Why these contracts satisfy the requirements
+- **Evidence**: Function signatures, type definitions, error hierarchies
+
+**Level 5: tasks.md**
+- **Conclusion**: Exact implementation steps
+- **Supporting**: Why this approach is correct and efficient
+- **Evidence**: Complete code examples, test cases, deployment scripts
+
+#### Benefits for LLM Communication
+
+**Immediate Intent Recognition**: LLMs grasp the core requirement immediately from the conclusion, then use supporting arguments to understand context, and finally dive into implementation details.
+
+**Reduced Ambiguity**: Clear structure eliminates interpretation errors - the conclusion states what must be achieved, supporting arguments explain why, and evidence provides how.
+
+**Efficient Processing**: LLMs can process specifications in a top-down manner, understanding the essence before getting lost in implementation details.
+
+#### Minto in Action: Example Specification
+
+```markdown
+## Message Deduplication Service [REQ-GAP-001.0]
+
+### Conclusion
+Implement idempotent message creation using UNIQUE constraint on (client_message_id, room_id) to prevent duplicate messages from rapid clicking.
+
+### Supporting Arguments
+- **User Experience**: Rapid clicking should not create duplicate messages
+- **Data Integrity**: Each client_message_id must be unique within a room
+- **Performance**: Constraint violation handling must be efficient (<200ms p99)
+- **Reliability**: System must gracefully handle concurrent creation attempts
+
+### Evidence
+#### Database Schema
+```sql
+CREATE TABLE messages (
+    id UUID PRIMARY KEY,
+    client_message_id UUID NOT NULL,
+    room_id UUID NOT NULL,
+    -- ... other fields
+    UNIQUE(client_message_id, room_id)
+);
+```
+
+#### Interface Contract
+```rust
+pub trait MessageService: Send + Sync {
+    async fn create_message_with_deduplication(
+        &self,
+        data: CreateMessageData,
+    ) -> Result<DeduplicatedMessage<Verified>, MessageError>;
+}
+```
+
+#### Property Test
+```rust
+proptest! {
+    #[test]
+    fn prop_dedup_idempotent(data in any::<CreateMessageData>()) {
+        // Same client_message_id always returns same message
+    }
+}
+```
+
+#### Implementation Algorithm
+1. Execute INSERT with UNIQUE constraint
+2. On constraint violation, SELECT existing message
+3. Return existing message with Verified status
+4. Log deduplication event for analytics
+```
+
+#### Verification Protocol
+
+**Minto Compliance Check**: Each document must pass the "Conclusion First" test:
+1. Can a reader understand the core requirement from the first 3 lines?
+2. Are supporting arguments clearly separated from implementation details?
+3. Is evidence provided to substantiate each claim?
+4. Does the structure flow from essence to details?
 
 ## Meta-Patterns Integration
 
