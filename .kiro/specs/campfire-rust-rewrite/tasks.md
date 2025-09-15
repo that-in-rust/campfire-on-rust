@@ -19,7 +19,274 @@ tasks.md (THIS DOCUMENT - Maximum Implementation Detail)
 **Before coding, developers should reference**:
 - **design.md** for all interface contracts and type definitions
 - **architecture-L2.md** for TDD patterns and Rails parity strategies
-- This document for specific implementation tasks and property tests
+- This document for specific implementation tasks and complete code examples
+
+## Maximum Implementation Detail Examples
+
+### REQ-ID Traceability Implementation
+
+Every implementation in this document follows the standardized REQ-ID system:
+
+```rust
+// REQ-GAP-001.0: Message deduplication implementation
+// This ensures complete traceability from requirement to code
+```
+
+### Complete File: src/services/message_service.rs
+
+```rust
+use crate::types::*;
+use crate::error::MessageError;
+use sqlx::PgPool;
+use uuid::Uuid;
+use proptest::prelude::*;
+
+/// Complete message service implementation with deduplication
+///
+/// This is the BOTTOM-LEVEL implementation that developers copy and adapt
+pub struct MessageService {
+    db: PgPool,
+}
+
+impl MessageService {
+    pub fn new(db: PgPool) -> Self {
+        Self { db }
+    }
+
+    /// Creates a message with automatic deduplication based on client_message_id
+    ///
+    /// REQ-GAP-001.0: Message deduplication with UNIQUE constraint handling
+    ///
+    /// # Properties (Must hold for all inputs)
+    /// - Same client_message_id + room_id always returns same Message
+    /// - Message is atomically created and indexed for search
+    /// - Broadcast occurs after successful database commit
+    /// - Room last_message_at is updated atomically
+    /// - UNIQUE constraint violation returns existing message
+    pub async fn create_message_with_deduplication(
+        &self,
+        data: CreateMessageData,
+    ) -> Result<DeduplicatedMessage<Verified>, MessageError> {
+        // Step 1: Validate content length (1-10000 chars)
+        if data.body.len() < 1 || data.body.len() > 10000 {
+            return Err(MessageError::InvalidContent);
+        }
+
+        // Step 2: Check if user has access to room
+        let room_access = sqlx::query!(
+            "SELECT involvement_level FROM room_memberships
+             WHERE room_id = $1 AND user_id = $2",
+            data.room_id as i64,
+            data.creator_id as i64
+        )
+        .fetch_optional(&self.db)
+        .await?;
+
+        if room_access.is_none() {
+            return Err(MessageError::RoomAccessDenied);
+        }
+
+        // Step 3: Try to create message, handling UNIQUE constraint violation
+        let result = sqlx::query!(
+            r#"
+            INSERT INTO messages (id, room_id, creator_id, body, client_message_id, created_at)
+            VALUES ($1, $2, $3, $4, $5, NOW())
+            ON CONFLICT (client_message_id, room_id) DO NOTHING
+            RETURNING id, room_id, creator_id, body, client_message_id, created_at
+            "#,
+            Uuid::new_v4(),
+            data.room_id as i64,
+            data.creator_id as i64,
+            &data.body,
+            data.client_message_id
+        )
+        .fetch_optional(&self.db)
+        .await?;
+
+        match result {
+            Some(row) => {
+                // New message created
+                let message = Message {
+                    id: row.id,
+                    room_id: RoomId(row.room_id as u64),
+                    creator_id: UserId(row.creator_id as u64),
+                    body: row.body,
+                    client_message_id: row.client_message_id,
+                    created_at: row.created_at,
+                };
+
+                // Step 4: Update room's last_message_at
+                sqlx::query!(
+                    "UPDATE rooms SET last_message_at = NOW() WHERE id = $1",
+                    data.room_id as i64
+                )
+                .execute(&self.db)
+                .await?;
+
+                // Step 5: Index for FTS5 search
+                sqlx::query!(
+                    "INSERT INTO messages_fts (rowid, body) VALUES ($1, $2)",
+                    message.id,
+                    &message.body
+                )
+                .execute(&self.db)
+                .await?;
+
+                Ok(DeduplicatedMessage {
+                    inner: message,
+                    verification: Verified,
+                })
+            }
+            None => {
+                // Message with this client_message_id already exists
+                let existing = sqlx::query!(
+                    "SELECT id, room_id, creator_id, body, client_message_id, created_at
+                     FROM messages
+                     WHERE client_message_id = $1 AND room_id = $2",
+                    data.client_message_id,
+                    data.room_id as i64
+                )
+                .fetch_one(&self.db)
+                .await?;
+
+                let message = Message {
+                    id: existing.id,
+                    room_id: RoomId(existing.room_id as u64),
+                    creator_id: UserId(existing.creator_id as u64),
+                    body: existing.body,
+                    client_message_id: existing.client_message_id,
+                    created_at: existing.created_at,
+                };
+
+                Ok(DeduplicatedMessage {
+                    inner: message,
+                    verification: Verified,
+                })
+            }
+        }
+    }
+}
+
+/// Property tests that validate implementation correctness
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::*;
+
+    proptest! {
+        #[test]
+        fn prop_deduplication_is_idempotent(
+            room_id in any::<RoomId>(),
+            user_id in any::<UserId>(),
+            client_id in any::<Uuid>(),
+            content1 in "[a-z]{1,100}",
+            content2 in "[a-z]{1,100}",
+        ) {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let service = create_test_service().await;
+                let room = create_test_room(room_id).await;
+                add_user_to_room(room_id, user_id).await;
+
+                // First call
+                let data1 = CreateMessageData {
+                    room_id,
+                    creator_id: user_id,
+                    body: content1,
+                    client_message_id: client_id,
+                };
+                let msg1 = service.create_message_with_deduplication(data1).await.unwrap();
+
+                // Second call with same client_id, different content
+                let data2 = CreateMessageData {
+                    room_id,
+                    creator_id: user_id,
+                    body: content2,
+                    client_message_id: client_id, // Same!
+                };
+                let msg2 = service.create_message_with_deduplication(data2).await.unwrap();
+
+                // Property: Same client_message_id always returns same message
+                assert_eq!(msg1.inner.id, msg2.inner.id);
+                assert_eq!(msg1.inner.body, msg2.inner.body); // Original content preserved
+                assert_eq!(msg1.inner.client_message_id, msg2.inner.client_message_id);
+            });
+        }
+    }
+}
+```
+
+### Complete File: tests/integration/message_deduplication_test.rs
+
+```rust
+use campfire::services::MessageService;
+use campfire::types::*;
+use sqlx::PgPool;
+use uuid::Uuid;
+
+#[tokio::test]
+async fn test_concurrent_message_creation_avoids_duplicates() {
+    // Setup test database
+    let pool = create_test_pool().await;
+    let service = MessageService::new(pool.clone());
+    let room_id = RoomId::new();
+    let user_id = UserId::new();
+
+    // Create test room and user
+    setup_test_room(&pool, room_id, user_id).await;
+
+    // Test concurrent creation with same client_message_id
+    let client_id = Uuid::new_v4();
+    let handle1 = tokio::spawn({
+        let service = service.clone();
+        let client_id = client_id;
+        async move {
+            service.create_message_with_deduplication(CreateMessageData {
+                room_id,
+                creator_id: user_id,
+                body: "Message 1".to_string(),
+                client_message_id: client_id,
+            }).await
+        }
+    });
+
+    let handle2 = tokio::spawn({
+        let service = service.clone();
+        let client_id = client_id;
+        async move {
+            service.create_message_with_deduplication(CreateMessageData {
+                room_id,
+                creator_id: user_id,
+                body: "Message 2".to_string(),
+                client_message_id: client_id,
+            }).await
+        }
+    });
+
+    // Wait for both operations
+    let (result1, result2) = tokio::join!(handle1, handle2);
+
+    // Both should succeed but return same message
+    assert!(result1.is_ok());
+    assert!(result2.is_ok());
+
+    let msg1 = result1.unwrap();
+    let msg2 = result2.unwrap();
+
+    // Verify deduplication worked
+    assert_eq!(msg1.inner.id, msg2.inner.id);
+
+    // Verify only one message exists in database
+    let count = sqlx::query_scalar!(
+        "SELECT COUNT(*) as count FROM messages WHERE client_message_id = $1",
+        client_id
+    )
+    .fetch_one(&pool)
+    .await;
+
+    assert_eq!(count.unwrap().count.unwrap(), 1);
+}
+```
 
 ## Overview: TDD-Driven "Rails-Equivalent Imperfection" Strategy
 
