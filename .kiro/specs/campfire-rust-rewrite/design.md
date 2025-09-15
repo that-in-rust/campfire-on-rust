@@ -26,171 +26,17 @@ This document defines the complete type contracts, function signatures, and erro
 - **Anti-Coordination**: Direct function calls, no async coordination between components
 - **Phantom Types**: Use type system to prevent invalid state transitions
 
-## TDD-Driven Logic Reasoning
+## Logic Reasoning and Decision Tables
 
 ### Critical Gap Decision Trees
 
+The decision trees below provide the logical foundation for implementing each critical gap. These trees should be referenced during the GREEN phase of TDD implementation.
+
 #### Gap #1: Message Deduplication Logic Flow
 
-```mermaid
-graph TD
-    A[Client sends message] --> B{client_message_id exists?}
-    B -->|Yes| C[Query existing message]
-    C --> D[Return existing message]
-    B -->|No| E[Validate content]
-    E -->|Invalid| F[Return ValidationError]
-    E -->|Valid| G[Check room access]
-    G -->|Denied| H[Return AuthorizationError]
-    G -->|Allowed| I[Begin transaction]
-    I --> J[Insert message]
-    J -->|UNIQUE violation| K[Race condition: fetch existing]
-    J -->|Success| L[Update room timestamp]
-    L --> M[Commit transaction]
-    M --> N[Broadcast to room]
-    N --> O[Update FTS5 index]
-    O --> P[Return created message]
-    K --> D
-```
+This decision tree handles the UNIQUE constraint violation scenario for message deduplication.
 
-**Test Assertions**:
-```rust
-// Property: Same client_id always returns same message
-prop_assert_eq!(create_twice_same_id().id, existing_message.id);
-
-// Edge case: Concurrent inserts with same client_id
-assert!(handles_race_condition_gracefully());
-
-// Rails parity: UNIQUE constraint behavior matches ActiveRecord
-assert_eq!(rails_behavior(), our_behavior());
-```
-
-#### Gap #2: WebSocket Reconnection State Sync
-
-**Reconnection Decision Flow**:
-```mermaid
-graph TD
-    A[Client reconnects] --> B{Auth valid?}
-    B -->|No| C[Reject with 401]
-    B -->|Yes| D{last_seen_message_id provided?}
-    D -->|No| E[Send recent messages (50)]
-    D -->|Yes| F[Query messages since last_seen]
-    F --> G{Messages found?}
-    G -->|No| H[Send empty array]
-    G -->|Yes| I[Send missed messages in chronological order]
-    I --> J[Update connection state]
-    E --> J
-    H --> J
-    J --> K[Resume normal broadcasting]
-    
-    style A fill:#e1f5fe
-    style C fill:#ffebee
-    style I fill:#e8f5e8
-    style K fill:#e8f5e8
-```
-
-**Detailed Reconnection Sequence**:
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant S as Server
-    participant DB as Database
-    participant R as Room Subscribers
-    
-    Note over C,R: Connection lost scenario
-    C--xS: Network interruption
-    Note over C: Client stores last_seen_id: 100
-    
-    Note over S,R: Messages continue while client offline
-    S->>DB: INSERT message (id: 101)
-    S->>R: Broadcast to other clients
-    S->>DB: INSERT message (id: 102)
-    S->>R: Broadcast to other clients
-    
-    Note over C,R: Client reconnection begins
-    C->>S: WebSocket reconnect
-    S->>S: Validate session token
-    C->>S: Send last_seen_id: 100
-    
-    S->>DB: SELECT * FROM messages WHERE id > 100 AND room_id = ?
-    DB-->>S: Return [message_101, message_102]
-    
-    S->>C: Deliver missed messages
-    Note over C: Client receives: [101, 102]
-    C->>C: Update UI with missed messages
-    C->>C: Set last_seen_id: 102
-    
-    Note over C,R: Resume normal operation
-    S->>C: New message (id: 103)
-    C->>C: Display new message
-    C->>C: Update last_seen_id: 103
-```
-
-**Test Assertions**:
-```rust
-// Property: All missed messages are delivered
-prop_assert_eq!(missed_messages.len(), expected_count);
-
-// Edge case: Network interruption during sync
-assert!(handles_partial_sync_gracefully());
-
-// Rails parity: ActionCable reconnection behavior
-assert_eq!(actioncable_behavior(), our_behavior());
-```
-
-### Logic Branch Coverage Matrix
-
-| Scenario | Input | Expected Output | Test Assertion | Rails Parity Note |
-|----------|--------|-----------------|----------------|-------------------|
-| **Message Deduplication** |
-| First message | `client_id=uuid1, content="Hello"` | `Message{id=1, content="Hello"}` | `assert_eq!(msg.content, "Hello")` | Rails INSERT behavior |
-| Duplicate client_id | `client_id=uuid1, content="World"` | `Message{id=1, content="Hello"}` | `assert_eq!(msg.content, "Hello")` | Rails UNIQUE constraint |
-| Race condition | 2 concurrent inserts, same client_id | One succeeds, one returns existing | `assert_eq!(msg1.id, msg2.id)` | Rails transaction isolation |
-| **WebSocket Reconnection** |
-| Clean reconnect | `last_seen_id=100` | Messages 101-150 | `assert_eq!(msgs.len(), 50)` | ActionCable missed messages |
-| No last_seen | `last_seen_id=None` | Recent 50 messages | `assert_eq!(msgs.len(), 50)` | ActionCable initial sync |
-| Network drop mid-broadcast | Disconnect after send | Best-effort: Some clients miss | `assert!(delivery_rate >= 95%)` | ActionCable fire-and-forget |
-| **Concurrent Writes (Gap #3)** |
-| 10 simultaneous inserts | Multiple writers | Serialized via mpsc channel | `prop_assert_eq!(order, timestamp_order)` | Rails connection pooling |
-| Database lock timeout | High write contention | Graceful error handling | `assert!(matches!(err, DatabaseError::Timeout))` | Rails deadlock detection |
-| **Session Security (Gap #4)** |
-| Token generation | `generate_secure_token()` | 32-char alphanumeric | `assert!(token.len() >= 32)` | Rails SecureRandom |
-| Session validation | Valid token | User + session data | `assert_eq!(user.id, expected_id)` | Rails session lookup |
-| Expired session | Token > 24h old | SessionNotFound error | `assert!(matches!(err, AuthError::SessionNotFound))` | Rails session expiry |
-| **Presence Tracking (Gap #5)** |
-| User connects | `user_connected(user_id)` | Increment count | `assert_eq!(count, 1)` | Rails connection counting |
-| TTL cleanup | 61 seconds elapsed | Count reset to 0 | `assert_eq!(count, 0)` | Rails heartbeat timeout |
-| Multiple tabs | 3 connections same user | Count = 3 | `assert_eq!(count, 3)` | Rails multi-connection |
-
-### Anti-Coordination Safeguards
-
-**TDD Guards** - Test assertions that fail if coordination patterns creep in:
-
-```rust
-// Guard: No async coordination between services
-#[test]
-fn test_no_async_coordination() {
-    // This test fails if we add event buses, coordinators, etc.
-    let service_call_count = count_async_operations_in_request();
-    assert!(service_call_count <= 3, "Too many async operations - coordination detected");
-}
-
-// Guard: Direct function calls only
-#[test]
-fn test_direct_function_calls() {
-    // This test fails if we add message queues, event streams, etc.
-    let has_message_queue = check_for_message_queue_usage();
-    assert!(!has_message_queue, "Message queue detected - violates anti-coordination");
-}
-
-// Guard: Rails-equivalent complexity only
-#[test]
-fn test_rails_complexity_ceiling() {
-    // This test fails if we exceed Rails complexity
-    let complexity_score = measure_code_complexity();
-    let rails_baseline = get_rails_complexity_baseline();
-    assert!(complexity_score <= rails_baseline * 1.1, "Complexity exceeds Rails by >10%");
-}
-```
+**Test Strategy**: Use property tests to validate idempotency across all input combinations.
 
 ## Complete Service Interface Contracts
 
@@ -615,317 +461,46 @@ pub trait MessageService: Send + Sync {
     ) -> Result<Boost, MessageError>;
 }
 
-#### MessageService TDD Cycle - STUB → RED → GREEN → REFACTOR
+### Test Scenarios for Interface Contracts
 
-**STUB (Interface Contract)**:
-```rust
-pub trait MessageService: Send + Sync {
-    /// Creates message with deduplication (Critical Gap #1).
-    /// Side Effects:
-    /// 1. Inserts row into 'messages' table with UNIQUE constraint
-    /// 2. Updates room.last_message_at timestamp
-    /// 3. Broadcasts 'MessageCreated' WebSocket event to room subscribers
-    /// 4. Updates FTS5 search index for message content
-    async fn create_message_with_deduplication(
-        &self,
-        content: String,           // Invariant: 1-10000 chars, sanitized HTML
-        room_id: RoomId,
-        creator_id: UserId,
-        client_message_id: Uuid,   // For idempotency
-    ) -> Result<Message<Persisted>, MessageError>;
-}
-```
+The following test scenarios should be implemented for each service interface. Refer to architecture-L2.md for detailed TDD implementation patterns.
 
-**RED (Behavioral Specification - Failing Tests)**:
+**Message Service Test Scenarios**:
+- **Scenario 1**: Message creation with deduplication (Critical Gap #1)
+- **Scenario 2**: Unauthorized message creation rejection
+- **Scenario 3**: Content validation boundary enforcement
+- **Scenario 4**: WebSocket broadcast on successful creation
+- **Scenario 5**: FTS5 index update after creation
 
-*Unit Test for Deduplication Idempotency*:
-```rust
-#[tokio::test]
-async fn test_dedup_returns_existing_message_and_preserves_content() {
-    let fixture = setup_test_fixture().await;
-    let client_id = Uuid::new_v4();
-    
-    // First call
-    let msg1 = fixture.service.create_message_with_deduplication(
-        "Original", room_id, user_id, client_id
-    ).await.unwrap();
-    
-    // Second call with SAME client_id, DIFFERENT content
-    let msg2 = fixture.service.create_message_with_deduplication(
-        "Duplicate", room_id, user_id, client_id
-    ).await.unwrap();
-    
-    // Assertions
-    assert_eq!(msg1.id, msg2.id, "IDs must match for same client_message_id");
-    assert_eq!(msg2.content, "Original", "Content must match original call");
-    
-    // Verify DB state (ensure only one row exists)
-    let count = fixture.db.count_messages_with_client_id(client_id).await.unwrap();
-    assert_eq!(count, 1, "Database must contain exactly one message");
-}
-```
+**Room Service Test Scenarios**:
+- **Scenario 1**: Room creation with automatic membership
+- **Scenario 2**: Direct room exactly two members validation
+- **Scenario 3**: Membership involvement level control
+- **Scenario 4**: Room access permission checking
 
-*Property Test for Idempotency Invariant*:
-```rust
-proptest! {
-    #[test]
-    fn prop_deduplication_is_idempotent(
-        content1 in ".*", content2 in ".*",
-        room_id in any::<u64>().prop_map(RoomId),
-        user_id in any::<u64>().prop_map(UserId),
-        client_id in any::<Uuid>(),
-    ) {
-        // Invariant: Calling create twice with same client_id always yields same MessageId
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async {
-            let service = setup_test_message_service().await;
-            
-            let msg1 = service.create_message_with_deduplication(
-                content1, room_id, user_id, client_id
-            ).await.unwrap();
-            
-            let msg2 = service.create_message_with_deduplication(
-                content2, room_id, user_id, client_id
-            ).await.unwrap();
-            
-            prop_assert_eq!(msg1.id, msg2.id);
-            prop_assert_eq!(msg1.content, msg2.content); // Original preserved
-        });
-    }
-}
-```
+**Auth Service Test Scenarios**:
+- **Scenario 1**: Secure session creation (Critical Gap #4)
+- **Scenario 2**: Session token validation
+- **Scenario 3**: Invalid credentials handling
+- **Scenario 4**: Bot token authentication
 
-*Integration Test for Side Effects*:
-```rust
-#[tokio::test]
-async fn test_message_creation_triggers_all_side_effects() {
-    let fixture = setup_integration_fixture().await;
-    let mut ws_receiver = fixture.subscribe_to_room_broadcasts(room_id).await;
-    
-    let message = fixture.service.create_message_with_deduplication(
-        "Test message", room_id, user_id, Uuid::new_v4()
-    ).await.unwrap();
-    
-    // Verify side effect 1: Message stored in database
-    let stored = fixture.db.get_message(message.id).await.unwrap().unwrap();
-    assert_eq!(stored.content, "Test message");
-    
-    // Verify side effect 2: Room timestamp updated
-    let room = fixture.db.get_room(room_id).await.unwrap().unwrap();
-    assert_eq!(room.last_message_at, message.created_at);
-    
-    // Verify side effect 3: WebSocket broadcast sent
-    let broadcast = tokio::time::timeout(
-        Duration::from_millis(100),
-        ws_receiver.recv()
-    ).await.unwrap().unwrap();
-    
-    match broadcast {
-        WebSocketMessage::MessageCreated { message: broadcast_msg } => {
-            assert_eq!(broadcast_msg.id, message.id);
-        }
-        _ => panic!("Expected MessageCreated broadcast"),
-    }
-    
-    // Verify side effect 4: FTS5 index updated
-    let search_results = fixture.db.search_messages("Test", user_id, 10).await.unwrap();
-    assert_eq!(search_results.len(), 1);
-    assert_eq!(search_results[0].id, message.id);
-}
-```
+**WebSocket Service Test Scenarios**:
+- **Scenario 1**: Connection state tracking
+- **Scenario 2**: Missed message delivery on reconnection (Critical Gap #2)
+- **Scenario 3**: Room broadcasting
+- **Scenario 4**: Connection cleanup on disconnect
 
-**GREEN (Implementation Guidance & Logic)**:
+**Database Service Test Scenarios**:
+- **Scenario 1**: Write serialization (Critical Gap #3)
+- **Scenario 2**: Constraint violation handling
+- **Scenario 3**: Transaction integrity
+- **Scenario 4**: Concurrent write handling
 
-*Decision Table for `create_message_with_deduplication`*:
-
-| Conditions | `client_message_id` Exists? | User Authorized? | Content Valid? | Action/Output | Side Effects Triggered? |
-|:-----------|:---------------------------:|:----------------:|:--------------:|:--------------|:-----------------------:|
-| **C1** | Yes | N/A | N/A | SELECT existing message; Return `Ok(ExistingMessage)` | No |
-| **C2** | No | No | N/A | Return `Err(MessageError::Authorization)` | No |
-| **C3** | No | Yes | No | Return `Err(MessageError::Validation)` | No |
-| **C4** | No | Yes | Yes | INSERT new message; Return `Ok(NewMessage)` | Yes (Broadcast, Update Room) |
-
-*Algorithmic Steps*:
-1. Validate content (length 1-10000 chars, sanitize HTML)
-2. Check authorization via membership table lookup
-3. Send `WriteCommand::CreateMessage` to DatabaseWriter
-4. Handle response according to Decision Table
-5. On success (C4): Trigger broadcast and FTS5 index update
-
-**REFACTOR (Constraints, Patterns, and Imperfections)**:
-
-*Optimization Requirements*:
-- Ensure database indexing on `(client_message_id, room_id)` for fast deduplication
-- Use prepared statements for all database queries
-- Batch FTS5 index updates for performance
-
-*Anti-Patterns (FORBIDDEN)*:
-- **DO NOT** use application-level pre-checking (SELECT before INSERT) as this introduces TOCTOU race conditions
-- **DO NOT** implement complex retry logic or circuit breakers
-- **DO NOT** add distributed coordination for message ordering
-
-*Rails-Equivalent Imperfection*:
-```rust
-// Rails Reality: Occasional message ordering inconsistencies acceptable
-// Goal: Database timestamp ordering with occasional out-of-order messages
-// Constraint: Do not implement vector clocks or distributed coordination
-#[tokio::test]
-async fn test_accepts_rails_level_message_ordering() {
-    let service = setup_test_message_service().await;
-    
-    // Send messages rapidly (may arrive out of order)
-    let handles: Vec<_> = (0..10).map(|i| {
-        let service = service.clone();
-        tokio::spawn(async move {
-            service.create_message_with_deduplication(
-                format!("Message {}", i), room_id, user_id, Uuid::new_v4()
-            ).await
-        })
-    }).collect();
-    
-    let messages: Vec<_> = futures::future::join_all(handles).await
-        .into_iter().map(|h| h.unwrap().unwrap()).collect();
-    
-    // Rails Reality: Messages may not be perfectly ordered by send time
-    // We accept this limitation - database timestamp ordering is sufficient
-    let mut sorted_by_db = messages.clone();
-    sorted_by_db.sort_by(|a, b| a.created_at.cmp(&b.created_at).then_with(|| a.id.cmp(&b.id)));
-    
-    // Test passes regardless of ordering - Rails-equivalent behavior
-    println!("Message ordering consistency: {}", messages == sorted_by_db);
-}
-```
-
-**Scenario 2: Deduplication of Message**
-- **Given** a message with `client_message_id` X already exists
-- **When** a new message with the same client ID X is created in that room
-- **Then** the service returns `Ok(existing Message)` (no duplicate) – fulfilling Critical Gap #1 deduplication
-- **Test Stub**: `prop_duplicate_client_id_returns_same_message()`
-- **Requirements**: Covers Critical Gap #1
-
-**Scenario 3: Unauthorized Creator**
-- **Given** a user without access to the room
-- **When** they attempt to create a message
-- **Then** the service returns `Err(MessageError::Authorization)` and no message is created
-- **Test Stub**: `test_unauthorized_message_creation()`
-- **Requirements**: Covers Requirement 3.1
-
-**Scenario 4: Content Validation Boundaries**
-- **Given** message content that is empty or exceeds 10000 characters
-- **When** `create_message_with_deduplication` is called
-- **Then** it returns `Err(MessageError::Validation)` with appropriate field and reason
-- **Test Stub**: `prop_message_validation_boundaries()`
-- **Requirements**: Covers Requirement 1.3
-
-**Scenario 5: Missed Message Delivery on Reconnection**
-- **Given** a user reconnects after being offline and provides `last_seen_message_id`
-- **When** `get_messages_since` is called
-- **Then** it returns all messages created after the last seen ID in chronological order
-- **Test Stub**: `test_reconnection_delivers_missed_messages()`
-- **Requirements**: Covers Critical Gap #2
-
-**Scenario 6: Search Permission Filtering**
-- **Given** a user with access to some rooms but not others
-- **When** `search_messages` is called with a query
-- **Then** results only include messages from rooms the user can access
-- **Test Stub**: `prop_search_respects_permissions()`
-- **Requirements**: Covers Requirement 2.4
-
-**Scenario 7: Emoji Boost Validation**
-- **Given** various emoji content (valid Unicode, too long, invalid characters)
-- **When** `create_boost` is called
-- **Then** it validates emoji content and returns appropriate success or validation error
-- **Test Stub**: `prop_message_boost_emoji_validation()`
-- **Requirements**: Covers Requirement 1.6
-```
-
-#### TDD Implementation Cycle for MessageService
-
-**RED Phase (Failing Tests)**:
-```rust
-#[tokio::test]
-async fn test_create_message_deduplication_fails_initially() {
-    let service = MockMessageService::new();
-    let client_id = Uuid::new_v4();
-    
-    // First message should succeed
-    let msg1 = service.create_message_with_deduplication(
-        "Hello".to_string(), room_id, user_id, client_id
-    ).await.unwrap();
-    
-    // Second message with same client_id should return existing
-    let msg2 = service.create_message_with_deduplication(
-        "Different content".to_string(), room_id, user_id, client_id
-    ).await.unwrap();
-    
-    // This will FAIL until we implement deduplication
-    assert_eq!(msg1.id, msg2.id);
-    assert_eq!(msg1.content, "Hello"); // Original content preserved
-}
-```
-
-**GREEN Phase (Minimal Implementation)**:
-```rust
-impl MessageService for RealMessageService {
-    async fn create_message_with_deduplication(
-        &self,
-        content: String,
-        room_id: RoomId,
-        creator_id: UserId,
-        client_message_id: Uuid,
-    ) -> Result<Message<Persisted>, MessageError> {
-        // Check for existing message first (Rails pattern)
-        if let Some(existing) = self.find_by_client_id(client_message_id).await? {
-            return Ok(existing);
-        }
-        
-        // Try INSERT with UNIQUE constraint
-        match self.insert_message(content, room_id, creator_id, client_message_id).await {
-            Ok(message) => Ok(message),
-            Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => {
-                // Race condition: fetch existing message
-                self.find_by_client_id(client_message_id).await?
-                    .ok_or(MessageError::NotFound { message_id: MessageId(0) })
-            }
-            Err(e) => Err(e.into()),
-        }
-    }
-}
-```
-
-**REFACTOR Phase (Property-Based Invariants)**:
-```rust
-proptest! {
-    #[test]
-    fn prop_message_deduplication_idempotent(
-        content1 in ".*",
-        content2 in ".*", 
-        room_id in any::<u64>().prop_map(RoomId),
-        user_id in any::<u64>().prop_map(UserId),
-        client_id in any::<Uuid>(),
-    ) {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async {
-            let service = setup_test_service().await;
-            
-            let msg1 = service.create_message_with_deduplication(
-                content1, room_id, user_id, client_id
-            ).await.unwrap();
-            
-            let msg2 = service.create_message_with_deduplication(
-                content2, room_id, user_id, client_id  // Same client_id
-            ).await.unwrap();
-            
-            // INVARIANT: Same client_id always returns same message
-            prop_assert_eq!(msg1.id, msg2.id);
-            prop_assert_eq!(msg1.content, msg2.content); // Original preserved
-            prop_assert_eq!(msg1.client_message_id, msg2.client_message_id);
-        });
-    }
-}
-```
+For detailed TDD implementation examples, including property tests and integration tests, refer to architecture-L2.md.
 
 ### RoomService Interface
+
+**Test Implementation Guidance**: For detailed TDD implementation patterns including RED/GREEN/REFACTOR cycles, property tests, and integration tests, refer to architecture-L2.md. The interface contracts below should be implemented following the comprehensive TDD methodology documented there.
 
 ```rust
 /// Room service with membership management

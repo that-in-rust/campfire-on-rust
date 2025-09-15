@@ -11,6 +11,23 @@ This document outlines the requirements for the **Simplified MVP** of rewriting 
 - **Complete user interface** with graceful feature degradation
 - **Evidence-based complexity** - add coordination only when Rails proves it's necessary
 
+## MVP 1.0 Strategic Focus
+
+### Complete UI with Text-Only Backend (Included in MVP 1.0)
+- ✅ **Complete React UI** - All components, styling, and interactions (26 CSS files)
+- ✅ **Rich text messaging** - Trix editor with HTML formatting, sounds, boosts
+- ✅ **Real-time features** - WebSocket broadcasting, presence, typing notifications
+- ✅ **Room management** - Open/Closed/Direct rooms with membership controls
+- ✅ **Authentication** - Session management, bot integration, role-based access
+- ✅ **Search functionality** - FTS5-powered message search
+- ✅ **Push notifications** - Web Push with VAPID keys
+- ✅ **Sound system** - 59 embedded MP3 files with /play commands
+
+### Gracefully Deferred to v2.0 (Future Enhancement)
+- 🚫 **File attachments** - Complete UI shown with "Coming in v2.0" messaging
+- 🚫 **Avatar uploads** - Text-based initials with upload UI for future
+- 🚫 **OpenGraph previews** - Link detection with placeholder for future unfurling
+
 **MVP Scope:** Campfire is a web-based chat application that supports multiple rooms with access controls, direct messages, rich text messaging, search, notifications via Web Push, @mentions, and API support for bot integrations. File attachments, avatars, and OpenGraph previews are **gracefully disabled** with clear upgrade messaging.
 
 **Architecture Approach:** Simple 3-layer monolith (Database → API → WebSocket) with embedded React SPA, direct SQLite operations, and Rails-inspired patterns for real-time functionality.
@@ -123,6 +140,35 @@ The implementation is considered "flawless" when all steps below pass without er
 | **Gap #5** | Connection state becomes inconsistent | Heartbeat cleanup with TTL | 30% presence tracking inaccuracy | Property test: `prop_presence_ttl_cleanup` |
 
 These gaps represent the core technical challenges that Rails solves but require explicit handling in our implementation:
+
+## Rails-Level Limitations We Accept (Don't Over-Engineer)
+
+**Governing Principle**: We accept the same limitations and imperfections as Rails ActionCable, focusing on "works well enough" rather than perfect. This prevents over-engineering and maintains the anti-coordination architecture.
+
+**Limitation #1: Imperfect Message Ordering**
+- **Rails Reality**: Uses created_at timestamps, occasional out-of-order acceptable
+- **Our Approach**: Database timestamps, no complex vector clocks or coordination
+- **Requirements**: Message ordering consistency = Rails-level (acceptable minor inconsistencies)
+
+**Limitation #2: Multi-tab Connection Independence**
+- **Rails Reality**: Each tab creates independent ActionCable connection
+- **Our Approach**: No cross-tab coordination, each connection is separate
+- **Requirements**: Cross-tab behavior = Rails pattern (no state synchronization)
+
+**Limitation #3: Best-Effort WebSocket Delivery**
+- **Rails Reality**: ActionCable doesn't guarantee message delivery
+- **Our Approach**: Simple broadcast with timeout, no delivery confirmation
+- **Requirements**: Message delivery = best effort like Rails (occasional misses acceptable)
+
+**Limitation #4: Presence Tracking Delays**
+- **Rails Reality**: Connection cleanup has delays, occasional inaccuracy
+- **Our Approach**: 60-second heartbeat, accept brief inaccuracy
+- **Requirements**: Presence tracking = Rails-level (cleanup delays acceptable)
+
+**Limitation #5: Performance Over Non-Critical Paths**
+- **Rails Reality**: Accepts slower performance on edge cases and non-critical features
+- **Our Approach**: Optimize only the 95% case, avoid complex optimization for edge cases
+- **Requirements**: Performance = Rails-equivalent (prioritize simplicity over speed)
 
 ### Critical Gap #1: Message Deduplication
 

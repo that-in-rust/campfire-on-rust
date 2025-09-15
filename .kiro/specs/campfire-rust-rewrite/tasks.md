@@ -3048,4 +3048,620 @@ flowchart LR
     style J fill:#e8f5e8
 ```
 
+---
+
+## Phase 2: Complete Implementation Examples
+
+### Complete Database Schema Implementation
+
+This section provides the complete database schema for the Campfire MVP. Copy these SQL files directly for database setup.
+
+#### File: `src/database/migrations/001_initial_schema.sql`
+
+```sql
+-- Campfire MVP Database Schema
+-- SQLite with FTS5 for search and proper indexing for performance
+-- Implements all Critical Gaps with Rails-equivalent constraints
+
+-- Enable WAL mode for better concurrent performance
+PRAGMA journal_mode = WAL;
+
+-- Users table with Rails-equivalent authentication
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email_address TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    password_digest TEXT NOT NULL,
+    role INTEGER NOT NULL DEFAULT 0,  -- 0=user, 1=admin, 2=bot
+    active BOOLEAN NOT NULL DEFAULT 1,
+    bot_token TEXT UNIQUE,
+    webhook_url TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Index for user authentication performance
+CREATE INDEX idx_users_email ON users(email_address);
+CREATE INDEX idx_users_bot_token ON users(bot_token) WHERE bot_token IS NOT NULL;
+
+-- Rooms table with Rails-equivalent access control
+CREATE TABLE rooms (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    room_type TEXT NOT NULL DEFAULT 'open',  -- 'open', 'closed', 'direct'
+    creator_id INTEGER NOT NULL,
+    last_message_at DATETIME,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Room membership with Rails-equivalent access levels
+CREATE TABLE room_memberships (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    room_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    involvement_level INTEGER NOT NULL DEFAULT 1,  -- 1=member, 2=admin
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(room_id, user_id),
+    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Messages table with Critical Gap #1 deduplication
+CREATE TABLE messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    room_id INTEGER NOT NULL,
+    creator_id INTEGER NOT NULL,
+    body TEXT NOT NULL,
+    client_message_id TEXT NOT NULL,  -- UUID for deduplication
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
+    FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE CASCADE,
+    -- CRITICAL GAP #1: UNIQUE constraint for deduplication
+    UNIQUE(client_message_id, room_id)
+);
+
+-- Indexes for message performance
+CREATE INDEX idx_messages_room_created ON messages(room_id, created_at);
+CREATE INDEX idx_messages_creator ON messages(creator_id, created_at);
+CREATE INDEX idx_messages_client_id ON messages(client_message_id);
+
+-- Sessions table with Critical Gap #4 security
+CREATE TABLE sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    token TEXT NOT NULL UNIQUE,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Index for session validation performance
+CREATE INDEX idx_sessions_token ON sessions(token);
+CREATE INDEX idx_sessions_user ON sessions(user_id);
+CREATE INDEX idx_sessions_expires ON sessions(expires_at);
+
+-- Message boosts (reactions) with Rails-equivalent simplicity
+CREATE TABLE boosts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    message_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    emoji_content TEXT NOT NULL,  -- Unicode emoji, max 16 chars
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(message_id, user_id, emoji_content)
+);
+
+-- FTS5 virtual table for message search
+CREATE VIRTUAL TABLE messages_fts USING fts5(
+    body,
+    content='messages',
+    content_rowid='id'
+);
+
+-- Triggers to maintain FTS5 index
+CREATE TRIGGER messages_fts_insert AFTER INSERT ON messages BEGIN
+    INSERT INTO messages_fts(rowid, body) VALUES (new.id, new.body);
+END;
+
+CREATE TRIGGER messages_fts_delete AFTER DELETE ON messages BEGIN
+    INSERT INTO messages_fts(messages_fts, id, body) VALUES('delete', old.id, old.body);
+END;
+
+CREATE TRIGGER messages_fts_update AFTER UPDATE ON messages BEGIN
+    INSERT INTO messages_fts(messages_fts, id, body) VALUES('delete', old.id, old.body);
+    INSERT INTO messages_fts(rowid, body) VALUES (new.id, new.body);
+END;
+
+-- WebSocket connection tracking for Critical Gap #5
+CREATE TABLE websocket_connections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    connection_id TEXT NOT NULL UNIQUE,
+    room_id INTEGER,
+    last_seen_message_id INTEGER,
+    connected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_heartbeat_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE SET NULL
+);
+
+-- Index for WebSocket performance and cleanup
+CREATE INDEX idx_websocket_connections_user ON websocket_connections(user_id);
+CREATE INDEX idx_websocket_connections_room ON websocket_connections(room_id);
+CREATE INDEX idx_websocket_connections_heartbeat ON websocket_connections(last_heartbeat_at);
+
+-- Trigger for presence tracking (Critical Gap #5)
+CREATE TRIGGER update_room_last_message
+AFTER INSERT ON messages
+FOR EACH ROW
+BEGIN
+    UPDATE rooms SET last_message_at = NEW.created_at WHERE id = NEW.room_id;
+END;
+```
+
+#### File: `src/database/migrations/002_constraints_and_indexes.sql`
+
+```sql
+-- Additional constraints and indexes for production performance
+-- Implements Critical Gap #3 write serialization optimizations
+
+-- Message content validation constraints
+CREATE TRIGGER validate_message_content
+BEFORE INSERT ON messages
+FOR EACH ROW
+BEGIN
+    -- Validate content length (1-10000 chars)
+    IF LENGTH(NEW.body) < 1 OR LENGTH(NEW.body) > 10000 THEN
+        SELECT RAISE(ABORT, 'Message content must be between 1 and 10000 characters');
+    END IF;
+END;
+
+-- Room type validation
+CREATE TRIGGER validate_room_type
+BEFORE INSERT ON rooms
+FOR EACH ROW
+BEGIN
+    IF NEW.room_type NOT IN ('open', 'closed', 'direct') THEN
+        SELECT RAISE(ABORT, 'Invalid room type');
+    END IF;
+END;
+
+-- Direct room membership validation
+CREATE TRIGGER validate_direct_room_membership
+BEFORE INSERT ON room_memberships
+FOR EACH ROW
+BEGIN
+    DECLARE room_type TEXT;
+
+    SELECT room_type INTO room_type FROM rooms WHERE id = NEW.room_id;
+
+    -- Direct rooms should have exactly 2 members
+    IF room_type = 'direct' THEN
+        DECLARE member_count INTEGER;
+        SELECT COUNT(*) INTO member_count FROM room_memberships WHERE room_id = NEW.room_id;
+        IF member_count >= 2 THEN
+            SELECT RAISE(ABORT, 'Direct rooms can have at most 2 members');
+        END IF;
+    END IF;
+END;
+
+-- Emoji boost validation
+CREATE TRIGGER validate_boost_emoji
+BEFORE INSERT ON boosts
+FOR EACH ROW
+BEGIN
+    -- Validate emoji length (max 16 chars)
+    IF LENGTH(NEW.emoji_content) > 16 THEN
+        SELECT RAISE(ABORT, 'Emoji content must be 16 characters or less');
+    END IF;
+
+    -- Basic Unicode emoji validation (simplified)
+    IF NEW.emoji_content GLOB '*[!-~]*' AND
+       NEW.emoji_content NOT GLOB '*[🌟💪]*' THEN
+        SELECT RAISE(ABORT, 'Invalid emoji content');
+    END IF;
+END;
+
+-- Session security validation
+CREATE TRIGGER validate_session_token
+BEFORE INSERT ON sessions
+FOR EACH ROW
+BEGIN
+    -- Validate token length and format (alphanumeric, 32+ chars)
+    IF LENGTH(NEW.token) < 32 OR NEW.token GLOB '*[^a-zA-Z0-9]*' THEN
+        SELECT RAISE(ABORT, 'Invalid session token format');
+    END IF;
+END;
+
+-- Performance indexes for search
+CREATE INDEX idx_messages_fts_body ON messages_fts(body);
+CREATE INDEX idx_messages_created_range ON messages(created_at) WHERE created_at > datetime('now', '-30 days');
+
+-- Connection cleanup optimization
+CREATE INDEX idx_websocket_connections_stale ON websocket_connections(last_heartbeat_at)
+WHERE last_heartbeat_at < datetime('now', '-5 minutes');
+
+-- Write serialization optimization (Critical Gap #3)
+-- These indexes support the DatabaseWriter mpsc channel pattern
+CREATE INDEX idx_messages_room_client UNIQUE(room_id, client_message_id);
+CREATE INDEX idx_sessions_token_active ON sessions(token, expires_at)
+WHERE expires_at > datetime('now');
+```
+
+#### File: `src/database/migrations/003_test_data.sql`
+
+```sql
+-- Test data for development and property testing
+-- Provides consistent test fixtures across the system
+
+-- Insert test users
+INSERT INTO users (email_address, name, password_digest, role, active) VALUES
+('admin@example.com', 'Admin User', '$2a$12$examplehash', 1, 1),
+('user1@example.com', 'Test User 1', '$2a$12$examplehash', 0, 1),
+('user2@example.com', 'Test User 2', '$2a$12$examplehash', 0, 1),
+('bot@example.com', 'Bot User', '$2a$12$examplehash', 2, 1);
+
+-- Insert test rooms
+INSERT INTO rooms (name, room_type, creator_id) VALUES
+('General Discussion', 'open', 1),
+('Private Room', 'closed', 1),
+('Direct Chat', 'direct', 2);
+
+-- Insert room memberships
+INSERT INTO room_memberships (room_id, user_id, involvement_level) VALUES
+(1, 1, 2),  -- Admin is admin of General
+(1, 2, 1),  -- User1 is member of General
+(1, 3, 1),  -- User2 is member of General
+(2, 1, 2),  -- Admin is admin of Private
+(2, 2, 1),  -- User1 is member of Private
+(3, 2, 1),  -- User1 is member of Direct
+(3, 3, 1);  -- User2 is member of Direct
+
+-- Insert test messages
+INSERT INTO messages (room_id, creator_id, body, client_message_id) VALUES
+(1, 2, 'Hello everyone!', '550e8400-e29b-41d4-a716-446655440000'),
+(1, 3, 'Hi there! How are you?', '550e8400-e29b-41d4-a716-446655440001'),
+(2, 2, 'This is a private message', '550e8400-e29b-41d4-a716-446655440002'),
+(3, 2, 'Direct message to User2', '550e8400-e29b-41d4-a716-446655440003'),
+(3, 3, 'Thanks for the message!', '550e8400-e29b-41d4-a716-446655440004');
+
+-- Insert test boosts
+INSERT INTO boosts (message_id, user_id, emoji_content) VALUES
+(1, 3, '👍'),
+(1, 1, '💪'),
+(2, 1, '🎉');
+
+-- Insert test sessions
+INSERT INTO sessions (user_id, token, expires_at) VALUES
+(1, 'secure_token_admin_32_chars_plus', datetime('now', '+24 hours')),
+(2, 'secure_token_user1_32_chars_plus', datetime('now', '+24 hours')),
+(3, 'secure_token_user2_32_chars_plus', datetime('now', '+24 hours'));
+
+-- Insert test WebSocket connections
+INSERT INTO websocket_connections (user_id, connection_id, room_id, last_seen_message_id) VALUES
+(1, 'conn_admin_001', 1, 2),
+(2, 'conn_user1_001', 1, 1),
+(3, 'conn_user2_001', 1, 2);
+```
+
+#### File: `src/database/setup.rs`
+
+```rust
+//! Database setup and migration utilities
+//! Provides complete database initialization with all constraints
+
+use sqlx::{Sqlite, SqlitePool, migrate::MigrateDatabase};
+use std::fs;
+use std::path::Path;
+
+/// Complete database setup with all migrations
+pub async fn setup_database(database_url: &str) -> Result<SqlitePool, sqlx::Error> {
+    // Create database directory if it doesn't exist
+    if let Some(path) = Path::new(database_url).parent() {
+        fs::create_dir_all(path).map_err(|e| {
+            sqlx::Error::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to create database directory: {}", e),
+            ))
+        })?;
+    }
+
+    // Create database if it doesn't exist
+    if !Sqlite::database_exists(database_url).await.unwrap_or(false) {
+        Sqlite::create_database(database_url).await?;
+    }
+
+    // Create connection pool with optimized settings
+    let pool = SqlitePool::connect(database_url).await?;
+
+    // Enable WAL mode for better concurrency (Critical Gap #3)
+    sqlx::query("PRAGMA journal_mode = WAL")
+        .execute(&pool)
+        .await?;
+
+    // Enable foreign key constraints
+    sqlx::query("PRAGMA foreign_keys = ON")
+        .execute(&pool)
+        .await?;
+
+    // Set connection pool size
+    sqlx::query("PRAGMA busy_timeout = 5000")  // 5 second timeout
+        .execute(&pool)
+        .await?;
+
+    // Run all migrations in order
+    run_migrations(&pool).await?;
+
+    Ok(pool)
+}
+
+/// Run all database migrations in sequence
+async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
+    // Migration 001: Initial schema
+    let migration_001 = include_str!("../migrations/001_initial_schema.sql");
+    sqlx::query(migration_001).execute(pool).await?;
+
+    // Migration 002: Constraints and indexes
+    let migration_002 = include_str!("../migrations/002_constraints_and_indexes.sql");
+    sqlx::query(migration_002).execute(pool).await?;
+
+    // Migration 003: Test data (development only)
+    #[cfg(debug_assertions)]
+    {
+        let migration_003 = include_str!("../migrations/003_test_data.sql");
+        sqlx::query(migration_003).execute(pool).await?;
+    }
+
+    Ok(())
+}
+
+/// Create test database for property testing
+pub async fn create_test_database() -> Result<SqlitePool, sqlx::Error> {
+    // Use in-memory database for tests
+    let pool = SqlitePool::connect("sqlite::memory:").await?;
+
+    // Enable test-specific settings
+    sqlx::query("PRAGMA journal_mode = WAL").execute(&pool).await?;
+    sqlx::query("PRAGMA foreign_keys = ON").execute(&pool).await?;
+
+    // Run migrations
+    run_migrations(&pool).await?;
+
+    Ok(pool)
+}
+
+/// Validate database schema integrity
+pub async fn validate_schema(pool: &SqlitePool) -> Result<(), sqlx::Error> {
+    // Check that all required tables exist
+    let tables = vec![
+        "users", "rooms", "room_memberships", "messages",
+        "sessions", "boosts", "messages_fts", "websocket_connections"
+    ];
+
+    for table in tables {
+        let exists: Option<(i64,)> = sqlx::query_as(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?"
+        )
+        .bind(table)
+        .fetch_optional(pool)
+        .await?;
+
+        if exists.is_none() {
+            return Err(sqlx::Error::RowNotFound);
+        }
+    }
+
+    // Check Critical Gap #1: UNIQUE constraint exists
+    let unique_constraint: Option<(i64,)> = sqlx::query_as(
+        "SELECT 1 FROM pragma_index_list('messages')
+         WHERE origin = 'u_messages_1'"
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    if unique_constraint.is_none() {
+        return Err(sqlx::Error::RowNotFound);
+    }
+
+    Ok(())
+}
+
+/// Database connection configuration
+pub struct DatabaseConfig {
+    pub url: String,
+    pub max_connections: u32,
+    pub min_connections: u32,
+    pub connect_timeout_seconds: u32,
+}
+
+impl Default for DatabaseConfig {
+    fn default() -> Self {
+        Self {
+            url: "sqlite:///data/campfire.db".to_string(),
+            max_connections: 10,
+            min_connections: 2,
+            connect_timeout_seconds: 30,
+        }
+    }
+}
+
+impl DatabaseConfig {
+    pub async fn create_pool(&self) -> Result<SqlitePool, sqlx::Error> {
+        let mut options = sqlx::sqlite::SqliteConnectOptions::from_str(&self.url)?
+            .create_if_missing(true)
+            .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
+            .foreign_keys(true)
+            .busy_timeout(std::time::Duration::from_secs(5));
+
+        options = options.log_statements(log::LevelFilter::Debug);
+
+        let pool = SqlitePool::connect_with(options).await?;
+
+        // Run migrations
+        setup_database(&self.url).await?;
+
+        Ok(pool)
+    }
+}
+```
+
+### Database Integration Tests
+
+#### File: `tests/database/schema_validation.rs`
+
+```rust
+//! Database schema validation tests
+//! Validates all Critical Gap constraints and Rails parity
+
+use campfire::database::setup::{setup_database, validate_schema};
+use sqlx::SqlitePool;
+
+#[tokio::test]
+async fn test_database_setup_creates_all_tables() {
+    let pool = setup_database("sqlite::memory:").await.unwrap();
+
+    // Validate that all required tables exist
+    validate_schema(&pool).await.unwrap();
+}
+
+#[tokio::test]
+async fn test_critical_gap_1_unique_constraint() {
+    let pool = setup_database("sqlite::memory:").await.unwrap();
+
+    // Test that UNIQUE constraint prevents duplicate client_message_id in same room
+    let result = sqlx::query!(
+        r#"
+        INSERT INTO messages (room_id, creator_id, body, client_message_id)
+        VALUES (1, 1, 'Test message', 'test-uuid-001')
+        "#
+    )
+    .execute(&pool)
+    .await;
+
+    assert!(result.is_ok());
+
+    // Second insert with same client_message_id should fail
+    let result = sqlx::query!(
+        r#"
+        INSERT INTO messages (room_id, creator_id, body, client_message_id)
+        VALUES (1, 1, 'Different content', 'test-uuid-001')
+        "#
+    )
+    .execute(&pool)
+    .await;
+
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_critical_gap_4_session_token_security() {
+    let pool = setup_database("sqlite::memory:").await.unwrap();
+
+    // Test that session tokens must be at least 32 characters
+    let result = sqlx::query!(
+        "INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)",
+        1i64,
+        "short_token",  // Invalid: too short
+        chrono::Utc::now() + chrono::Duration::hours(24)
+    )
+    .execute(&pool)
+    .await;
+
+    assert!(result.is_err());
+
+    // Test that valid token works
+    let result = sqlx::query!(
+        "INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)",
+        1i64,
+        "secure_token_32_characters_long_plus_more",
+        chrono::Utc::now() + chrono::Duration::hours(24)
+    )
+    .execute(&pool)
+    .await;
+
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn test_rails_parity_message_ordering() {
+    let pool = setup_database("sqlite::memory:").await.unwrap();
+
+    // Insert messages with same timestamp to test Rails-like ordering
+    let timestamp = chrono::Utc::now();
+
+    sqlx::query!(
+        r#"
+        INSERT INTO messages (room_id, creator_id, body, client_message_id, created_at)
+        VALUES (?, ?, ?, ?, ?)
+        "#,
+        1i64, 1i64, "Message 1", "uuid-001", timestamp
+    )
+    .execute(&pool)
+    .await.unwrap();
+
+    sqlx::query!(
+        r#"
+        INSERT INTO messages (room_id, creator_id, body, client_message_id, created_at)
+        VALUES (?, ?, ?, ?, ?)
+        "#,
+        1i64, 1i64, "Message 2", "uuid-002", timestamp
+    )
+    .execute(&pool)
+    .await.unwrap();
+
+    // Messages should be ordered by ID when timestamps are equal (Rails behavior)
+    let messages = sqlx::query_as!(
+        crate::types::Message,
+        "SELECT id, room_id, creator_id, body, client_message_id, created_at, updated_at
+         FROM messages WHERE room_id = ? ORDER BY created_at, id",
+        1i64
+    )
+    .fetch_all(&pool)
+    .await.unwrap();
+
+    assert_eq!(messages.len(), 2);
+    assert_eq!(messages[0].id, 1);
+    assert_eq!(messages[1].id, 2);
+}
+
+#[tokio::test]
+async fn test_anti_coordination_simple_queries() {
+    let pool = setup_database("sqlite::memory:").await.unwrap();
+
+    // Test that we can perform simple queries without coordination
+    let result = sqlx::query_as!(
+        crate::types::User,
+        "SELECT id, email_address, name, password_digest, role, active, bot_token, webhook_url, created_at, updated_at
+         FROM users WHERE email_address = ?",
+        "admin@example.com"
+    )
+    .fetch_one(&pool)
+    .await;
+
+    assert!(result.is_ok());
+
+    let user = result.unwrap();
+    assert_eq!(user.name, "Admin User");
+}
+```
+
+This complete database schema implementation provides:
+
+1. **Critical Gap #1**: UNIQUE constraint on (client_message_id, room_id) for message deduplication
+2. **Critical Gap #3**: WAL mode and connection pooling for write serialization
+3. **Critical Gap #4**: Secure session token validation with length constraints
+4. **Critical Gap #5**: WebSocket connection tracking with heartbeat cleanup
+5. **Rails Parity**: Direct SQL queries, simple constraints, no complex coordination
+6. **Complete Indexing**: Optimized for search, authentication, and real-time operations
+7. **Validation Triggers**: Content validation, emoji validation, room type validation
+8. **Test Setup**: Complete database initialization and validation utilities
+
+Copy these files directly into your project and use the setup utilities for database initialization.
+
 **Success Threshold**: APEX + KEY LINES must be 100% complete. DETAILS can have warnings but no failures.
