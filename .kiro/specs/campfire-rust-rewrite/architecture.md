@@ -2,47 +2,59 @@
 
 ## System Architecture Overview
 
-This document defines the high-level system architecture for the Campfire Rust rewrite, implementing the requirements and constraints defined in `requirements.md`.
+This document defines the revolutionary system architecture for the Campfire Rust rewrite, implementing **Interface-Stub Architecture with UIGS framework** as defined in `requirements.md`.
 
-### Architecture Philosophy
+### Architecture Philosophy: Interface-Stub First
 
-**Rails-Inspired Pragmatic Architecture**: Build a simple, working chat application that replicates Rails behavior without coordination complexity.
+**Revolutionary Innovation**: Compress architectural intent into 1-2% JSONL specifications that enable 95% codebase compression and LLM-driven code generation.
 
 **Core Principles**:
+- **Interface-Stub Architecture**: Executable JSONL specifications instead of narrative requirements
+- **Three-by-Three Graph**: Type/Fn/Trait nodes with Calls/Implements/Interacts edges
+- **SigHash IDs**: BLAKE3-based stable identifiers for blast radius analysis
+- **LLM Translation**: Perfect specs → Perfect code (deterministic compilation)
 - **Anti-Coordination**: Direct function calls, no async coordination between components
-- **Rails Parity**: Replicate Rails ActionCable behavior exactly, don't improve it
-- **Simple Patterns**: Use proven Rails patterns implemented in idiomatic Rust
-- **Evidence-Based**: Add complexity only when Rails proves it's necessary
 
-### System Components & Data Flow
+### UIGS Framework: Interface-Stub Architecture
 
-**High-Level System Architecture**:
+**Revolutionary System Architecture**:
 ```mermaid
 graph TB
-    subgraph "Client Layer"
+    subgraph "Interface-Stub Layer (1% Codebase)"
+        SpecStore[JSONL Specifications<br/>Type/Fn/Trait Nodes]
+        GraphEngine[3x3 Graph Engine<br/>Calls/Implements/Interacts]
+        SigHashGen[SigHash Generator<br/>BLAKE3 Stable IDs]
+        Validator[Pre-Code Validator<br/>Coverage/Budget/Consistency]
+    end
+
+    subgraph "Traditional System Components (Generated)"
         React[React SPA<br/>Complete UI + Graceful Degradation]
         WS_Client[WebSocket Client<br/>Auto-reconnect + State Sync]
-    end
-    
-    subgraph "Server Layer"
         HTTP[HTTP Server<br/>Axum + Type-safe Extractors]
         WS_Server[WebSocket Server<br/>ActionCable-style Broadcasting]
         Auth[Authentication<br/>Session-based + Rate Limiting]
-    end
-    
-    subgraph "Service Layer"
+
         MessageSvc[Message Service<br/>Gap #1: Deduplication]
         RoomSvc[Room Service<br/>Membership Management]
         AuthSvc[Auth Service<br/>Gap #4: Secure Tokens]
         BroadcastSvc[Broadcast Service<br/>Gap #2: Reconnection]
-    end
-    
-    subgraph "Data Layer"
+
         Writer[Database Writer<br/>Gap #3: Write Serialization]
         SQLite[(SQLite Database<br/>WAL Mode + UNIQUE Constraints)]
         FTS5[(FTS5 Search Index<br/>Porter Stemming)]
     end
-    
+
+    SpecStore --> GraphEngine
+    GraphEngine --> SigHashGen
+    SigHashGen --> Validator
+    Validator --> HTTP
+    Validator --> WS_Server
+    Validator --> MessageSvc
+    Validator --> RoomSvc
+    Validator --> AuthSvc
+    Validator --> BroadcastSvc
+    Validator --> Writer
+
     React --> HTTP
     WS_Client --> WS_Server
     HTTP --> MessageSvc
@@ -55,9 +67,85 @@ graph TB
     BroadcastSvc --> Writer
     Writer --> SQLite
     Writer --> FTS5
-    
+
+    classDef interfaceStub fill:#4285F4,stroke:#333,stroke-width:3px
+    classDef generated fill:#e8f0fe,stroke:#666,stroke-width:1px
     classDef criticalGap fill:#ff9999,stroke:#333,stroke-width:2px
+
+    class SpecStore,GraphEngine,SigHashGen,Validator interfaceStub
+    class React,WS_Client,HTTP,WS_Server,Auth,MessageSvc,RoomSvc,AuthSvc,BroadcastSvc,Writer,SQLite,FTS5 generated
     class MessageSvc,BroadcastSvc,Writer,AuthSvc criticalGap
+```
+
+### Interface-Stub Implementation Architecture
+
+**JSONL Specification Storage**:
+```mermaid
+graph LR
+    subgraph "Specification Store"
+        Nodes[Nodes Table<br/>id, type, kind, name, spec]
+        Edges[Edges Table<br/>source, target, kind]
+        SQLite[(SQLite + JSON1<br/>Query Engine)]
+    end
+
+    subgraph "Graph Operations"
+        WhoCalls[who-calls<br/>Blast Radius Analysis]
+        BudgetCheck[budget-analysis<br/>Performance Validation]
+        Coverage[coverage-check<br/>Requirement Traceability]
+    end
+
+    subgraph "LLM Integration"
+        PromptGen[Prompt Generator<br/>Bounded Context Slices]
+        Translator[LLM Translator<br/>Spec → Code]
+        Validator[Code Validator<br/>Compliance Checking]
+    end
+
+    Nodes --> SQLite
+    Edges --> SQLite
+    SQLite --> WhoCalls
+    SQLite --> BudgetCheck
+    SQLite --> Coverage
+    Coverage --> PromptGen
+    BudgetCheck --> PromptGen
+    PromptGen --> Translator
+    Translator --> Validator
+```
+
+**Three-by-Three Graph Structure**:
+```json
+// Type Node Example
+{"type": "Node", "id": "TYPE_MESSAGE", "kind": "Type", "name": "Message", "spec": {
+    "schema": "id: UUID, room_id: UUID, creator_id: UUID, content: String, created_at: DateTime"
+}}
+
+// Function Node Example
+{"type": "Node", "id": "FN_CREATE_MESSAGE", "kind": "Fn", "name": "CreateMessage", "spec": {
+    "p99_ms": 150, "consistency": "strong", "guards": ["content_length_1_10000"]
+}}
+
+// Trait Node Example
+{"type": "Node", "id": "TRAIT_MESSAGE_SERVICE", "kind": "Trait", "name": "MessageService", "spec": {
+    "methods": ["create_message(data: CreateMessageData) -> Result<Message, MessageError>"]
+}}
+
+// Edge Examples
+{"type": "Edge", "source": "FN_CREATE_MESSAGE", "target": "TYPE_MESSAGE", "kind": "Interacts"}
+{"type": "Edge", "source": "FN_CREATE_MESSAGE", "target": "TRAIT_MESSAGE_SERVICE", "kind": "Calls"}
+```
+
+**CLI Tool Integration**:
+```bash
+# Analyze blast radius for changes
+arch_op who-calls --node TRAIT_MESSAGE_SERVICE
+
+# Validate performance budgets
+arch_op budget-analysis --entrypoint FN_CREATE_MESSAGE
+
+# Generate LLM prompts
+arch_op generate-prompt --module message_service
+
+# Verify specification coverage
+arch_op coverage-check --requirement REQ-GAP-001.0
 ```
 
 **Complete Message Creation Data Flow**:

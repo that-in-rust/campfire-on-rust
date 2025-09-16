@@ -2,14 +2,22 @@
 
 ## Introduction
 
-This document outlines the requirements for the **Simplified MVP** of rewriting the existing Ruby on Rails Campfire chat application to use a Rust backend with a React frontend. This approach implements **Rails-Inspired Pragmatic Architecture** - building a simple, working chat application that replicates Rails behavior without coordination complexity.
+This document outlines the requirements for the **Revolutionary MVP** of rewriting the existing Ruby on Rails Campfire chat application using **Interface-Stub Architecture** - a paradigm shift from narrative specifications to executable blueprints that enable 95% codebase compression and 10x productivity through LLM-driven development.
+
+**Strategic Innovation: Interface-Stub Architecture with UIGS**
+- **95-99% Compression**: Replace traditional codebases with executable JSONL specifications
+- **Pre-Code Analysis**: Catch 80-90% of issues before implementation
+- **LLM Translation**: Perfect specs → Perfect code (not interpretation)
+- **Formal Verification**: Mathematical proofs of correctness
+
+**Core Philosophy**: Treat specifications as mathematical truths, LLMs as deterministic compilers, and verification as automated proof.
 
 **Primary Goals:**
-- **85-90% cost reduction** (vs current Rails deployment)
-- **Rails-equivalent functionality** with Rust performance benefits
-- **Simple, maintainable codebase** that works reliably
-- **Complete user interface** with graceful feature degradation
-- **Evidence-based complexity** - add coordination only when Rails proves it's necessary
+- **Revolutionary Productivity**: 10x improvement through spec-first automation
+- **Correct-by-Construction**: Mathematical certainty through executable specifications
+- **95% Cost Reduction**: Dramatic infrastructure and maintenance savings
+- **Anti-Coordination Simplicity**: Single binary with zero coordination overhead
+- **Evidence-Based Evolution**: Add complexity only when proven necessary
 
 ## MVP 1.0 Strategic Focus
 
@@ -110,13 +118,83 @@ The simplified MVP implementation includes these core components:
 11. WHEN code review occurs THEN it SHALL verify compliance with anti-coordination constraints, check for forbidden patterns, ensure Rails parity, and reject any coordination complexity regardless of perceived benefits
 12. WHEN deployment is implemented THEN it SHALL use single binary with embedded assets, avoid orchestration or service discovery, maintain simple environment configuration, and provide basic health checks without coordination overhead
 
+## Strategic Prioritization: Interface-Stub First
+
+**Governing Principle**: The revolutionary Interface-Stub Architecture takes priority over traditional feature implementation. We focus on the core innovation first, then use it to generate the complete feature set.
+
+### Phase 1: MVP Core (Interface-Stub + 3x3 Graph)
+**Primary Focus**: Implement the revolutionary architecture that enables 95% compression
+- **JSONL Specifications**: Executable type/function/trait definitions
+- **3x3 Graph Structure**: Basic Calls/Implements/Interacts edges
+- **SigHash IDs**: BLAKE3-based stable identifiers
+- **Basic CLI Tool**: who-calls, blast-radius analysis
+
+### Phase 2: Core Chat Functionality
+**Secondary Priority**: Essential chat features using Interface-Stub specs
+- **Message deduplication** (Gap #1)
+- **WebSocket reconnection** (Gap #2)
+- **Write serialization** (Gap #3)
+- **Session security** (Gap #4)
+- **Presence tracking** (Gap #5)
+
+### Phase 3: Feature Generation
+**Tertiary Priority**: Use Interface-Stub to generate remaining features
+- **Sound system** (56 effects)
+- **Advanced UI components**
+- **File attachments**
+- **Search functionality**
+
+**Key Insight**: The Interface-Stub Architecture makes traditional implementation obsolete. Instead of manually implementing 1,503 lines of requirements, we create executable specifications that generate the complete system.
+
 ## 5 Critical Gaps That Must Be Solved
 
 **Governing Thought (Minto Apex)**: These gaps represent the only coordination complexity we accept - each has proven Rails solutions that we replicate exactly, avoiding over-engineering while ensuring reliability.
 
-## Executable Specification Methodology
+## Interface-Stub Architecture: Executable Specifications
 
-**Philosophy**: This specification serves as an **executable blueprint** for LLMs to generate flawless, one-shot code. Every function follows the **STUB → RED → GREEN → REFACTOR** TDD cycle with complete decision tables and property-based test specifications.
+**Philosophy**: This specification implements **Interface-Stub Architecture** - compressing architectural intent into 1-2% JSONL specifications that define requirements, types, operations, constraints, and non-functional requirements, enabling "pre-code" analysis.
+
+### Core Innovation: The 1% Codebase
+
+**JSONL Specification Format**:
+```json
+{"type": "Node", "id": "TYPE_TODO_ITEM", "kind": "Type", "name": "TodoItem", "spec": {"schema": "id: UUID, title: String, completed: Bool"}}
+{"type": "Node", "id": "TRAIT_IDATASTORE", "kind": "Trait", "name": "IDataStore", "spec": {"methods": ["save(item: TodoItem) -> Result"]}}
+{"type": "Node", "id": "FN_CREATE_TODO", "kind": "Fn", "name": "CreateTodo", "spec": {"p99_ms": 150, "consistency": "strong", "guards": ["title must not be empty"]}}
+{"type": "Edge", "source": "FN_CREATE_TODO", "target": "TYPE_TODO_ITEM", "kind": "Interacts"}
+{"type": "Edge", "source": "FN_CREATE_TODO", "target": "TRAIT_IDATASTORE", "kind": "Calls"}
+```
+
+### Three-by-Three Graph with SigHash IDs
+
+**Node Types**: `Fn`, `Type`, `Trait`
+**Edge Types**: `Calls`, `Implements`, `Interacts`
+**SigHash**: BLAKE3-based stable identifiers for blast radius analysis
+
+**Graph Structure**:
+```mermaid
+graph LR
+    Fn(Fn: CreateTodo)
+    Tr{Trait: IDataStore}
+    Ty([Type: TodoItem])
+    Impl(Fn: PostgresStorageAdapter)
+    Fn -- Interacts --> Ty
+    Fn -- Calls --> Tr
+    Impl -- Implements --> Tr
+    Impl -- Interacts --> Ty
+```
+
+### Pre-Code Analysis Benefits
+
+**Before Implementation**:
+- **Budget Validation**: Verify p99 latency constraints across execution paths
+- **Coverage Analysis**: Ensure all requirements have corresponding specifications
+- **Consistency Verification**: Validate type system consistency and invariant preservation
+- **Blast Radius Assessment**: Predict impact of changes through SigHash analysis
+
+**LLM Translation vs Interpretation**:
+- **Traditional**: LLM interprets narrative requirements → potential ambiguity
+- **Interface-Stub**: LLM translates executable specs → deterministic compilation
 
 ### Verification Harness - Definition of Done
 
