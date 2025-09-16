@@ -381,40 +381,80 @@ proptest! {
 - Provides clear references to adjacent levels
 - Enables developers to work efficiently at their current abstraction level
 
-## Streamlined Context Management System
+## Universal Context Management System
 
-### Context Recovery Protocol
+### SESSION_CONTEXT.md Integration
 
-**When Context is Lost** (Use this template):
+**Primary Context File**: `SESSION_CONTEXT.md` serves as the universal session context file with persistent progress tracking across Claude sessions.
+
+#### Context Recovery Protocol
+
+**When Context is Lost** (Use SESSION_CONTEXT.md):
+```bash
+# Quick Context Recovery
+cat SESSION_CONTEXT.md | grep -A 20 "Live Session Status"
+
+# Architecture Quick Reference
+cat .kiro/steering/anti-coordination.md
+
+# Todo List Status
+grep -A 10 "Active Todo List" SESSION_CONTEXT.md
+
+# 5 Critical Gaps Status
+grep -A 15 "5 Critical Gaps Implementation Status" SESSION_CONTEXT.md
+```
+
+**Session Recovery Template** (Auto-generated in SESSION_CONTEXT.md):
 ```
 === CONTEXT RECOVERY ===
 Project: Campfire Rust + React Rewrite
-Branch: feature/campfire-rust-rewrite-spec
-Current Focus: [Immediate priority]
-Last Action: [Last completed task]
+Branch: [current branch from SESSION_CONTEXT.md]
+Current Focus: [priority task from active todos]
+Last Action: [last completed from progress log]
 Key Decisions: Anti-coordination + 5 Critical Gaps + TDD-first
-Next Steps: [Planned actions]
-Context Size: ~[X] tokens
+Next Steps: [planned actions from next session template]
 === END RECOVERY ===
 ```
 
-### Live Session Context
-**Last Updated**: 2025-01-27 during CLAUDE.md enhancement
-**Session Phase**: Context management and documentation pyramid setup
-**Key Achievement**: Complete steering system with cascading detail principle
-**Next Priority**: Begin actual code implementation using established patterns
-**Status**: Architecture locked, ready for development
+#### Universal Context File Structure
+
+**SESSION_CONTEXT.md Contains**:
+- **Live Session Status**: Current branch, phase, priority tasks
+- **Active Todo List**: Auto-synced with TodoWrite tool
+- **Progress Log**: Complete session history with timestamps
+- **Architecture Compliance**: Anti-coordination verification checklist
+- **5 Critical Gaps**: Implementation status tracking
+- **Documentation Pyramid**: Current state and synchronization
+- **Technology Stack**: Dependencies and configuration status
+- **Recovery Commands**: Quick context restoration
+
+#### Usage Patterns
+
+**Update Cadence**:
+1. **Every Major Milestone**: Complete todo section update
+2. **Session Start**: Verify live status and priority tasks
+3. **Architecture Changes**: Update compliance checklist
+4. **Daily Sync**: Refresh progress log and next actions
+
+**Integration Commands**:
+- `/recover-context`: Display live session status from SESSION_CONTEXT.md
+- `/update-todos`: Sync TodoWrite tool with SESSION_CONTEXT.md
+- `/check-compliance`: Verify architecture constraints
+- `/next-steps`: Show priority tasks and next actions
 
 ### Token Management Strategy
+
 When approaching limits, compress in this order:
 1. **Keep**: Project name, anti-coordination constraints, current file
-2. **Summarize**: Architecture overview, methodology, completed tasks
-3. **Omit**: Historical context, detailed explanations, examples
+2. **Reference**: SESSION_CONTEXT.md for detailed state (don't embed)
+3. **Summarize**: Architecture overview, methodology, completed tasks
+4. **Omit**: Historical context, detailed explanations, examples
 
 ### Quick Commands
-- `/recover-context` - Use template above
-- `/update-context` - Update live session context
-- `/show-context` - Display current status
+- `/recover-context` - Display SESSION_CONTEXT.md live status
+- `/show-context` - Display SESSION_CONTEXT.md complete content
+- `/update-todos` - Sync TodoWrite with SESSION_CONTEXT.md
+- `/check-compliance` - Verify anti-coordination constraints
 
 ## Project Overview
 This is a Rust + React web application rewrite project. Current branch: feature/campfire-rust-rewrite-spec

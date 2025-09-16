@@ -143,6 +143,17 @@ tasks.md (BOTTOM - Maximum Implementation Detail)
 - [x] **Anti-Coordination Rules**: Comprehensive guardrails documented
 - [x] **TDD Methodology**: Type contracts → Property tests → Implementation
 - [x] **5 Critical Gaps**: All gaps identified with Rails solutions
+- [x] **Source Code Structure**: Rust src/ directory with modular organization
+  - [x] `src/main.rs` - Application entry point
+  - [x] `src/lib.rs` - Library module structure
+  - [x] `src/handlers/` - HTTP request handlers
+  - [x] `src/models/` - Domain models and types
+  - [x] `src/database/` - Database operations
+  - [x] `src/websocket/` - WebSocket handling
+  - [x] `src/coordination/` - Coordination patterns (anti-coordination compliant)
+  - [x] `src/assets/` - Static asset management
+  - [x] `src/config/` - Configuration management
+- [x] **Frontend Structure**: React TypeScript setup in `frontend/src/`
 
 ### Ready for Implementation
 - [ ] **Database Schema**: SQLite with UNIQUE constraints
