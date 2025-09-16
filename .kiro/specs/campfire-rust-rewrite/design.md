@@ -2,29 +2,117 @@
 
 ## Document Hierarchy Reference
 
-This document contains **complete technical contracts** that developers reference for implementation:
+This document contains **Interface-Stub executable contracts** that serve as formal specifications for LLM-driven code generation:
 
 ```
-requirements.md (Governing Rules & Critical Gaps)
+requirements.md (Governing Rules & Interface-Stub Strategy)
     ↓
-architecture.md (System Architecture & Component Design)
-    ↓  
-architecture-L2.md (TDD Implementation Patterns)
+architecture.md (UIGS Framework & System Design)
     ↓
-design.md (THIS DOCUMENT - Complete Technical Contracts)
+architecture-L2.md (JSONL Specifications & Graph Patterns)
     ↓
-tasks.md (Maximum Implementation Detail)
+design.md (THIS DOCUMENT - Formal Interface Contracts)
+    ↓
+tasks.md (Interface-Stub Implementation Patterns)
 ```
 
-## Overview: TDD-Driven Type Contracts
+## Overview: Interface-Stub Formal Contracts
 
-This document defines the complete type contracts, function signatures, and error hierarchies for the Campfire Rust rewrite. Following the improved LLM workflow, we establish all interfaces before any implementation to ensure compile-first success and architectural correctness.
+This document defines the complete **Interface-Stub specifications** in both JSONL format and traditional Rust contracts. These specifications serve as **executable blueprints** for LLM code generation, enabling 95% compression and deterministic compilation.
 
 **Design Philosophy:**
-- **Type Contracts First**: Complete function signatures with all error cases defined upfront
-- **Rails Parity**: Every interface mirrors Rails behavior exactly, no improvements
-- **Anti-Coordination**: Direct function calls, no async coordination between components
-- **Phantom Types**: Use type system to prevent invalid state transitions
+- **Executable Specifications**: JSONL nodes/edges that generate code directly
+- **SigHash IDs**: BLAKE3-based stable identifiers for blast radius analysis
+- **Formal Verification**: Mathematical properties proven before implementation
+- **LLM Translation**: Perfect specs → Perfect code (deterministic)
+- **Graph Structure**: Three-by-Three relationships prevent coordination complexity
+
+## Interface-Stub Executable Specifications
+
+### JSONL + Rust Dual Specification Format
+
+Each interface is defined in both **executable JSONL format** (for LLM generation) and **traditional Rust format** (for human reference). This dual format ensures both machine-executable specifications and human-readable contracts.
+
+#### SigHash ID Generation Methodology
+
+**SigHash Algorithm**: BLAKE3(signature_string) → Stable 64-character hex identifier
+
+**Signature Format**: `{kind}:{name}:{signature_hash}`
+- Type Nodes: `Type:Message:id:UUID,room_id:UUID,creator_id:UUID,content:String,client_message_id:UUID,created_at:DateTime`
+- Function Nodes: `Fn:CreateMessageWithDeduplication:(data:CreateMessageData)->Result<Message,MessageError>`
+- Trait Nodes: `Trait:MessageService:create_message_with_deduplication(data:CreateMessageData)->Result<Message,MessageError>`
+
+#### Interface-Stub Specification Examples
+
+##### Message Service Complete Specification
+
+**JSONL Format (LLM Executable)**:
+```json
+{"type": "Node", "id": "TYPE_MESSAGE", "kind": "Type", "name": "Message", "spec": {
+    "schema": "id: UUID, room_id: UUID, creator_id: UUID, content: String, client_message_id: UUID, created_at: DateTime",
+    "sighash": "TYPE_MESSAGE:9aF4c2e8b1d3a5c7e9f2b4d6a8c0e2f4a6b8c0d2e4f6a8b0c2d4e6f8a0b2"
+}}
+
+{"type": "Node", "id": "FN_CREATE_MESSAGE_DEDUP", "kind": "Fn", "name": "CreateMessageWithDeduplication", "spec": {
+    "signature": "(data: CreateMessageData) -> Result<Message, MessageError>",
+    "p99_ms": 150,
+    "consistency": "strong",
+    "guards": ["content_length_1_10000", "room_membership_required"],
+    "critical_gap": "REQ-GAP-001.0",
+    "implementation": "UNIQUE constraint on (client_message_id, room_id) with graceful handling",
+    "sighash": "FN_CREATE_MESSAGE_DEDUP:c7e9a1b3d5f2a4c6e8b0d2f4a6c8e0a2b4d6f8a0c2e4b6d8f0a2c4"
+}}
+
+{"type": "Edge", "source": "FN_CREATE_MESSAGE_DEDUP", "target": "TYPE_MESSAGE", "kind": "Interacts"}
+
+{"type": "Edge", "source": "FN_CREATE_MESSAGE_DEDUP", "target": "TRAIT_MESSAGE_SERVICE", "kind": "Calls"}
+```
+
+**Rust Format (Human Reference)**:
+```rust
+/// Message type with phantom type state tracking
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct Message<S = Unverified> {
+    pub id: MessageId,
+    pub room_id: RoomId,
+    pub creator_id: UserId,
+    pub content: String,
+    pub client_message_id: Uuid,
+    pub created_at: DateTime<Utc>,
+    pub _state: PhantomData<S>,
+}
+
+/// Message service trait with comprehensive error handling
+pub trait MessageService: Send + Sync {
+    /// Creates message with deduplication - CRITICAL GAP #1
+    /// Side Effects: Updates room.last_message_at, broadcasts via WebSocket, updates FTS5 index
+    async fn create_message_with_deduplication(
+        &self,
+        data: CreateMessageData,
+    ) -> Result<Message<Persisted>, MessageError>;
+}
+```
+
+#### SigHash-Based Blast Radius Analysis
+
+**Change Impact Assessment**:
+```bash
+# Calculate SigHash for modified interface
+echo "Type:Message:id:UUID,room_id:UUID,creator_id:UUID,content:String,client_message_id:UUID,created_at:DateTime" | \
+    blake3sum --length 64
+
+# Output: 9aF4c2e8b1d3a5c7e9f2b4d6a8c0e2f4a6b8c0d2e4f6a8b0c2d4e6f8a0b2
+
+# Find all components that depend on this type
+arch_op who-calls --sighash 9aF4c2e8b1d3a5c7e9f2b4d6a8c0e2f4a6b8c0d2e4f6a8b0c2d4e6f8a0b2
+
+# Expected output:
+# Depends on TYPE_MESSAGE:
+# - FN_CREATE_MESSAGE_DEDUP (Interacts)
+# - FN_GET_MESSAGES_SINCE (Returns)
+# - FN_SEARCH_MESSAGES (Queries)
+# Impact: 3 functions require review/regeneration
+```
 
 ## Logic Reasoning and Decision Tables
 

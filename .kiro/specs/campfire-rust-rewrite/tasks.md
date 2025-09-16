@@ -1,72 +1,250 @@
-# Realistic Implementation Plan - Campfire MVP 1.0
+# Interface-Stub Implementation Guide - Campfire MVP 1.0
 
 ## Document Hierarchy Reference
 
-This document is the **bottom of the pyramid** with maximum implementation detail:
+This document provides **Interface-Stub implementation patterns** for the revolutionary MVP:
 
 ```
-requirements.md (Governing Rules & Critical Gaps)
+requirements.md (Interface-Stub Strategy & Prioritization)
     ↓
-architecture.md (System Architecture & Component Design)
-    ↓  
-architecture-L2.md (TDD Implementation Patterns)
+architecture.md (UIGS Framework & System Design)
     ↓
-design.md (Complete Technical Contracts & Interfaces)
+architecture-L2.md (JSONL Specifications & Graph Patterns)
     ↓
-tasks.md (THIS DOCUMENT - Maximum Implementation Detail)
+design.md (Formal Interface Contracts & SigHash Methods)
+    ↓
+tasks.md (THIS DOCUMENT - Interface-Stub Implementation)
 ```
 
 **Before coding, developers should reference**:
-- **design.md** for all interface contracts and type definitions
-- **architecture-L2.md** for TDD patterns and Rails parity strategies
-- This document for specific implementation tasks and complete code examples
+- **design.md** for JSONL specifications and dual-format contracts
+- **architecture-L2.md** for executable specification methodology
+- This document for Interface-Stub implementation patterns and LLM integration
 
-## Maximum Implementation Detail Examples
+## Interface-Stub Implementation Patterns
 
-### REQ-ID Traceability Implementation
+### Revolutionary Approach: From Specs to Code
 
-Every implementation in this document follows the standardized REQ-ID system:
+**Traditional Implementation**: Write code manually from narrative specifications
+**Interface-Stub Implementation**: Generate code from executable JSONL specifications
 
-```rust
-// REQ-GAP-001.0: Message deduplication implementation
-// This ensures complete traceability from requirement to code
+### Phase 1: Create JSONL Specifications
+
+**Step 1: Define Complete Interface-Stub Specification**
+```json
+// Complete message service specification
+{"type": "Node", "id": "TYPE_MESSAGE", "kind": "Type", "name": "Message", "spec": {
+    "schema": "id: UUID, room_id: UUID, creator_id: UUID, content: String, client_message_id: UUID, created_at: DateTime",
+    "sighash": "TYPE_MESSAGE:9aF4c2e8b1d3a5c7e9f2b4d6a8c0e2f4a6b8c0d2e4f6a8b0c2d4e6f8a0b2"
+}}
+
+{"type": "Node", "id": "FN_CREATE_MESSAGE_DEDUP", "kind": "Fn", "name": "CreateMessageWithDeduplication", "spec": {
+    "signature": "(data: CreateMessageData) -> Result<Message, MessageError>",
+    "p99_ms": 150,
+    "consistency": "strong",
+    "guards": ["content_length_1_10000", "room_membership_required"],
+    "critical_gap": "REQ-GAP-001.0",
+    "implementation": "UNIQUE constraint on (client_message_id, room_id) with graceful handling",
+    "sighash": "FN_CREATE_MESSAGE_DEDUP:c7e9a1b3d5f2a4c6e8b0d2f4a6c8e0a2b4d6f8a0c2e4b6d8f0a2c4"
+}}
+
+{"type": "Edge", "source": "FN_CREATE_MESSAGE_DEDUP", "target": "TYPE_MESSAGE", "kind": "Interacts"}
+{"type": "Edge", "source": "FN_CREATE_MESSAGE_DEDUP", "target": "TRAIT_MESSAGE_SERVICE", "kind": "Calls"}
 ```
 
-### Complete File: src/services/message_service.rs
+**Step 2: Load Specifications into SQLite**
+```bash
+# Load JSONL specifications into database
+arch_op load-specs --file specs/message_service.jsonl
 
+# Validate graph structure
+arch_op validate-graph --all
+
+# Generate SigHash IDs
+arch_op generate-sighashes --all
+```
+
+### Phase 2: Generate Bounded Context for LLM
+
+**Step 3: Extract Context via SQLite Query**
+```sql
+-- Get complete context for CreateMessage implementation
+SELECT n1.spec as function_spec, n2.spec as target_spec, e.kind as relationship
+FROM Nodes n1
+JOIN Edges e ON n1.id = e.source
+JOIN Nodes n2 ON e.target = n2.id
+WHERE n1.id = 'FN_CREATE_MESSAGE_DEDUP';
+```
+
+**Step 4: Generate Context-Perfect LLM Prompt**
+```prompt
+Generate Rust implementation for CreateMessageWithDeduplication function.
+
+**Interface-Stub Specification**:
+- Function: FN_CREATE_MESSAGE_DEDUP (SigHash: c7e9a1b3d5f2a4c6e8b0d2f4a6c8e0a2b4d6f8a0c2e4b6d8f0a2c4)
+- Budget: p99_ms = 150ms
+- Guards: content_length_1_10000, room_membership_required
+- Critical Gap: REQ-GAP-001.0 (UNIQUE constraint handling)
+
+**Type Contract**:
+- Input: CreateMessageData { content: String, room_id: UUID, creator_id: UUID, client_message_id: UUID }
+- Output: Result<Message, MessageError>
+- Dependencies: MessageService trait
+
+**Requirements**:
+1. Implement UNIQUE constraint on (client_message_id, room_id)
+2. Handle constraint violations gracefully (return existing message)
+3. Validate content length (1-10000 chars)
+4. Check room membership authorization
+5. Maintain Rails behavioral equivalence
+
+**Anti-Coordination Constraints**:
+- No async coordination between components
+- Direct SQLite operations only
+- Single transaction per operation
+
+**Expected Properties**:
+- Idempotent: Same client_message_id always returns same message
+- Atomic: All database operations succeed or fail together
+- Performant: p99 latency under 150ms
+```
+
+### Phase 3: LLM Code Generation
+
+**Step 5: Generate Code from Specifications**
 ```rust
+// LLM-Generated Implementation (From Interface-Stub Specs)
 use crate::types::*;
 use crate::error::MessageError;
-use sqlx::PgPool;
+use sqlx::SqlitePool;
 use uuid::Uuid;
-use proptest::prelude::*;
 
-/// Complete message service implementation with deduplication
-///
-/// This is the BOTTOM-LEVEL implementation that developers copy and adapt
+/// Message service implementation from Interface-Stub specifications
 pub struct MessageService {
-    db: PgPool,
+    db: SqlitePool,
 }
 
 impl MessageService {
-    pub fn new(db: PgPool) -> Self {
+    pub fn new(db: SqlitePool) -> Self {
         Self { db }
     }
 
-    /// Creates a message with automatic deduplication based on client_message_id
-    ///
-    /// REQ-GAP-001.0: Message deduplication with UNIQUE constraint handling
-    ///
-    /// # Properties (Must hold for all inputs)
-    /// - Same client_message_id + room_id always returns same Message
-    /// - Message is atomically created and indexed for search
-    /// - Broadcast occurs after successful database commit
-    /// - Room last_message_at is updated atomically
-    /// - UNIQUE constraint violation returns existing message
+    /// Creates message with deduplication - REQ-GAP-001.0
+    /// Generated from Interface-Stub specification FN_CREATE_MESSAGE_DEDUP
     pub async fn create_message_with_deduplication(
         &self,
         data: CreateMessageData,
-    ) -> Result<DeduplicatedMessage<Verified>, MessageError> {
+    ) -> Result<Message<Persisted>, MessageError> {
+        // Validate content length (guard: content_length_1_10000)
+        if data.content.len() < 1 || data.content.len() > 10000 {
+            return Err(MessageError::InvalidContent);
+        }
+
+        // Check room membership (guard: room_membership_required)
+        let membership = sqlx::query!(
+            "SELECT involvement_level FROM room_memberships
+             WHERE room_id = ? AND user_id = ?",
+            data.room_id, data.creator_id
+        )
+        .fetch_optional(&self.db)
+        .await?;
+
+        if membership.is_none() {
+            return Err(MessageError::RoomAccessDenied);
+        }
+
+        // Try to insert with UNIQUE constraint handling
+        let result = sqlx::query!(
+            r#"
+            INSERT INTO messages (id, room_id, creator_id, content, client_message_id, created_at)
+            VALUES (?, ?, ?, ?, ?, NOW())
+            ON CONFLICT (client_message_id, room_id) DO UPDATE
+            SET content = excluded.content
+            RETURNING id, room_id, creator_id, content, client_message_id, created_at
+            "#,
+            Uuid::new_v4(),
+            data.room_id,
+            data.creator_id,
+            &data.content,
+            data.client_message_id
+        )
+        .fetch_one(&self.db)
+        .await;
+
+        match result {
+            Ok(row) => Ok(Message {
+                id: row.id,
+                room_id: row.room_id,
+                creator_id: row.creator_id,
+                content: row.content,
+                client_message_id: row.client_message_id,
+                created_at: row.created_at,
+                _state: PhantomData,
+            }),
+            Err(sqlx::Error::Database(ref db_err))
+                if db_err.constraint() == Some("unique_messages_client_message_id_room_id") =>
+            {
+                // UNIQUE constraint violation - fetch existing message
+                let existing = sqlx::query!(
+                    "SELECT id, room_id, creator_id, content, client_message_id, created_at
+                     FROM messages
+                     WHERE client_message_id = ? AND room_id = ?",
+                    data.client_message_id, data.room_id
+                )
+                .fetch_one(&self.db)
+                .await?;
+
+                Ok(Message {
+                    id: existing.id,
+                    room_id: existing.room_id,
+                    creator_id: existing.creator_id,
+                    content: existing.content,
+                    client_message_id: existing.client_message_id,
+                    created_at: existing.created_at,
+                    _state: PhantomData,
+                })
+            }
+            Err(e) => Err(MessageError::DatabaseError(e)),
+        }
+    }
+}
+```
+
+### Phase 4: Formal Verification
+
+**Step 6: Generate Property Tests from Specifications**
+```rust
+// Property tests generated from Interface-Stub specifications
+proptest! {
+    #[test]
+    fn prop_create_message_idempotent(
+        content in "[a-zA-Z0-9 ]{1,100}",
+        room_id in any::<Uuid>(),
+        creator_id in any::<Uuid>(),
+        client_message_id in any::<Uuid>(),
+    ) {
+        let service = setup_test_service();
+
+        // First call
+        let msg1 = service.create_message_with_deduplication(
+            CreateMessageData { content, room_id, creator_id, client_message_id }
+        ).unwrap();
+
+        // Second call with same client_message_id
+        let msg2 = service.create_message_with_deduplication(
+            CreateMessageData { content: "different".to_string(), room_id, creator_id, client_message_id }
+        ).unwrap();
+
+        // REQ-GAP-001.0: Same client_message_id always returns same message
+        assert_eq!(msg1.id, msg2.id);
+        assert_eq!(msg1.content, msg1.content); // Original preserved
+    }
+}
+```
+
+### Traditional Implementation (Legacy Pattern)
+
+For comparison, here's the traditional approach that Interface-Stub replaces:
         // Step 1: Validate content length (1-10000 chars)
         if data.body.len() < 1 || data.body.len() > 10000 {
             return Err(MessageError::InvalidContent);

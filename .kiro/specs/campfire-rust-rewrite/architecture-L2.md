@@ -1,61 +1,195 @@
-# Architecture L2: TDD-Driven Implementation Patterns for Option 5 MVP
+# Architecture L2: Interface-Stub Driven Implementation Patterns
 
-## Overview: TDD-Driven "Rails-Equivalent Imperfection" Implementation
+## Overview: Executable Specifications with UIGS Integration
 
-This document provides comprehensive implementation patterns for the realistic MVP using **Test-Driven Development (TDD)** methodology with **complete interface contracts defined before any implementation**. Every function signature, type contract, and integration pattern is specified first to ensure one-shot correctness and prevent coordination complexity.
+This document provides comprehensive implementation patterns for the revolutionary MVP using **Interface-Stub Architecture** with **executable JSONL specifications** that enable 95% codebase compression and LLM-driven code generation. Every interface, type contract, and behavioral invariant is specified as executable JSONL before any implementation.
 
-**Core TDD Philosophy**: 
-- **Interface Contracts Before Code**: Complete function signatures with all error cases defined first
-- **Property-Based Behavior Specification**: Mathematical properties that must hold across all inputs
-- **Type-Driven Architecture**: Type system prevents coordination complexity at compile time
-- **Integration Contract Testing**: Service boundaries validated with comprehensive integration tests
-- **Rails-Equivalent Limitations**: Accept Rails-level imperfections while fixing only the 5 critical gaps
+**Core Philosophy: Interface-Stub First**
+- **Executable JSONL Specifications**: Compress architectural intent into 1-2% formal specs
+- **Pre-Code Analysis**: Catch 80-90% of issues before implementation through formal verification
+- **LLM Translation**: Perfect specs → Perfect code (deterministic compilation)
+- **Three-by-Three Graph**: Type/Fn/Trait nodes with Calls/Implements/Interacts edges
+- **SigHash IDs**: BLAKE3-based stable identifiers for blast radius analysis
 
-**TDD Methodology for Campfire**:
-1. **Type Contracts First**: Define complete function signatures with input/output types and all error cases
-2. **Property Tests**: Specify behavior through property-based testing with proptest
-3. **Integration Contracts**: Define service boundaries and interaction patterns with real dependencies
-4. **Type-Guided Implementation**: Implementation follows from contracts, types prevent coordination
-5. **Comprehensive Validation**: Property tests, integration tests, and benchmarks validate compliance
+**Revolutionary TDD Methodology**:
+1. **JSONL Specifications First**: Define complete interfaces as executable JSONL nodes/edges
+2. **Graph Validation**: Verify coverage, consistency, and budget constraints before implementation
+3. **Bounded Context Generation**: Extract context-perfect LLM prompts from SQLite queries
+4. **LLM Translation**: Generate code from specifications (not interpretation)
+5. **Formal Verification**: Mathematical proofs of correctness through property tests
 
-**5 Critical Gaps Strategy**: Each gap solved with type-driven design that makes invalid states unrepresentable and prevents coordination complexity through compile-time guarantees.
+**UIGS Framework Integration**: The 3x3 Graph with SigHash IDs prevents coordination complexity at the specification level, making invalid architectures impossible to implement.
 
-**Anti-Coordination Compliance**: Type system enforces FORBIDDEN and MANDATORY constraints from requirements.md, making coordination patterns impossible to implement.
+**Anti-Coordination by Design**: JSONL specifications and graph structure make coordination patterns unrepresentable in the type system.
 
-## Comprehensive TDD Implementation Methodology
+## Executable JSONL Specification Methodology
 
-### TDD Success Criteria
-1. **Complete Type Contracts**: Every function signature defined with all error cases before implementation
-2. **Property Test Coverage**: All invariants validated with property-based testing
-3. **Integration Test Validation**: All service boundaries tested with real dependencies
-4. **Rails Behavioral Parity**: Works as well as Rails ActionCable, with similar limitations and edge cases
-5. **Compile-Time Safety**: Type system prevents coordination complexity and common bugs
+### Interface-Stub Success Criteria
+1. **Complete JSONL Coverage**: Every interface specified as Type/Fn/Trait nodes with edges
+2. **Graph Validation**: Pre-code analysis validates coverage, consistency, and budgets
+3. **SigHash Stability**: All identifiers are BLAKE3-based and collision-resistant
+4. **Bounded Context Generation**: SQLite queries produce context-perfect LLM prompts
+5. **Formal Verification**: Mathematical proofs through property-based testing
 
-### TDD Implementation Phases
+### Interface-Stub Implementation Phases
 
-#### Phase 1: Type Contract Definition (Before Any Code)
-- Define complete function signatures for all services
-- Specify all error cases in Result<T, E> types
-- Document behavior contracts and side effects
-- Create comprehensive type definitions with newtypes
+#### Phase 1: JSONL Specification Definition (Before Any Code)
+- Define complete Type/Fn/Trait nodes in JSONL format
+- Specify all constraints, budgets, and guards in node specifications
+- Create Calls/Implements/Interacts edges to define relationships
+- Generate SigHash IDs for all nodes using BLAKE3
 
-#### Phase 2: Property Test Specification
-- Write property-based tests for all invariants
-- Specify behavior through mathematical properties
-- Create test data generators with proptest
-- Define integration test contracts
+#### Phase 2: Graph Structure Validation
+- Verify graph completeness and consistency
+- Validate performance budgets across execution paths
+- Check requirement coverage and traceability
+- Analyze blast radius for potential changes
 
-#### Phase 3: Type-Guided Implementation
-- Implement following type contracts
-- Use type system to prevent coordination complexity
-- Apply RAII patterns for resource management
-- Implement actor patterns for state management
+#### Phase 3: Bounded Context Generation
+- Load JSONL specifications into SQLite with JSON1 support
+- Create bounded queries for context-perfect LLM prompts
+- Generate prompt packs with exact specifications and constraints
+- Validate prompt quality and completeness
 
-#### Phase 4: Comprehensive Validation
-- Validate property test compliance
-- Run integration tests with real dependencies
-- Benchmark critical paths for performance
-- Verify Rails behavioral parity
+#### Phase 4: LLM Translation & Verification
+- Generate code from specifications using LLM as compiler
+- Validate generated code against specifications
+- Run property tests to verify mathematical invariants
+- Benchmark performance against budget constraints
+
+### JSONL Specification Examples
+
+#### Complete Message Service Specification
+```json
+// Type Definitions
+{"type": "Node", "id": "TYPE_MESSAGE", "kind": "Type", "name": "Message", "spec": {
+    "schema": "id: UUID, room_id: UUID, creator_id: UUID, content: String, client_message_id: UUID, created_at: DateTime"
+}}
+
+{"type": "Node", "id": "TYPE_CREATE_MESSAGE_DATA", "kind": "Type", "name": "CreateMessageData", "spec": {
+    "schema": "content: String, room_id: UUID, creator_id: UUID, client_message_id: UUID"
+}}
+
+{"type": "Node", "id": "TYPE_MESSAGE_ERROR", "kind": "Type", "name": "MessageError", "spec": {
+    "variants": ["InvalidContent", "RoomAccessDenied", "DatabaseError", "AuthorizationFailed"]
+}}
+
+// Trait Definition
+{"type": "Node", "id": "TRAIT_MESSAGE_SERVICE", "kind": "Trait", "name": "MessageService", "spec": {
+    "methods": [
+        "create_message_with_deduplication(data: CreateMessageData) -> Result<Message, MessageError>",
+        "get_messages_since(room_id: UUID, last_seen: UUID, user_id: UUID) -> Result<Vec<Message>, MessageError>",
+        "search_messages(query: String, user_id: UUID, limit: u32) -> Result<Vec<Message>, MessageError>"
+    ]
+}}
+
+// Function with Critical Gap Implementation
+{"type": "Node", "id": "FN_CREATE_MESSAGE_DEDUP", "kind": "Fn", "name": "CreateMessageWithDeduplication", "spec": {
+    "p99_ms": 150,
+    "consistency": "strong",
+    "guards": ["content_length_1_10000", "room_membership_required"],
+    "critical_gap": "REQ-GAP-001.0",
+    "implementation": "UNIQUE constraint on (client_message_id, room_id) with graceful handling"
+}}
+
+// Graph Relationships
+{"type": "Edge", "source": "FN_CREATE_MESSAGE_DEDUP", "target": "TYPE_CREATE_MESSAGE_DATA", "kind": "Interacts"}
+{"type": "Edge", "source": "FN_CREATE_MESSAGE_DEDUP", "target": "TYPE_MESSAGE", "kind": "Interacts"}
+{"type": "Edge", "source": "FN_CREATE_MESSAGE_DEDUP", "target": "TRAIT_MESSAGE_SERVICE", "kind": "Calls"}
+```
+
+### Pre-Code Analysis Validation
+
+#### Graph Validation Commands
+```bash
+# Verify complete coverage of requirements
+arch_op coverage-check --requirement REQ-GAP-001.0
+
+# Validate performance budgets
+arch_op budget-analysis --entrypoint FN_CREATE_MESSAGE_DEDUP
+
+# Analyze blast radius for changes
+arch_op who-calls --node TRAIT_MESSAGE_SERVICE
+
+# Check consistency across all specifications
+arch_op consistency-check --all
+```
+
+#### Property Tests from Specifications
+```rust
+// Generated from JSONL specification
+proptest! {
+    #[test]
+    fn prop_create_message_idempotent(
+        content in "[a-zA-Z0-9 ]{1,100}",
+        room_id in any::<Uuid>(),
+        creator_id in any::<Uuid>(),
+        client_message_id in any::<Uuid>(),
+    ) {
+        let service = setup_test_service();
+
+        // First call
+        let msg1 = service.create_message_with_deduplication(
+            CreateMessageData { content, room_id, creator_id, client_message_id }
+        ).unwrap();
+
+        // Second call with same client_message_id
+        let msg2 = service.create_message_with_deduplication(
+            CreateMessageData { content: "different", room_id, creator_id, client_message_id }
+        ).unwrap();
+
+        // REQ-GAP-001.0: Same client_message_id always returns same message
+        prop_assert_eq!(msg1.id, msg2.id);
+        prop_assert_eq!(msg1.content, msg1.content); // Original preserved
+    }
+}
+```
+
+### LLM Prompt Generation
+
+#### Bounded Context Query
+```sql
+-- Extract context for generating CreateMessage implementation
+SELECT
+    target.spec as target_spec,
+    target.kind as target_kind,
+    edges.kind as relationship
+FROM Edges edges
+JOIN Nodes target ON edges.target = target.id
+WHERE edges.source = 'FN_CREATE_MESSAGE_DEDUP';
+```
+
+#### Generated Prompt Structure
+```prompt
+Generate Rust implementation for CreateMessageWithDeduplication function.
+
+**Interface-Stub Specification**:
+- Function: FN_CREATE_MESSAGE_DEDUP
+- Budget: p99_ms = 150ms
+- Guards: content_length_1_10000, room_membership_required
+- Critical Gap: REQ-GAP-001.0 (UNIQUE constraint handling)
+
+**Type Contracts**:
+- Input: CreateMessageData { content: String, room_id: UUID, creator_id: UUID, client_message_id: UUID }
+- Output: Result<Message, MessageError>
+- Dependencies: MessageService trait
+
+**Requirements**:
+1. Implement UNIQUE constraint on (client_message_id, room_id)
+2. Handle constraint violations gracefully (return existing message)
+3. Validate content length (1-10000 chars)
+4. Check room membership authorization
+5. Maintain Rails behavioral equivalence
+
+**Anti-Coordination Constraints**:
+- No async coordination between components
+- Direct SQLite operations only
+- Single transaction per operation
+```
+
+### Traditional TDD Integration (Legacy Pattern)
+
+For components not yet converted to Interface-Stub specifications:
 
 ### Property-Based Testing Strategy
 
