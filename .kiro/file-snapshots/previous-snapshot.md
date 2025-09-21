@@ -1,10 +1,10 @@
-# Repository Snapshot - 2025-09-21 16:35:57
+# Repository Snapshot - 2025-09-21 16:37:07
 
 ## Summary Statistics
-- **Total Files**: 709
+- **Total Files**: 712
 - **Total Lines**: 0
 - **Total Words**: 0
-- **Snapshot Time**: 2025-09-21 16:35:57
+- **Snapshot Time**: 2025-09-21 16:37:07
 
 ## Spec Progress Summary
 
@@ -22,6 +22,9 @@
 | .claude/settings.local.json | [binary] | [binary] | 369 |
 | documentation-hierarchy-analysis.md | [binary] | [binary] | 0 |
 | .gitignore | 49 | 117 | 923 |
+| .kiro/file-snapshots/change-log.md | 5 | 18 | 135 |
+| .kiro/file-snapshots/current-snapshot.md | 727 | 6493 | 55K |
+| .kiro/file-snapshots/previous-snapshot.md | 727 | 6493 | 55K |
 | .kiro/hooks/unified-progress-tracker.kiro.hook | [binary] | [binary] | 546 |
 | .kiro/specs/campfire-rust-rewrite/design.md | [binary] | [binary] | 0 |
 | .kiro/specs/campfire-rust-rewrite/Rails_Interface_Stub_Architecture.md | [binary] | [binary] | 0 |
@@ -35,7 +38,7 @@
 | .kiro/steering/rust-patterns.md | 434 | 1302 | 12K |
 | .kiro/steering/tdd-patterns.md | 583 | 1784 | 20K |
 | .kiro/tree-with-wc.sh | 60 | 411 | 2.7K |
-| .kiro/unified-progress-tracker.sh | 294 | 1404 | 12K |
+| .kiro/unified-progress-tracker.sh | 297 | 1411 | 13K |
 | _LLMcampfiretxt/basecamp-once-campfire-8a5edab282632443.txt | 21829 | 56040 | 673K |
 | README.md | 189 | 781 | 6.6K |
 | _refRustIdioms/Comprehensive Rust Idiomatic Patterns Guide_.txt | 769 | 12536 | 90K |
