@@ -11,6 +11,7 @@ This document outlines the requirements for the **MVP Phase 1** of rewriting the
 - **Rails Parity**: Replicate ActionCable and Rails patterns exactly
 
 **Core Philosophy**: Build a working chat application first, optimize and innovate later based on real usage data.
+
 **Primary Goals:**
 - **Working Chat Application**: Complete feature parity with Rails Campfire
 - **Rust Performance Benefits**: Natural speed improvements from Rust implementation
@@ -84,10 +85,10 @@ The simplified MVP implementation includes these core components:
 - **Single binary deployment** - No orchestration or service discovery
 
 ### 📏 **COMPLEXITY LIMITS**
-- **Maximum 50 total files** in entire codebase (backend + frontend templates)
-- **No file over 500 lines** - Split large files into smaller modules
-- **Maximum 3 async operations per request** - Keep request handling simple
-- **No more than 2 levels of error handling** - Avoid nested Result chains
+- **Maximum 30 total files** in entire codebase (backend + frontend templates)
+- **No file over 300 lines** - Split large files into smaller modules
+- **Maximum 2 async operations per request** - Keep request handling simple
+- **Single level of error handling** - Avoid nested Result chains
 - **Single database connection pool** - No distributed data management
 
 ### 🎯 **RAILS PARITY RULE**
@@ -111,7 +112,7 @@ The simplified MVP implementation includes these core components:
 5. WHEN real-time features are added THEN they SHALL replicate Rails ActionCable behavior exactly, avoid event sourcing or complex state management, use direct WebSocket sends to room subscribers, and maintain simple connection state
 6. WHEN background tasks are needed THEN they SHALL use basic tokio::spawn for simple async tasks, avoid message queues or complex job systems, implement direct webhook delivery, and maintain Rails-equivalent background job simplicity
 7. WHEN authentication is implemented THEN it SHALL use Rails-style session cookies, avoid complex OAuth flows or token management, implement basic bcrypt password hashing, and maintain simple session state management
-8. WHEN the codebase grows THEN it SHALL maintain maximum 50 total files, keep individual files under 500 lines, avoid deep module hierarchies, and prioritize readability over optimization
+8. WHEN the codebase grows THEN it SHALL maintain maximum 30 total files, keep individual files under 300 lines, avoid deep module hierarchies, and prioritize readability over optimization
 9. WHEN performance optimization is considered THEN it SHALL use Rust's natural performance benefits, avoid premature optimization or complex caching, maintain simple database queries, and focus on Rails-equivalent functionality first
 10. WHEN any "improvement" over Rails is proposed THEN it SHALL be rejected unless it provides direct cost reduction, maintains identical user experience, requires no additional complexity, and has clear evidence of necessity
 11. WHEN code review occurs THEN it SHALL verify compliance with anti-coordination constraints, check for forbidden patterns, ensure Rails parity, and reject any coordination complexity regardless of perceived benefits
@@ -123,27 +124,10 @@ The simplified MVP implementation includes these core components:
 
 ### Phase 1: Core Chat Functionality
 **Primary Focus**: Essential chat features that users need immediately
-- **Message deduplication** (Gap #1)
-- **WebSocket reconnection** (Gap #2)
-- **Write serialization** (Gap #3)
-- **Session security** (Gap #4)
-- **Presence tracking** (Gap #5)
+- **Basic message sending/receiving** - Direct SQLite insert/broadcast
+- **Room-based chat** - Simple room membership checks
+- **User authentication** - Rails-style sessions only
+- **WebSocket connections** - Basic connection management
+- **Message history** - Simple database queries
 
-### Phase 2: Enhanced Features
-**Secondary Priority**: Features that improve user experience
-- **Sound system** (56 effects)
-- **Advanced UI components**
-- **Search functionality**
-- **Push notifications**
-
-### Phase 3: Future Enhancements
-**Tertiary Priority**: Features for v2.0 and beyond
-- **File attachments**
-- **Avatar uploads**
-- **OpenGraph previews**
-- **Advanced integrations**
-
-**Key Insight**: Focus on delivering working chat functionality first, then iterate based on real user feedback and usage patterns.
-## 5 Critical Gaps That Must Be Solved
-
-**Governing Thought (Minto Apex)**: These gaps represent the only coordination complexity we accept - each has proven Rails solutions that we replicate exactly, avoiding over-engineering while ensuring reliability.
+**Governing Thought**: These represent the absolute minimum viable chat application - anything beyond this scope is deferred to v2.0 unless it's a direct Rails equivalent pattern.
