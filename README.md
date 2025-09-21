@@ -186,3 +186,5 @@ MIT License - see [MIT-LICENSE](MIT-LICENSE) for details.
 ## Acknowledgments
 
 Based on the original Campfire application by Basecamp (37signals). This rewrite maintains the spirit and functionality of the original while optimizing for modern deployment costs and reliability patterns.
+
+Last version with React thinking
