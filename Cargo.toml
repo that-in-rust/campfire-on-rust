@@ -8,13 +8,13 @@ license = "MIT"
 
 [dependencies]
 # Web framework and async runtime
-axum = { version = "0.7", features = ["ws", "macros"] }
+axum = { version = "0.6", features = ["ws", "macros"] }
 tokio = { version = "1.0", features = ["full"] }
 tower = { version = "0.4", features = ["full"] }
-tower-http = { version = "0.5", features = ["fs", "cors", "trace"] }
+tower-http = { version = "0.4", features = ["fs", "cors", "trace"] }
 
 # Database and migrations
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono"] }
+sqlx = { version = "0.6", features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono"] }
 
 # Serialization and data handling
 serde = { version = "1.0", features = ["derive"] }
@@ -23,8 +23,7 @@ uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 
 # Authentication and security
-jsonwebtoken = "9.0"
-bcrypt = "0.15"
+bcrypt = "0.13"
 rand = "0.8"
 
 # Error handling
@@ -35,21 +34,14 @@ anyhow = "1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-# Configuration
-config = "0.14"
-dotenvy = "0.15"
-
-# Asset embedding
-rust-embed = "8.0"
-
-# Rate limiting
-governor = "0.6"
-
 # HTML sanitization
 ammonia = "3.0"
 
-# Push notifications
-web-push = "0.9"
+# Base64 encoding for secure tokens
+base64 = "0.13"
+
+# Async trait support
+async-trait = "0.1"
 
 [dev-dependencies]
 tokio-test = "0.4"
