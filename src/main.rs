@@ -1,8 +1,5 @@
 use anyhow::Result;
 use axum::{
-    extract::State,
-    http::StatusCode,
-    response::Json,
     routing::{get, post},
     Router,
 };
@@ -12,19 +9,8 @@ use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing::{info, Level};
 use tracing_subscriber;
 
-mod models;
-mod services;
-mod errors;
-mod handlers;
-mod database;
-
-use crate::database::Database;
-use crate::models::*;
-
-#[derive(Clone)]
-pub struct AppState {
-    db: Database,
-}
+use campfire_on_rust::{AppState, Database, AuthService};
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -38,14 +24,20 @@ async fn main() -> Result<()> {
     // Initialize database
     let db = Database::new("campfire.db").await?;
     
-    let app_state = AppState { db };
+    // Initialize auth service
+    let auth_service = Arc::new(AuthService::new(Arc::new(db.clone())));
+    
+    let app_state = AppState { 
+        db,
+        auth_service,
+    };
 
     // Build application with routes
     let app = Router::new()
         .route("/health", get(health_check))
-        .route("/api/auth/login", post(handlers::auth::login))
-        .route("/api/auth/logout", post(handlers::auth::logout))
-        .route("/api/users/me", get(handlers::users::get_current_user))
+        .route("/api/auth/login", post(campfire_on_rust::handlers::auth::login))
+        .route("/api/auth/logout", post(campfire_on_rust::handlers::auth::logout))
+        .route("/api/users/me", get(campfire_on_rust::handlers::users::get_current_user))
         .layer(
             ServiceBuilder::new()
                 .layer(TraceLayer::new_for_http())

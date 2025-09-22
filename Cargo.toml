@@ -48,6 +48,10 @@ tokio-test = "0.4"
 mockall = "0.12"
 testcontainers = "0.15"
 
+[lib]
+name = "campfire_on_rust"
+path = "src/lib.rs"
+
 [[bin]]
 name = "campfire-on-rust"
 path = "src/main.rs"
