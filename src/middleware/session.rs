@@ -60,7 +60,7 @@ impl FromRequestParts<AppState> for AuthenticatedUser {
 /// Priority order:
 /// 1. Authorization header: "Bearer <token>"
 /// 2. Cookie: "session_token=<token>"
-fn extract_session_token(parts: &Parts) -> Result<String, SessionExtractionError> {
+pub fn extract_session_token(parts: &Parts) -> Result<String, SessionExtractionError> {
     // Try Authorization header first
     if let Some(auth_header) = parts.headers.get(AUTHORIZATION) {
         let auth_str = auth_header

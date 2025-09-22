@@ -1,10 +1,12 @@
 use axum::{
     extract::State,
     http::StatusCode,
-    response::Json,
+    response::{IntoResponse, Json, Response},
 };
-use serde_json::{json, Value};
+use serde_json::json;
+use tracing::{error, info, warn};
 
+use crate::errors::AuthError;
 use crate::middleware::session::SessionToken;
 use crate::models::{LoginRequest, LoginResponse};
 use crate::AppState;
@@ -12,45 +14,180 @@ use crate::AppState;
 /// POST /api/auth/login
 /// 
 /// Authenticates user with email/password and returns session token
+/// 
+/// # Request Body
+/// ```json
+/// {
+///   "email": "user@example.com",
+///   "password": "password123"
+/// }
+/// ```
+/// 
+/// # Response
+/// - 200 OK: Authentication successful, returns user and session token
+/// - 400 Bad Request: Invalid request format
+/// - 401 Unauthorized: Invalid credentials
+/// - 500 Internal Server Error: Server error
 pub async fn login(
     State(state): State<AppState>,
     Json(request): Json<LoginRequest>,
-) -> Result<Json<LoginResponse>, StatusCode> {
+) -> Response {
+    info!("Login attempt for email: {}", request.email);
+    
+    // Validate request
+    if request.email.trim().is_empty() || request.password.is_empty() {
+        warn!("Login attempt with empty email or password");
+        return create_error_response(
+            StatusCode::BAD_REQUEST,
+            "Email and password are required",
+            "MISSING_CREDENTIALS"
+        );
+    }
+    
     // Authenticate user and create session
-    let session = state
+    let session = match state
         .auth_service
-        .authenticate(request.email, request.password)
+        .authenticate(request.email.clone(), request.password)
         .await
-        .map_err(|_| StatusCode::UNAUTHORIZED)?;
+    {
+        Ok(session) => session,
+        Err(auth_error) => {
+            warn!("Authentication failed for {}: {}", request.email, auth_error);
+            return auth_error_to_response(auth_error);
+        }
+    };
 
-    // Get user information
-    let user = state
+    // Get user information (session was just created, so this should succeed)
+    let user = match state
         .auth_service
         .validate_session(session.token.clone())
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    {
+        Ok(user) => user,
+        Err(auth_error) => {
+            error!("Failed to validate newly created session: {}", auth_error);
+            return create_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal server error",
+                "SESSION_VALIDATION_FAILED"
+            );
+        }
+    };
 
+    info!("User {} logged in successfully", user.email);
+    
     let response = LoginResponse {
         user,
         session_token: session.token,
     };
 
-    Ok(Json(response))
+    (StatusCode::OK, Json(response)).into_response()
 }
 
 /// POST /api/auth/logout
 /// 
 /// Revokes the current session token
+/// 
+/// # Authentication
+/// Requires valid session token in Authorization header or cookie
+/// 
+/// # Response
+/// - 200 OK: Logout successful
+/// - 401 Unauthorized: Invalid or missing session token
+/// - 500 Internal Server Error: Server error
 pub async fn logout(
     State(state): State<AppState>,
     session_token: SessionToken,
-) -> Result<Json<Value>, StatusCode> {
-    // Revoke the session
-    state
-        .auth_service
-        .revoke_session(session_token.token)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+) -> Response {
+    info!("Logout attempt for session token");
     
-    Ok(Json(json!({ "message": "Logged out successfully" })))
+    // Revoke the session
+    match state
+        .auth_service
+        .revoke_session(session_token.token.clone())
+        .await
+    {
+        Ok(()) => {
+            info!("Session revoked successfully");
+            (
+                StatusCode::OK,
+                Json(json!({ 
+                    "message": "Logged out successfully",
+                    "success": true
+                }))
+            ).into_response()
+        }
+        Err(auth_error) => {
+            error!("Failed to revoke session: {}", auth_error);
+            // Even if revocation fails, we should return success to the client
+            // The session might already be expired or invalid
+            (
+                StatusCode::OK,
+                Json(json!({ 
+                    "message": "Logged out successfully",
+                    "success": true
+                }))
+            ).into_response()
+        }
+    }
+}
+
+/// Converts AuthError to appropriate HTTP response
+fn auth_error_to_response(error: AuthError) -> Response {
+    let (status, message, code) = match error {
+        AuthError::InvalidCredentials => (
+            StatusCode::UNAUTHORIZED,
+            "Invalid email or password",
+            "INVALID_CREDENTIALS"
+        ),
+        AuthError::UserNotFound { .. } => (
+            StatusCode::UNAUTHORIZED,
+            "Invalid email or password", // Don't reveal if user exists
+            "INVALID_CREDENTIALS"
+        ),
+        AuthError::SessionExpired => (
+            StatusCode::UNAUTHORIZED,
+            "Session expired",
+            "SESSION_EXPIRED"
+        ),
+        AuthError::InvalidEmail { .. } => (
+            StatusCode::BAD_REQUEST,
+            "Invalid email format",
+            "INVALID_EMAIL"
+        ),
+        AuthError::WeakPassword => (
+            StatusCode::BAD_REQUEST,
+            "Password must be at least 8 characters long",
+            "WEAK_PASSWORD"
+        ),
+        AuthError::EmailExists { .. } => (
+            StatusCode::CONFLICT,
+            "Email already exists",
+            "EMAIL_EXISTS"
+        ),
+        AuthError::Database(_) | AuthError::PasswordHash(_) | AuthError::TokenGeneration => {
+            error!("Internal auth error: {}", error);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal server error",
+                "INTERNAL_ERROR"
+            )
+        }
+    };
+    
+    create_error_response(status, message, code)
+}
+
+/// Creates a standardized error response
+fn create_error_response(status: StatusCode, message: &str, code: &str) -> Response {
+    let error_body = json!({
+        "error": {
+            "message": message,
+            "code": code,
+            "status": status.as_u16()
+        },
+        "success": false
+    });
+    
+    (status, Json(error_body)).into_response()
 }

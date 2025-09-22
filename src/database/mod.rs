@@ -2,6 +2,208 @@ use sqlx::{sqlite::SqlitePool, Row, Sqlite, Transaction};
 use anyhow::Result;
 use crate::errors::DatabaseError;
 use crate::models::*;
+use tokio::sync::{mpsc, oneshot};
+use std::sync::Arc;
+use async_trait::async_trait;
+
+/// Database Writer Pattern (Critical Gap #3)
+/// 
+/// All write operations are serialized through a single writer task
+/// to prevent SQLite write conflicts and ensure data consistency.
+#[async_trait]
+pub trait DatabaseWriter: Send + Sync {
+    /// Create a new user
+    async fn create_user(&self, user: User) -> Result<(), DatabaseError>;
+    
+    /// Create a new session
+    async fn create_session(&self, session: Session) -> Result<(), DatabaseError>;
+    
+    /// Delete a session
+    async fn delete_session(&self, token: String) -> Result<(), DatabaseError>;
+    
+    /// Create a message with deduplication
+    async fn create_message_with_deduplication(&self, message: Message) -> Result<Message, DatabaseError>;
+    
+    /// Create a new room
+    async fn create_room(&self, room: Room) -> Result<(), DatabaseError>;
+    
+    /// Create a room membership
+    async fn create_membership(&self, membership: Membership) -> Result<(), DatabaseError>;
+}
+
+/// Write operations that can be sent to the writer task
+#[derive(Debug)]
+pub enum WriteOperation {
+    CreateUser {
+        user: User,
+        respond_to: oneshot::Sender<Result<(), DatabaseError>>,
+    },
+    CreateSession {
+        session: Session,
+        respond_to: oneshot::Sender<Result<(), DatabaseError>>,
+    },
+    DeleteSession {
+        token: String,
+        respond_to: oneshot::Sender<Result<(), DatabaseError>>,
+    },
+    CreateMessageWithDeduplication {
+        message: Message,
+        respond_to: oneshot::Sender<Result<Message, DatabaseError>>,
+    },
+    CreateRoom {
+        room: Room,
+        respond_to: oneshot::Sender<Result<(), DatabaseError>>,
+    },
+    CreateMembership {
+        membership: Membership,
+        respond_to: oneshot::Sender<Result<(), DatabaseError>>,
+    },
+}
+
+/// Database writer implementation that serializes all writes
+pub struct SerializedDatabaseWriter {
+    write_sender: mpsc::Sender<WriteOperation>,
+}
+
+impl SerializedDatabaseWriter {
+    /// Create a new serialized database writer with background task
+    pub fn new(database: Database) -> Self {
+        let (write_sender, write_receiver) = mpsc::channel::<WriteOperation>(1000);
+        
+        // Spawn the writer task
+        tokio::spawn(Self::writer_task(database, write_receiver));
+        
+        Self { write_sender }
+    }
+    
+    /// Background task that processes all write operations serially
+    async fn writer_task(
+        database: Database,
+        mut write_receiver: mpsc::Receiver<WriteOperation>,
+    ) {
+        while let Some(operation) = write_receiver.recv().await {
+            match operation {
+                WriteOperation::CreateUser { user, respond_to } => {
+                    let result = database.create_user_internal(&user).await;
+                    let _ = respond_to.send(result);
+                }
+                WriteOperation::CreateSession { session, respond_to } => {
+                    let result = database.create_session_internal(&session).await;
+                    let _ = respond_to.send(result);
+                }
+                WriteOperation::DeleteSession { token, respond_to } => {
+                    let result = database.delete_session_internal(&token).await;
+                    let _ = respond_to.send(result);
+                }
+                WriteOperation::CreateMessageWithDeduplication { message, respond_to } => {
+                    let result = database.create_message_with_deduplication_internal(&message).await;
+                    let _ = respond_to.send(result);
+                }
+                WriteOperation::CreateRoom { room, respond_to } => {
+                    let result = database.create_room_internal(&room).await;
+                    let _ = respond_to.send(result);
+                }
+                WriteOperation::CreateMembership { membership, respond_to } => {
+                    let result = database.create_membership_internal(&membership).await;
+                    let _ = respond_to.send(result);
+                }
+            }
+        }
+    }
+}
+
+#[async_trait]
+impl DatabaseWriter for SerializedDatabaseWriter {
+    async fn create_user(&self, user: User) -> Result<(), DatabaseError> {
+        let (tx, rx) = oneshot::channel();
+        
+        self.write_sender
+            .send(WriteOperation::CreateUser {
+                user,
+                respond_to: tx,
+            })
+            .await
+            .map_err(|_| DatabaseError::WriterChannelClosed)?;
+        
+        rx.await
+            .map_err(|_| DatabaseError::WriterChannelClosed)?
+    }
+    
+    async fn create_session(&self, session: Session) -> Result<(), DatabaseError> {
+        let (tx, rx) = oneshot::channel();
+        
+        self.write_sender
+            .send(WriteOperation::CreateSession {
+                session,
+                respond_to: tx,
+            })
+            .await
+            .map_err(|_| DatabaseError::WriterChannelClosed)?;
+        
+        rx.await
+            .map_err(|_| DatabaseError::WriterChannelClosed)?
+    }
+    
+    async fn delete_session(&self, token: String) -> Result<(), DatabaseError> {
+        let (tx, rx) = oneshot::channel();
+        
+        self.write_sender
+            .send(WriteOperation::DeleteSession {
+                token,
+                respond_to: tx,
+            })
+            .await
+            .map_err(|_| DatabaseError::WriterChannelClosed)?;
+        
+        rx.await
+            .map_err(|_| DatabaseError::WriterChannelClosed)?
+    }
+    
+    async fn create_message_with_deduplication(&self, message: Message) -> Result<Message, DatabaseError> {
+        let (tx, rx) = oneshot::channel();
+        
+        self.write_sender
+            .send(WriteOperation::CreateMessageWithDeduplication {
+                message,
+                respond_to: tx,
+            })
+            .await
+            .map_err(|_| DatabaseError::WriterChannelClosed)?;
+        
+        rx.await
+            .map_err(|_| DatabaseError::WriterChannelClosed)?
+    }
+    
+    async fn create_room(&self, room: Room) -> Result<(), DatabaseError> {
+        let (tx, rx) = oneshot::channel();
+        
+        self.write_sender
+            .send(WriteOperation::CreateRoom {
+                room,
+                respond_to: tx,
+            })
+            .await
+            .map_err(|_| DatabaseError::WriterChannelClosed)?;
+        
+        rx.await
+            .map_err(|_| DatabaseError::WriterChannelClosed)?
+    }
+    
+    async fn create_membership(&self, membership: Membership) -> Result<(), DatabaseError> {
+        let (tx, rx) = oneshot::channel();
+        
+        self.write_sender
+            .send(WriteOperation::CreateMembership {
+                membership,
+                respond_to: tx,
+            })
+            .await
+            .map_err(|_| DatabaseError::WriterChannelClosed)?;
+        
+        rx.await
+            .map_err(|_| DatabaseError::WriterChannelClosed)?
+    }
+}
 
 #[derive(Clone)]
 pub struct Database {
@@ -66,12 +268,29 @@ impl Database {
                 content TEXT NOT NULL,
                 client_message_id TEXT NOT NULL,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                html_content TEXT,
+                mentions TEXT,
+                sound_commands TEXT,
                 UNIQUE(client_message_id, room_id)
             )
             "#
         )
         .execute(&self.pool)
         .await?;
+        
+        // Add rich text columns to existing messages table if they don't exist
+        // This handles the case where the table already exists without rich text fields
+        let _ = sqlx::query("ALTER TABLE messages ADD COLUMN html_content TEXT")
+            .execute(&self.pool)
+            .await; // Ignore error if column already exists
+            
+        let _ = sqlx::query("ALTER TABLE messages ADD COLUMN mentions TEXT")
+            .execute(&self.pool)
+            .await; // Ignore error if column already exists
+            
+        let _ = sqlx::query("ALTER TABLE messages ADD COLUMN sound_commands TEXT")
+            .execute(&self.pool)
+            .await; // Ignore error if column already exists
 
         // Create room memberships table
         sqlx::query(
@@ -103,12 +322,12 @@ impl Database {
         .await?;
 
         // Create FTS5 virtual table for message search
+        // We'll create a standalone FTS5 table since we can't use UUID as content_rowid
         sqlx::query(
             r#"
             CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
-                content,
-                content=messages,
-                content_rowid=id
+                message_id,
+                content
             )
             "#
         )
@@ -119,7 +338,7 @@ impl Database {
         sqlx::query(
             r#"
             CREATE TRIGGER IF NOT EXISTS messages_fts_insert AFTER INSERT ON messages BEGIN
-                INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
+                INSERT INTO messages_fts(message_id, content) VALUES (new.id, new.content);
             END
             "#
         )
@@ -129,7 +348,7 @@ impl Database {
         sqlx::query(
             r#"
             CREATE TRIGGER IF NOT EXISTS messages_fts_delete AFTER DELETE ON messages BEGIN
-                DELETE FROM messages_fts WHERE rowid = old.id;
+                DELETE FROM messages_fts WHERE message_id = old.id;
             END
             "#
         )
@@ -139,8 +358,8 @@ impl Database {
         sqlx::query(
             r#"
             CREATE TRIGGER IF NOT EXISTS messages_fts_update AFTER UPDATE ON messages BEGIN
-                DELETE FROM messages_fts WHERE rowid = old.id;
-                INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
+                DELETE FROM messages_fts WHERE message_id = old.id;
+                INSERT INTO messages_fts(message_id, content) VALUES (new.id, new.content);
             END
             "#
         )
@@ -159,9 +378,9 @@ impl Database {
     }
 }
 
-// Database operations for users
+// Internal database operations (used by the writer task)
 impl Database {
-    pub async fn create_user(&self, user: &User) -> Result<(), DatabaseError> {
+    pub(crate) async fn create_user_internal(&self, user: &User) -> Result<(), DatabaseError> {
         sqlx::query(
             r#"
             INSERT INTO users (id, name, email, password_hash, bio, admin, bot_token, created_at)
@@ -235,7 +454,7 @@ impl Database {
 
 // Database operations for sessions (Critical Gap #4)
 impl Database {
-    pub async fn create_session(&self, session: &Session) -> Result<(), DatabaseError> {
+    pub(crate) async fn create_session_internal(&self, session: &Session) -> Result<(), DatabaseError> {
         sqlx::query(
             "INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)"
         )
@@ -270,7 +489,7 @@ impl Database {
         }
     }
     
-    pub async fn delete_session(&self, token: &str) -> Result<(), DatabaseError> {
+    pub(crate) async fn delete_session_internal(&self, token: &str) -> Result<(), DatabaseError> {
         sqlx::query("DELETE FROM sessions WHERE token = ?")
             .bind(token)
             .execute(&self.pool)
@@ -282,7 +501,7 @@ impl Database {
 
 // Database operations for messages (Critical Gap #1 - Deduplication)
 impl Database {
-    pub async fn create_message_with_deduplication(
+    pub(crate) async fn create_message_with_deduplication_internal(
         &self,
         message: &Message,
     ) -> Result<Message, DatabaseError> {
@@ -294,11 +513,23 @@ impl Database {
             return Ok(existing);
         }
         
-        // Insert new message
+        // Insert new message with rich text fields
+        let mentions_json = if message.mentions.is_empty() {
+            None
+        } else {
+            Some(serde_json::to_string(&message.mentions).unwrap_or_default())
+        };
+        
+        let sound_commands_json = if message.sound_commands.is_empty() {
+            None
+        } else {
+            Some(serde_json::to_string(&message.sound_commands).unwrap_or_default())
+        };
+        
         sqlx::query(
             r#"
-            INSERT INTO messages (id, room_id, creator_id, content, client_message_id, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO messages (id, room_id, creator_id, content, client_message_id, created_at, html_content, mentions, sound_commands)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#
         )
         .bind(message.id.0.to_string())
@@ -307,6 +538,9 @@ impl Database {
         .bind(&message.content)
         .bind(message.client_message_id.to_string())
         .bind(message.created_at)
+        .bind(&message.html_content)
+        .bind(mentions_json)
+        .bind(sound_commands_json)
         .execute(&self.pool)
         .await?;
         
@@ -327,7 +561,7 @@ impl Database {
     ) -> Result<Option<Message>, DatabaseError> {
         let row = sqlx::query(
             r#"
-            SELECT id, room_id, creator_id, content, client_message_id, created_at
+            SELECT id, room_id, creator_id, content, client_message_id, created_at, html_content, mentions, sound_commands
             FROM messages 
             WHERE client_message_id = ? AND room_id = ?
             "#
@@ -343,6 +577,19 @@ impl Database {
             let creator_id_str: &str = row.get("creator_id");
             let client_message_id_str: &str = row.get("client_message_id");
             
+            // Parse JSON fields
+            let mentions: Vec<String> = if let Some(mentions_json) = row.get::<Option<String>, _>("mentions") {
+                serde_json::from_str(&mentions_json).unwrap_or_default()
+            } else {
+                Vec::new()
+            };
+            
+            let sound_commands: Vec<String> = if let Some(commands_json) = row.get::<Option<String>, _>("sound_commands") {
+                serde_json::from_str(&commands_json).unwrap_or_default()
+            } else {
+                Vec::new()
+            };
+            
             Ok(Some(Message {
                 id: MessageId(uuid::Uuid::parse_str(id_str)?),
                 room_id: RoomId(uuid::Uuid::parse_str(room_id_str)?),
@@ -350,6 +597,9 @@ impl Database {
                 content: row.get("content"),
                 client_message_id: uuid::Uuid::parse_str(client_message_id_str)?,
                 created_at: row.get("created_at"),
+                html_content: row.get("html_content"),
+                mentions,
+                sound_commands,
             }))
         } else {
             Ok(None)
@@ -365,7 +615,7 @@ impl Database {
         let query = if let Some(before_id) = before {
             sqlx::query(
                 r#"
-                SELECT id, room_id, creator_id, content, client_message_id, created_at
+                SELECT id, room_id, creator_id, content, client_message_id, created_at, html_content, mentions, sound_commands
                 FROM messages 
                 WHERE room_id = ? AND created_at < (
                     SELECT created_at FROM messages WHERE id = ?
@@ -380,7 +630,7 @@ impl Database {
         } else {
             sqlx::query(
                 r#"
-                SELECT id, room_id, creator_id, content, client_message_id, created_at
+                SELECT id, room_id, creator_id, content, client_message_id, created_at, html_content, mentions, sound_commands
                 FROM messages 
                 WHERE room_id = ?
                 ORDER BY created_at DESC 
@@ -400,6 +650,19 @@ impl Database {
             let creator_id_str: &str = row.get("creator_id");
             let client_message_id_str: &str = row.get("client_message_id");
             
+            // Parse JSON fields
+            let mentions: Vec<String> = if let Some(mentions_json) = row.get::<Option<String>, _>("mentions") {
+                serde_json::from_str(&mentions_json).unwrap_or_default()
+            } else {
+                Vec::new()
+            };
+            
+            let sound_commands: Vec<String> = if let Some(commands_json) = row.get::<Option<String>, _>("sound_commands") {
+                serde_json::from_str(&commands_json).unwrap_or_default()
+            } else {
+                Vec::new()
+            };
+            
             messages.push(Message {
                 id: MessageId(uuid::Uuid::parse_str(id_str)?),
                 room_id: RoomId(uuid::Uuid::parse_str(room_id_str)?),
@@ -407,9 +670,424 @@ impl Database {
                 content: row.get("content"),
                 client_message_id: uuid::Uuid::parse_str(client_message_id_str)?,
                 created_at: row.get("created_at"),
+                html_content: row.get("html_content"),
+                mentions,
+                sound_commands,
             });
         }
         
         Ok(messages)
+    }
+    
+    /// Get messages since a specific message ID for missed message delivery (Critical Gap #2)
+    pub async fn get_messages_since(
+        &self,
+        user_id: UserId,
+        last_seen_message_id: Option<MessageId>,
+        limit: u32,
+    ) -> Result<Vec<Message>, DatabaseError> {
+        let query = if let Some(last_seen_id) = last_seen_message_id {
+            // Get messages newer than the last seen message in rooms where user is a member
+            sqlx::query(
+                r#"
+                SELECT m.id, m.room_id, m.creator_id, m.content, m.client_message_id, m.created_at, m.html_content, m.mentions, m.sound_commands
+                FROM messages m
+                INNER JOIN room_memberships rm ON m.room_id = rm.room_id
+                WHERE rm.user_id = ? 
+                  AND m.created_at > (
+                      SELECT created_at FROM messages WHERE id = ?
+                  )
+                ORDER BY m.created_at ASC 
+                LIMIT ?
+                "#
+            )
+            .bind(user_id.0.to_string())
+            .bind(last_seen_id.0.to_string())
+            .bind(limit as i64)
+        } else {
+            // If no last seen message, get recent messages from all user's rooms
+            sqlx::query(
+                r#"
+                SELECT m.id, m.room_id, m.creator_id, m.content, m.client_message_id, m.created_at, m.html_content, m.mentions, m.sound_commands
+                FROM messages m
+                INNER JOIN room_memberships rm ON m.room_id = rm.room_id
+                WHERE rm.user_id = ?
+                ORDER BY m.created_at DESC 
+                LIMIT ?
+                "#
+            )
+            .bind(user_id.0.to_string())
+            .bind(limit as i64)
+        };
+        
+        let rows = query.fetch_all(&self.pool).await?;
+        
+        let mut messages = Vec::new();
+        for row in rows {
+            let id_str: &str = row.get("id");
+            let room_id_str: &str = row.get("room_id");
+            let creator_id_str: &str = row.get("creator_id");
+            let client_message_id_str: &str = row.get("client_message_id");
+            
+            // Parse JSON fields
+            let mentions: Vec<String> = if let Some(mentions_json) = row.get::<Option<String>, _>("mentions") {
+                serde_json::from_str(&mentions_json).unwrap_or_default()
+            } else {
+                Vec::new()
+            };
+            
+            let sound_commands: Vec<String> = if let Some(commands_json) = row.get::<Option<String>, _>("sound_commands") {
+                serde_json::from_str(&commands_json).unwrap_or_default()
+            } else {
+                Vec::new()
+            };
+            
+            messages.push(Message {
+                id: MessageId(uuid::Uuid::parse_str(id_str)?),
+                room_id: RoomId(uuid::Uuid::parse_str(room_id_str)?),
+                creator_id: UserId(uuid::Uuid::parse_str(creator_id_str)?),
+                content: row.get("content"),
+                client_message_id: uuid::Uuid::parse_str(client_message_id_str)?,
+                created_at: row.get("created_at"),
+                html_content: row.get("html_content"),
+                mentions,
+                sound_commands,
+            });
+        }
+        
+        Ok(messages)
+    }
+}
+
+// Database operations for rooms and memberships
+impl Database {
+    pub(crate) async fn create_room_internal(&self, room: &Room) -> Result<(), DatabaseError> {
+        sqlx::query(
+            r#"
+            INSERT INTO rooms (id, name, topic, room_type, created_at, last_message_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            "#
+        )
+        .bind(room.id.0.to_string())
+        .bind(&room.name)
+        .bind(&room.topic)
+        .bind(match room.room_type {
+            RoomType::Open => "open",
+            RoomType::Closed => "closed",
+            RoomType::Direct => "direct",
+        })
+        .bind(room.created_at)
+        .bind(room.last_message_at)
+        .execute(&self.pool)
+        .await?;
+        
+        Ok(())
+    }
+    
+    pub async fn get_room_by_id(&self, room_id: RoomId) -> Result<Option<Room>, DatabaseError> {
+        let row = sqlx::query(
+            "SELECT id, name, topic, room_type, created_at, last_message_at FROM rooms WHERE id = ?"
+        )
+        .bind(room_id.0.to_string())
+        .fetch_optional(&self.pool)
+        .await?;
+        
+        if let Some(row) = row {
+            let id_str: &str = row.get("id");
+            let room_type_str: &str = row.get("room_type");
+            
+            let room_type = match room_type_str {
+                "open" => RoomType::Open,
+                "closed" => RoomType::Closed,
+                "direct" => RoomType::Direct,
+                _ => return Err(DatabaseError::DataIntegrity { 
+                    reason: format!("Invalid room_type: {}", room_type_str) 
+                }),
+            };
+            
+            Ok(Some(Room {
+                id: RoomId(uuid::Uuid::parse_str(id_str)?),
+                name: row.get("name"),
+                topic: row.get("topic"),
+                room_type,
+                created_at: row.get("created_at"),
+                last_message_at: row.get("last_message_at"),
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+    
+    pub(crate) async fn create_membership_internal(
+        &self,
+        membership: &Membership,
+    ) -> Result<(), DatabaseError> {
+        sqlx::query(
+            r#"
+            INSERT INTO room_memberships (room_id, user_id, involvement_level, created_at)
+            VALUES (?, ?, ?, ?)
+            "#
+        )
+        .bind(membership.room_id.0.to_string())
+        .bind(membership.user_id.0.to_string())
+        .bind(match membership.involvement_level {
+            InvolvementLevel::Member => "member",
+            InvolvementLevel::Admin => "admin",
+        })
+        .bind(membership.created_at)
+        .execute(&self.pool)
+        .await?;
+        
+        Ok(())
+    }
+    
+    pub async fn get_membership(
+        &self,
+        room_id: RoomId,
+        user_id: UserId,
+    ) -> Result<Option<Membership>, DatabaseError> {
+        let row = sqlx::query(
+            r#"
+            SELECT room_id, user_id, involvement_level, created_at 
+            FROM room_memberships 
+            WHERE room_id = ? AND user_id = ?
+            "#
+        )
+        .bind(room_id.0.to_string())
+        .bind(user_id.0.to_string())
+        .fetch_optional(&self.pool)
+        .await?;
+        
+        if let Some(row) = row {
+            let room_id_str: &str = row.get("room_id");
+            let user_id_str: &str = row.get("user_id");
+            let involvement_level_str: &str = row.get("involvement_level");
+            
+            let involvement_level = match involvement_level_str {
+                "member" => InvolvementLevel::Member,
+                "admin" => InvolvementLevel::Admin,
+                _ => return Err(DatabaseError::DataIntegrity { 
+                    reason: format!("Invalid involvement_level: {}", involvement_level_str) 
+                }),
+            };
+            
+            Ok(Some(Membership {
+                room_id: RoomId(uuid::Uuid::parse_str(room_id_str)?),
+                user_id: UserId(uuid::Uuid::parse_str(user_id_str)?),
+                involvement_level,
+                created_at: row.get("created_at"),
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+    
+    pub async fn get_user_rooms(&self, user_id: UserId) -> Result<Vec<Room>, DatabaseError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT r.id, r.name, r.topic, r.room_type, r.created_at, r.last_message_at
+            FROM rooms r
+            INNER JOIN room_memberships rm ON r.id = rm.room_id
+            WHERE rm.user_id = ?
+            ORDER BY r.last_message_at DESC NULLS LAST, r.created_at DESC
+            "#
+        )
+        .bind(user_id.0.to_string())
+        .fetch_all(&self.pool)
+        .await?;
+        
+        let mut rooms = Vec::new();
+        for row in rows {
+            let id_str: &str = row.get("id");
+            let room_type_str: &str = row.get("room_type");
+            
+            let room_type = match room_type_str {
+                "open" => RoomType::Open,
+                "closed" => RoomType::Closed,
+                "direct" => RoomType::Direct,
+                _ => return Err(DatabaseError::DataIntegrity { 
+                    reason: format!("Invalid room_type: {}", room_type_str) 
+                }),
+            };
+            
+            rooms.push(Room {
+                id: RoomId(uuid::Uuid::parse_str(id_str)?),
+                name: row.get("name"),
+                topic: row.get("topic"),
+                room_type,
+                created_at: row.get("created_at"),
+                last_message_at: row.get("last_message_at"),
+            });
+        }
+        
+        Ok(rooms)
+    }
+    
+    pub async fn check_user_can_add_member(
+        &self,
+        room_id: RoomId,
+        user_id: UserId,
+    ) -> Result<bool, DatabaseError> {
+        // Check if user is admin of the room or if it's an open room
+        let room = self.get_room_by_id(room_id).await?;
+        if room.is_none() {
+            return Ok(false);
+        }
+        let room = room.unwrap();
+        
+        // Open rooms allow anyone to join
+        if matches!(room.room_type, RoomType::Open) {
+            return Ok(true);
+        }
+        
+        // For closed/direct rooms, check if user is admin
+        let membership = self.get_membership(room_id, user_id).await?;
+        if let Some(membership) = membership {
+            Ok(matches!(membership.involvement_level, InvolvementLevel::Admin))
+        } else {
+            Ok(false)
+        }
+    }
+    
+    pub async fn user_exists(&self, user_id: UserId) -> Result<bool, DatabaseError> {
+        let row = sqlx::query("SELECT 1 FROM users WHERE id = ?")
+            .bind(user_id.0.to_string())
+            .fetch_optional(&self.pool)
+            .await?;
+        
+        Ok(row.is_some())
+    }
+}
+
+/// Combined database interface that uses the writer pattern for writes
+/// and direct access for reads (Critical Gap #3 implementation)
+#[derive(Clone)]
+pub struct CampfireDatabase {
+    /// Direct database access for read operations
+    read_db: Database,
+    /// Serialized writer for all write operations
+    writer: Arc<dyn DatabaseWriter>,
+}
+
+impl CampfireDatabase {
+    /// Create a new database with the writer pattern
+    pub async fn new(database_url: &str) -> Result<Self> {
+        let read_db = Database::new(database_url).await?;
+        let writer_db = read_db.clone();
+        let writer = Arc::new(SerializedDatabaseWriter::new(writer_db));
+        
+        Ok(Self {
+            read_db,
+            writer,
+        })
+    }
+    
+    /// Get the writer interface for write operations
+    pub fn writer(&self) -> Arc<dyn DatabaseWriter> {
+        Arc::clone(&self.writer)
+    }
+    
+    /// Get the database pool for direct read operations
+    pub fn pool(&self) -> &SqlitePool {
+        self.read_db.pool()
+    }
+    
+    /// Begin a transaction (for complex operations that need atomicity)
+    pub async fn begin(&self) -> Result<Transaction<'_, Sqlite>, sqlx::Error> {
+        self.read_db.begin().await
+    }
+    
+    // Read operations - direct access to avoid serialization overhead
+    
+    pub async fn get_user_by_id(&self, user_id: UserId) -> Result<Option<User>, DatabaseError> {
+        self.read_db.get_user_by_id(user_id).await
+    }
+    
+    pub async fn get_user_by_email(&self, email: &str) -> Result<Option<User>, DatabaseError> {
+        self.read_db.get_user_by_email(email).await
+    }
+    
+    pub async fn get_session(&self, token: &str) -> Result<Option<Session>, DatabaseError> {
+        self.read_db.get_session(token).await
+    }
+    
+    pub async fn get_message_by_client_id(
+        &self,
+        client_message_id: uuid::Uuid,
+        room_id: RoomId,
+    ) -> Result<Option<Message>, DatabaseError> {
+        self.read_db.get_message_by_client_id(client_message_id, room_id).await
+    }
+    
+    pub async fn get_room_messages(
+        &self,
+        room_id: RoomId,
+        limit: u32,
+        before: Option<MessageId>,
+    ) -> Result<Vec<Message>, DatabaseError> {
+        self.read_db.get_room_messages(room_id, limit, before).await
+    }
+    
+    pub async fn get_messages_since(
+        &self,
+        user_id: UserId,
+        last_seen_message_id: Option<MessageId>,
+        limit: u32,
+    ) -> Result<Vec<Message>, DatabaseError> {
+        self.read_db.get_messages_since(user_id, last_seen_message_id, limit).await
+    }
+    
+    pub async fn get_room_by_id(&self, room_id: RoomId) -> Result<Option<Room>, DatabaseError> {
+        self.read_db.get_room_by_id(room_id).await
+    }
+    
+    pub async fn get_membership(
+        &self,
+        room_id: RoomId,
+        user_id: UserId,
+    ) -> Result<Option<Membership>, DatabaseError> {
+        self.read_db.get_membership(room_id, user_id).await
+    }
+    
+    pub async fn get_user_rooms(&self, user_id: UserId) -> Result<Vec<Room>, DatabaseError> {
+        self.read_db.get_user_rooms(user_id).await
+    }
+    
+    pub async fn check_user_can_add_member(
+        &self,
+        room_id: RoomId,
+        user_id: UserId,
+    ) -> Result<bool, DatabaseError> {
+        self.read_db.check_user_can_add_member(room_id, user_id).await
+    }
+    
+    pub async fn user_exists(&self, user_id: UserId) -> Result<bool, DatabaseError> {
+        self.read_db.user_exists(user_id).await
+    }
+    
+    // Write operations - go through the writer pattern
+    
+    pub async fn create_user(&self, user: User) -> Result<(), DatabaseError> {
+        self.writer.create_user(user).await
+    }
+    
+    pub async fn create_session(&self, session: Session) -> Result<(), DatabaseError> {
+        self.writer.create_session(session).await
+    }
+    
+    pub async fn delete_session(&self, token: String) -> Result<(), DatabaseError> {
+        self.writer.delete_session(token).await
+    }
+    
+    pub async fn create_message_with_deduplication(&self, message: Message) -> Result<Message, DatabaseError> {
+        self.writer.create_message_with_deduplication(message).await
+    }
+    
+    pub async fn create_room(&self, room: Room) -> Result<(), DatabaseError> {
+        self.writer.create_room(room).await
+    }
+    
+    pub async fn create_membership(&self, membership: Membership) -> Result<(), DatabaseError> {
+        self.writer.create_membership(membership).await
     }
 }

@@ -57,6 +57,16 @@ pub enum RoomError {
     Database(#[from] sqlx::Error),
 }
 
+// From implementations for error conversion
+impl From<DatabaseError> for RoomError {
+    fn from(err: DatabaseError) -> Self {
+        match err {
+            DatabaseError::Connection(e) => RoomError::Database(e),
+            _ => RoomError::Database(sqlx::Error::Configuration("Database error".into())),
+        }
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum AuthError {
     #[error("Invalid credentials")]
@@ -149,6 +159,9 @@ pub enum DatabaseError {
     
     #[error("UUID parsing error: {0}")]
     UuidParse(#[from] uuid::Error),
+    
+    #[error("Database writer channel closed")]
+    WriterChannelClosed,
 }
 
 #[derive(Error, Debug)]

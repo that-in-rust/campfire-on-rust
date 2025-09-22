@@ -3,20 +3,32 @@ use axum::{
     http::{Request, StatusCode},
     Router,
 };
-use campfire_on_rust::{handlers, middleware, AppState, Database};
+use campfire_on_rust::{handlers, AppState, CampfireDatabase, AuthService, RoomService, MessageService, ConnectionManagerImpl};
 use std::sync::Arc;
 use tower::ServiceExt; // for `oneshot`
 
 async fn create_test_app() -> Router {
     // Create test database
-    let db = Database::new(":memory:").await.unwrap();
+    let db = CampfireDatabase::new(":memory:").await.unwrap();
+    let db_arc = Arc::new(db.clone());
     
-    // Create auth service
-    let auth_service = Arc::new(campfire_on_rust::services::auth::AuthService::new(Arc::new(db.clone())));
+    // Create connection manager
+    let connection_manager = Arc::new(ConnectionManagerImpl::new(db_arc.clone()));
+    
+    // Create services
+    let auth_service = Arc::new(AuthService::new(db_arc.clone()));
+    let room_service = Arc::new(RoomService::new(db_arc.clone()));
+    let message_service = Arc::new(MessageService::new(
+        db_arc.clone(),
+        connection_manager,
+        room_service.clone()
+    ));
     
     let app_state = AppState {
         db,
         auth_service,
+        room_service,
+        message_service,
     };
 
     Router::new()

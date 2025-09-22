@@ -4,7 +4,7 @@ use chrono::{DateTime, Duration, Utc};
 use rand::{thread_rng, Rng};
 use std::sync::Arc;
 
-use crate::database::Database;
+use crate::database::CampfireDatabase;
 use crate::errors::{AuthError, DatabaseError};
 use crate::models::{Session, User, UserId};
 
@@ -33,11 +33,11 @@ pub trait AuthServiceTrait: Send + Sync {
 
 #[derive(Clone)]
 pub struct AuthService {
-    db: Arc<Database>,
+    db: Arc<CampfireDatabase>,
 }
 
 impl AuthService {
-    pub fn new(db: Arc<Database>) -> Self {
+    pub fn new(db: Arc<CampfireDatabase>) -> Self {
         Self { db }
     }
     
@@ -109,7 +109,7 @@ impl AuthServiceTrait for AuthService {
             expires_at,
         };
         
-        self.db.create_session(&session)
+        self.db.create_session(session.clone())
             .await?;
         
         Ok(session)
@@ -124,7 +124,7 @@ impl AuthServiceTrait for AuthService {
         // Check if session is expired (additional check beyond database query)
         if session.expires_at < Utc::now() {
             // Clean up expired session
-            let _ = self.db.delete_session(&token).await;
+            let _ = self.db.delete_session(token.clone()).await;
             return Err(AuthError::SessionExpired);
         }
         
@@ -139,7 +139,7 @@ impl AuthServiceTrait for AuthService {
     }
     
     async fn revoke_session(&self, token: String) -> Result<(), AuthError> {
-        self.db.delete_session(&token)
+        self.db.delete_session(token)
             .await?;
         
         Ok(())
@@ -181,7 +181,7 @@ impl AuthServiceTrait for AuthService {
             created_at: Utc::now(),
         };
         
-        self.db.create_user(&user)
+        self.db.create_user(user.clone())
             .await?;
         
         Ok(user)
@@ -191,10 +191,10 @@ impl AuthServiceTrait for AuthService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::database::Database;
+    use crate::database::CampfireDatabase;
     
     async fn create_test_auth_service() -> AuthService {
-        let db = Database::new(":memory:").await.unwrap();
+        let db = CampfireDatabase::new(":memory:").await.unwrap();
         AuthService::new(Arc::new(db))
     }
     

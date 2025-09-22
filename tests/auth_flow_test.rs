@@ -3,21 +3,33 @@ use axum::{
     http::{Request, StatusCode},
     Router,
 };
-use campfire_on_rust::{handlers, AppState, Database, AuthService, AuthServiceTrait};
+use campfire_on_rust::{handlers, AppState, CampfireDatabase, AuthService, RoomService, MessageService, ConnectionManagerImpl, AuthServiceTrait};
 use serde_json::json;
 use std::sync::Arc;
 use tower::ServiceExt; // for `oneshot`
 
 async fn create_test_app() -> Router {
     // Create test database
-    let db = Database::new(":memory:").await.unwrap();
+    let db = CampfireDatabase::new(":memory:").await.unwrap();
+    let db_arc = Arc::new(db.clone());
     
-    // Create auth service
-    let auth_service = Arc::new(AuthService::new(Arc::new(db.clone())));
+    // Create connection manager
+    let connection_manager = Arc::new(ConnectionManagerImpl::new());
+    
+    // Create services
+    let auth_service = Arc::new(AuthService::new(db_arc.clone()));
+    let room_service = Arc::new(RoomService::new(db_arc.clone()));
+    let message_service = Arc::new(MessageService::new(
+        db_arc.clone(),
+        connection_manager,
+        room_service.clone()
+    ));
     
     let app_state = AppState {
         db,
         auth_service,
+        room_service,
+        message_service,
     };
 
     Router::new()
@@ -32,7 +44,7 @@ async fn test_complete_auth_flow() {
     let app = create_test_app().await;
 
     // First, create a user directly in the database
-    let auth_service = AuthService::new(Arc::new(Database::new(":memory:").await.unwrap()));
+    let auth_service = AuthService::new(Arc::new(CampfireDatabase::new(":memory:").await.unwrap()));
     let user = auth_service.create_user(
         "Test User".to_string(),
         "test@example.com".to_string(),

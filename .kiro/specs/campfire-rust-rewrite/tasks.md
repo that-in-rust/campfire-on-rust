@@ -86,7 +86,7 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
   - Handle session validation errors with proper HTTP status codes
   - _Requirements: Requirement 3.1-3.4 (authentication endpoints)_
 
-- [ ] **1.5 Complete Authentication HTTP Handlers**
+- [x] **1.5 Complete Authentication HTTP Handlers**
   - Integrate AuthService into AppState
   - Complete POST /api/auth/login handler with proper error handling
   - Complete POST /api/auth/logout handler with session revocation
@@ -96,7 +96,7 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
 
 ### Phase 2: Room Management System
 
-- [ ] **2.2 Complete Room Service Implementation**
+- [x] **2.2 Complete Room Service Implementation**
   - Implement create_room with database operations and validation
   - Add room membership system with involvement levels (Member/Admin)
   - Implement add_member with proper authorization checks
@@ -105,7 +105,7 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
   - Add database operations for rooms and room_memberships tables
   - _Requirements: Requirement 2.1-2.7 (room management)_
 
-- [ ] **2.3 Room API Endpoints**
+- [x] **2.3 Room API Endpoints**
   - Complete GET /api/rooms handler with user room filtering
   - Complete POST /api/rooms handler with room creation
   - Add proper UUID parsing and validation for room IDs
@@ -115,7 +115,7 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
 
 ### Phase 3: Message API Integration
 
-- [ ] **3.3 Complete Message API Endpoints**
+- [x] **3.3 Complete Message API Endpoints**
   - Complete POST /api/rooms/:id/messages handler with MessageService
   - Complete GET /api/rooms/:id/messages handler with pagination
   - Add proper UUID parsing for room_id and message_id parameters
@@ -123,7 +123,7 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
   - Add room access validation for message operations
   - _Requirements: Requirement 1.1-1.4 (message APIs)_
 
-- [ ] **3.4 Database Writer Pattern (Critical Gap #3)**
+- [x] **3.4 Database Writer Pattern (Critical Gap #3)**
   - Implement single writer task with mpsc channel for write serialization
   - Create DatabaseWriter trait for all write operations
   - Ensure all writes go through the single writer to prevent SQLite conflicts
@@ -141,14 +141,14 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
   - Add authentication for WebSocket connections
   - _Requirements: Requirement 4.1-4.11 (real-time features)_
 
-- [ ] **4.2 Complete Missed Messages Implementation (Critical Gap #2)**
-  - Complete missed message delivery on reconnection in ConnectionManager
-  - Implement database queries for messages since last_seen_message_id
-  - Add proper error handling for reconnection scenarios
-  - Test reconnection flow with message history delivery
+- [x] **4.2 Complete Missed Messages Implementation (Critical Gap #2)**
+  - ✅ Complete missed message delivery on reconnection in ConnectionManager
+  - ✅ Implement database queries for messages since last_seen_message_id
+  - ✅ Add proper error handling for reconnection scenarios
+  - ✅ Test reconnection flow with message history delivery
   - _Requirements: Critical Gap #2, Requirement 4.8-4.11 (connection management)_
 
-- [ ] **4.3 Typing Indicators and Enhanced Presence**
+- [x] **4.3 Typing Indicators and Enhanced Presence**
   - Implement typing notification system with WebSocket messages
   - Add presence change broadcasting to room members
   - Create typing start/stop WebSocket message handlers
@@ -157,7 +157,7 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
 
 ### Phase 5: Advanced Features
 
-- [ ] **5.1 Full-Text Search Implementation**
+- [x] **5.1 Full-Text Search Implementation**
   - Create SearchService using existing SQLite FTS5 setup
   - Implement search API endpoint: GET /api/search?q=query
   - Add search result ranking and pagination
@@ -165,7 +165,7 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
   - Add search result authorization (only show accessible messages)
   - _Requirements: Requirement 7.1-7.5 (search functionality)_
 
-- [ ] **5.2 Rich Text and Sound System**
+- [-] **5.2 Rich Text and Sound System**
   - Enhance HTML sanitization for rich text features (bold, italic, links)
   - Add support for @mentions with user linking and notifications
   - Embed MP3 sound files using rust-embed crate
@@ -223,48 +223,10 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
   - Add database backup and migration scripts
   - _Requirements: Requirement 0.1-0.12 (single binary deployment)_
 
-## Testing Strategy
 
-Each remaining task should include:
-- **Unit Tests**: Test individual functions and components
-- **Integration Tests**: Test service boundaries and database operations
-- **Property Tests**: Test invariants with proptest for critical gaps
-- **End-to-End Tests**: Test complete user journeys
 
-## Critical Gap Status
+# README UPDATE
 
-- **Gap #1**: ✅ COMPLETE - Message deduplication implemented and tested with UNIQUE constraint
-- **Gap #2**: ✅ COMPLETE - WebSocket reconnection state tracking implemented with last_seen_message_id
-- **Gap #3**: ❌ PENDING - SQLite write serialization needs implementation (Task 3.4)
-- **Gap #4**: ✅ COMPLETE - Secure session token generation implemented and tested with crypto-secure random
-- **Gap #5**: ✅ COMPLETE - Presence tracking with TTL cleanup implemented and tested with background task
+- [ ] Update All README and docs with Mermaid diagrams referencing the steering docs - Create README and documentation - take help of (.kiro/steering/mermaid-troubleshooting.md;.kiro/steering/mermaid-syntax-guide.md;kiro/steering/mermaid-status-report.md;.kiro/steering/mermaid-design-patterns.md) x Can we make the README minimalistic x Minto Pyramid Principle - starting from essence at the top and then adding details and lower layers x also all the mermaid diagrams should follow guidance of steering docs x .kiro/steering/mermaid-design-patterns.md x .kiro/steering/mermaid-status-report.md x .kiro/steering/mermaid-syntax-guide.md x .kiro/steering/mermaid-troubleshooting.md
 
-## Success Criteria
-
-- All tests pass (unit, integration, property, e2e)
-- Single binary deployment works with embedded assets
-- WebSocket real-time messaging functions correctly
-- All 5 critical gaps are solved and tested
-- Rails behavioral parity achieved for core features
-- HTTP API endpoints work with proper authentication
-- Room management system functions correctly
-
-## Next Priority Tasks
-
-1. **Session Extraction Middleware** (Task 1.4) - Essential for API authentication
-2. **Complete Authentication Handlers** (Task 1.5) - Required for user login/logout
-3. **Complete Room Service** (Task 2.2) - Required for room management
-4. **Room API Endpoints** (Task 2.3) - Essential for room operations
-5. **Message API Endpoints** (Task 3.3) - Critical for message functionality
-6. **Database Writer Pattern** (Task 3.4) - Critical Gap #3 implementation
-
-## Implementation Notes
-
-**Current State**: The core services (AuthService, MessageService, ConnectionManager) are fully implemented with comprehensive tests. The database schema is complete with all necessary tables and constraints. The main remaining work is:
-
-1. **HTTP API Integration**: Connect the implemented services to HTTP handlers
-2. **Room Management**: Complete the RoomService implementation 
-3. **WebSocket Integration**: Connect the ConnectionManager to actual WebSocket handlers
-4. **Write Serialization**: Implement Critical Gap #3 for SQLite write safety
-
-**Architecture Status**: The foundation is solid with proper error handling, type safety, and Rails-equivalent patterns. The remaining tasks focus on integration and completing the user-facing API.
+- [ ] Run .kiro/tree-with-wc.sh to analyze repository structure + Clean up any unnecessary files or directories - instead of deleting place them in zzzzArchive folder

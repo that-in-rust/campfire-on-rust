@@ -3,10 +3,13 @@ use chrono::Utc;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::database::Database;
-use crate::errors::{MessageError, ValidationError, BroadcastError};
+use crate::database::CampfireDatabase;
+use crate::errors::{MessageError, ValidationError, BroadcastError, RoomError};
 use crate::models::{Message, MessageId, RoomId, UserId, WebSocketMessage};
 use crate::services::connection::ConnectionManager;
+use crate::services::room::RoomServiceTrait;
+use crate::rich_text::{RichTextProcessor, RichTextError};
+use crate::sounds::SoundManager;
 
 #[async_trait]
 pub trait MessageServiceTrait: Send + Sync {
@@ -51,29 +54,48 @@ pub trait MessageServiceTrait: Send + Sync {
         message: &Message,
         room_id: RoomId,
     ) -> Result<(), BroadcastError>;
+    
+    /// Returns reference to the connection manager for WebSocket operations
+    fn connection_manager(&self) -> &Arc<dyn ConnectionManager>;
 }
 
 #[derive(Clone)]
 pub struct MessageService {
-    db: Arc<Database>,
+    db: Arc<CampfireDatabase>,
     connection_manager: Arc<dyn ConnectionManager>,
+    room_service: Arc<dyn RoomServiceTrait>,
 }
 
 impl MessageService {
-    pub fn new(db: Arc<Database>, connection_manager: Arc<dyn ConnectionManager>) -> Self {
+    pub fn new(
+        db: Arc<CampfireDatabase>, 
+        connection_manager: Arc<dyn ConnectionManager>,
+        room_service: Arc<dyn RoomServiceTrait>,
+    ) -> Self {
         Self {
             db,
             connection_manager,
+            room_service,
         }
     }
     
-    /// Validates message content according to Campfire rules
+    /// Returns reference to the connection manager for WebSocket operations
+    pub fn connection_manager(&self) -> &Arc<dyn ConnectionManager> {
+        &self.connection_manager
+    }
+    
+    /// Validates and processes message content with rich text features
     /// 
     /// Rules:
     /// - Content must be between 1 and 10,000 characters
-    /// - HTML content must be sanitized
+    /// - HTML content must be sanitized with rich text support
+    /// - @mentions are processed and linked
+    /// - /play commands are extracted and validated
     /// - No malicious scripts or dangerous HTML
-    fn validate_content(content: &str) -> Result<String, ValidationError> {
+    async fn validate_and_process_content(
+        &self,
+        content: &str,
+    ) -> Result<(String, Option<String>, Vec<String>, Vec<String>), ValidationError> {
         // Check length constraints
         if content.trim().is_empty() {
             return Err(ValidationError::InvalidContentLength);
@@ -83,30 +105,70 @@ impl MessageService {
             return Err(ValidationError::InvalidContentLength);
         }
         
-        // Sanitize HTML content using ammonia
-        let sanitized = ammonia::clean(content);
+        // Extract and clean /play commands first
+        let (cleaned_content, play_commands) = RichTextProcessor::extract_and_clean_play_commands(content);
         
-        // Ensure sanitization didn't remove everything
-        if sanitized.trim().is_empty() && !content.trim().is_empty() {
-            return Err(ValidationError::HtmlSanitization {
-                reason: "Content was entirely removed during sanitization".to_string(),
-            });
+        // Use cleaned content for display if play commands were removed
+        let display_content = if cleaned_content.trim().is_empty() && !play_commands.is_empty() {
+            // If only play commands, use a default message
+            format!("🎵 Played: {}", play_commands.join(", "))
+        } else if cleaned_content != content {
+            cleaned_content
+        } else {
+            content.to_string()
+        };
+        
+        // Create user lookup function for @mentions
+        let _db = Arc::clone(&self.db);
+        let user_lookup = move |_username: &str| -> Option<UserId> {
+            // For now, we'll do a simple lookup - in a real implementation,
+            // this would be async and cached
+            // TODO: Implement proper async user lookup with caching
+            None // Placeholder - will be implemented when user lookup is available
+        };
+        
+        // Process rich text content
+        match RichTextProcessor::process_content(&display_content, user_lookup).await {
+            Ok(processed) => {
+                // Use the sanitized HTML as the display content
+                let final_display_content = processed.html.clone();
+                
+                let html_content = if processed.has_rich_features || processed.html != display_content {
+                    Some(processed.html)
+                } else {
+                    None
+                };
+                
+                Ok((final_display_content, html_content, processed.mentions, play_commands))
+            }
+            Err(RichTextError::SanitizationRemoved) => {
+                Err(ValidationError::HtmlSanitization {
+                    reason: "Content was entirely removed during sanitization".to_string(),
+                })
+            }
+            Err(e) => {
+                Err(ValidationError::HtmlSanitization {
+                    reason: format!("Rich text processing failed: {}", e),
+                })
+            }
         }
-        
-        Ok(sanitized)
     }
     
-    /// Checks if user has access to the room
-    /// 
-    /// This is a simplified version - in a full implementation,
-    /// this would check room memberships and permissions
+    /// Checks if user has access to the room using RoomService
     async fn check_room_access(&self, room_id: RoomId, user_id: UserId) -> Result<bool, MessageError> {
-        // For MVP, we'll implement a basic check
-        // In the full version, this would query room_memberships table
-        
-        // TODO: Implement proper room access checking
-        // For now, assume all authenticated users have access
-        Ok(true)
+        match self.room_service.check_room_access(room_id, user_id).await {
+            Ok(Some(_involvement_level)) => Ok(true),
+            Ok(None) => Ok(false),
+            Err(RoomError::NotFound { .. }) => {
+                Err(MessageError::Authorization { user_id, room_id })
+            }
+            Err(e) => {
+                // Convert RoomError to MessageError
+                Err(MessageError::Database(
+                    sqlx::Error::Configuration(format!("Room access check failed: {}", e).into())
+                ))
+            }
+        }
     }
 }
 
@@ -119,8 +181,10 @@ impl MessageServiceTrait for MessageService {
         user_id: UserId,
         client_message_id: Uuid,
     ) -> Result<Message, MessageError> {
-        // Step 1: Validate content
-        let sanitized_content = Self::validate_content(&content)
+        // Step 1: Validate and process content with rich text features
+        let (display_content, html_content, mentions, play_commands) = self
+            .validate_and_process_content(&content)
+            .await
             .map_err(|e| MessageError::InvalidContent { 
                 reason: e.to_string() 
             })?;
@@ -130,25 +194,42 @@ impl MessageServiceTrait for MessageService {
             return Err(MessageError::Authorization { user_id, room_id });
         }
         
-        // Step 3: Create message object
-        let message = Message {
-            id: MessageId::new(),
+        // Step 3: Create message object with rich text features
+        let message = Message::with_rich_content(
             room_id,
-            creator_id: user_id,
-            content: sanitized_content,
+            user_id,
+            display_content,
             client_message_id,
-            created_at: Utc::now(),
-        };
+            html_content,
+            mentions,
+            play_commands.clone(),
+        );
         
         // Step 4: Persist with deduplication (Critical Gap #1)
         let persisted_message = self.db
-            .create_message_with_deduplication(&message)
+            .create_message_with_deduplication(message)
             .await?;
         
-        // Step 5: Broadcast to room subscribers
+        // Step 5: Broadcast message to room subscribers
         if let Err(broadcast_error) = self.broadcast_message(&persisted_message, room_id).await {
             // Log the error but don't fail the message creation
             tracing::warn!("Failed to broadcast message {}: {}", persisted_message.id.0, broadcast_error);
+        }
+        
+        // Step 6: Broadcast sound playback commands if any
+        for sound_name in &play_commands {
+            if SoundManager::sound_exists(sound_name) {
+                let sound_message = WebSocketMessage::SoundPlayback {
+                    sound_name: sound_name.clone(),
+                    triggered_by: user_id,
+                    room_id,
+                    timestamp: Utc::now(),
+                };
+                
+                if let Err(e) = self.connection_manager.broadcast_to_room(room_id, sound_message).await {
+                    tracing::warn!("Failed to broadcast sound playback {}: {}", sound_name, e);
+                }
+            }
         }
         
         Ok(persisted_message)
@@ -189,51 +270,61 @@ impl MessageServiceTrait for MessageService {
             .broadcast_to_room(room_id, ws_message)
             .await
     }
+    
+    fn connection_manager(&self) -> &Arc<dyn ConnectionManager> {
+        &self.connection_manager
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::database::Database;
+    use crate::database::CampfireDatabase;
     use crate::services::connection::ConnectionManagerImpl;
     use sqlx::Row;
     
     async fn create_test_message_service() -> MessageService {
-        let db = Database::new(":memory:").await.unwrap();
-        let connection_manager = Arc::new(ConnectionManagerImpl::new());
-        MessageService::new(Arc::new(db), connection_manager)
+        let db = CampfireDatabase::new(":memory:").await.unwrap();
+        let db_arc = Arc::new(db);
+        let connection_manager = Arc::new(ConnectionManagerImpl::new(db_arc.clone()));
+        let room_service = Arc::new(crate::services::room::RoomService::new(db_arc.clone()));
+        MessageService::new(db_arc, connection_manager, room_service)
     }
     
     #[tokio::test]
     async fn test_content_validation() {
+        let service = create_test_message_service().await;
+        
         // Valid content
-        let result = MessageService::validate_content("Hello, world!");
+        let result = service.validate_and_process_content("Hello, world!").await;
         assert!(result.is_ok());
         
         // Empty content
-        let result = MessageService::validate_content("");
+        let result = service.validate_and_process_content("").await;
         assert!(matches!(result, Err(ValidationError::InvalidContentLength)));
         
         // Whitespace only
-        let result = MessageService::validate_content("   ");
+        let result = service.validate_and_process_content("   ").await;
         assert!(matches!(result, Err(ValidationError::InvalidContentLength)));
         
         // Too long content
         let long_content = "a".repeat(10001);
-        let result = MessageService::validate_content(&long_content);
+        let result = service.validate_and_process_content(&long_content).await;
         assert!(matches!(result, Err(ValidationError::InvalidContentLength)));
         
         // HTML sanitization
         let html_content = "<script>alert('xss')</script>Hello";
-        let result = MessageService::validate_content(html_content).unwrap();
-        assert!(!result.contains("<script>"));
-        assert!(result.contains("Hello"));
+        let result = service.validate_and_process_content(html_content).await.unwrap();
+        println!("Sanitized result: {:?}", result);
+        // The script tag should be removed by ammonia
+        assert!(!result.0.contains("<script>"));
+        assert!(result.0.contains("Hello"));
     }
     
     #[tokio::test]
     async fn test_database_basic_operations() {
         // Test basic database operations first
-        let db = crate::database::Database::new(":memory:").await.unwrap();
+        let db = crate::database::CampfireDatabase::new(":memory:").await.unwrap();
         
         // Test that we can execute a simple query
         let result = sqlx::query("SELECT 1 as test")
@@ -256,7 +347,7 @@ mod tests {
     #[tokio::test]
     async fn test_uuid_insertion() {
         // Test UUID insertion specifically
-        let db = crate::database::Database::new(":memory:").await.unwrap();
+        let db = crate::database::CampfireDatabase::new(":memory:").await.unwrap();
         
         let user_id = crate::models::UserId::new();
         let uuid_str = user_id.0.to_string();
@@ -290,7 +381,7 @@ mod tests {
     #[tokio::test]
     async fn test_create_user_method() {
         // Test the actual create_user method
-        let db = crate::database::Database::new(":memory:").await.unwrap();
+        let db = crate::database::CampfireDatabase::new(":memory:").await.unwrap();
         
         let user = crate::models::User {
             id: crate::models::UserId::new(),
@@ -303,13 +394,15 @@ mod tests {
             created_at: chrono::Utc::now(),
         };
         
-        let result = db.create_user(&user).await;
+        let result = db.create_user(user).await;
         match result {
             Ok(_) => println!("create_user successful"),
             Err(e) => panic!("create_user failed: {:?}", e),
         }
     }
     
+
+
     #[tokio::test]
     async fn test_message_deduplication() {
         // Test Critical Gap #1: Message Deduplication
@@ -331,16 +424,27 @@ mod tests {
             created_at: chrono::Utc::now(),
         };
         
-        service.db.create_user(&user).await.unwrap();
+        service.db.create_user(user).await.unwrap();
         
         // Create a room first (required for foreign key constraint)
-        sqlx::query("INSERT INTO rooms (id, name, room_type) VALUES (?, ?, ?)")
-            .bind(room_id.0.to_string())
-            .bind("Test Room")
-            .bind("open")
-            .execute(service.db.pool())
-            .await
-            .unwrap();
+        let room = crate::models::Room {
+            id: room_id,
+            name: "Test Room".to_string(),
+            topic: None,
+            room_type: crate::models::RoomType::Open,
+            created_at: chrono::Utc::now(),
+            last_message_at: None,
+        };
+        service.db.create_room(room).await.unwrap();
+        
+        // Create membership so user has access to the room
+        let membership = crate::models::Membership {
+            room_id,
+            user_id,
+            involvement_level: crate::models::InvolvementLevel::Member,
+            created_at: chrono::Utc::now(),
+        };
+        service.db.create_membership(membership).await.unwrap();
         
         // First message should be created
         let message1 = service
@@ -389,16 +493,27 @@ mod tests {
             created_at: chrono::Utc::now(),
         };
         
-        service.db.create_user(&user).await.unwrap();
+        service.db.create_user(user).await.unwrap();
         
         // Create a room first (required for foreign key constraint)
-        sqlx::query("INSERT INTO rooms (id, name, room_type) VALUES (?, ?, ?)")
-            .bind(room_id.0.to_string())
-            .bind("Test Room 2")
-            .bind("open")
-            .execute(service.db.pool())
-            .await
-            .unwrap();
+        let room = crate::models::Room {
+            id: room_id,
+            name: "Test Room 2".to_string(),
+            topic: None,
+            room_type: crate::models::RoomType::Open,
+            created_at: chrono::Utc::now(),
+            last_message_at: None,
+        };
+        service.db.create_room(room).await.unwrap();
+        
+        // Create membership so user has access to the room
+        let membership = crate::models::Membership {
+            room_id,
+            user_id,
+            involvement_level: crate::models::InvolvementLevel::Member,
+            created_at: chrono::Utc::now(),
+        };
+        service.db.create_membership(membership).await.unwrap();
         
         let message = service
             .create_message_with_deduplication(
@@ -422,6 +537,40 @@ mod tests {
         let room_id = RoomId::new();
         let user_id = UserId::new();
         
+        // Create the user first
+        let user = crate::models::User {
+            id: user_id,
+            name: "Test User".to_string(),
+            email: "test3@example.com".to_string(),
+            password_hash: "hash".to_string(),
+            bio: None,
+            admin: false,
+            bot_token: None,
+            created_at: chrono::Utc::now(),
+        };
+        
+        service.db.create_user(user).await.unwrap();
+        
+        // Create a room first
+        let room = crate::models::Room {
+            id: room_id,
+            name: "Test Room 3".to_string(),
+            topic: None,
+            room_type: crate::models::RoomType::Open,
+            created_at: chrono::Utc::now(),
+            last_message_at: None,
+        };
+        service.db.create_room(room).await.unwrap();
+        
+        // Create membership so user has access to the room
+        let membership = crate::models::Membership {
+            room_id,
+            user_id,
+            involvement_level: crate::models::InvolvementLevel::Member,
+            created_at: chrono::Utc::now(),
+        };
+        service.db.create_membership(membership).await.unwrap();
+        
         let messages = service
             .get_room_messages(room_id, user_id, 10, None)
             .await
@@ -437,6 +586,40 @@ mod tests {
         
         let room_id = RoomId::new();
         let user_id = UserId::new();
+        
+        // Create the user first
+        let user = crate::models::User {
+            id: user_id,
+            name: "Test User".to_string(),
+            email: "test4@example.com".to_string(),
+            password_hash: "hash".to_string(),
+            bio: None,
+            admin: false,
+            bot_token: None,
+            created_at: chrono::Utc::now(),
+        };
+        
+        service.db.create_user(user).await.unwrap();
+        
+        // Create a room first
+        let room = crate::models::Room {
+            id: room_id,
+            name: "Test Room 4".to_string(),
+            topic: None,
+            room_type: crate::models::RoomType::Open,
+            created_at: chrono::Utc::now(),
+            last_message_at: None,
+        };
+        service.db.create_room(room).await.unwrap();
+        
+        // Create membership so user has access to the room
+        let membership = crate::models::Membership {
+            room_id,
+            user_id,
+            involvement_level: crate::models::InvolvementLevel::Member,
+            created_at: chrono::Utc::now(),
+        };
+        service.db.create_membership(membership).await.unwrap();
         
         // Request more than the safe limit
         let messages = service

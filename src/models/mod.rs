@@ -152,6 +152,69 @@ pub struct Message {
     pub content: String,
     pub client_message_id: Uuid,
     pub created_at: DateTime<Utc>,
+    /// Rich text HTML content (if different from content)
+    pub html_content: Option<String>,
+    /// Extracted @mentions from the message
+    pub mentions: Vec<String>,
+    /// Sound commands triggered by this message
+    pub sound_commands: Vec<String>,
+}
+
+impl Message {
+    /// Create a new message with basic content
+    pub fn new(
+        room_id: RoomId,
+        creator_id: UserId,
+        content: String,
+        client_message_id: Uuid,
+    ) -> Self {
+        Self {
+            id: MessageId::new(),
+            room_id,
+            creator_id,
+            content,
+            client_message_id,
+            created_at: Utc::now(),
+            html_content: None,
+            mentions: Vec::new(),
+            sound_commands: Vec::new(),
+        }
+    }
+    
+    /// Create a message with rich text features
+    pub fn with_rich_content(
+        room_id: RoomId,
+        creator_id: UserId,
+        content: String,
+        client_message_id: Uuid,
+        html_content: Option<String>,
+        mentions: Vec<String>,
+        sound_commands: Vec<String>,
+    ) -> Self {
+        Self {
+            id: MessageId::new(),
+            room_id,
+            creator_id,
+            content,
+            client_message_id,
+            created_at: Utc::now(),
+            html_content,
+            mentions,
+            sound_commands,
+        }
+    }
+    
+    /// Get the display content (HTML if available, otherwise plain text)
+    pub fn display_content(&self) -> &str {
+        self.html_content.as_deref().unwrap_or(&self.content)
+    }
+    
+    /// Check if message has rich text features
+    pub fn has_rich_features(&self) -> bool {
+        self.html_content.is_some() 
+            || !self.mentions.is_empty() 
+            || !self.sound_commands.is_empty()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -162,7 +225,7 @@ pub struct Membership {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum InvolvementLevel {
     Member,
     Admin,
@@ -228,5 +291,11 @@ pub enum WebSocketMessage {
     PresenceUpdate {
         room_id: RoomId,
         online_users: Vec<UserId>,
+    },
+    SoundPlayback {
+        sound_name: String,
+        triggered_by: UserId,
+        room_id: RoomId,
+        timestamp: DateTime<Utc>,
     },
 }
