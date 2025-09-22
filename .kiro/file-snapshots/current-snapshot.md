@@ -1,10 +1,10 @@
-# Repository Snapshot - 2025-09-22 15:36:12
+# Repository Snapshot - 2025-09-22 16:12:40
 
 ## Summary Statistics
 - **Total Files**: 711
 - **Total Lines**: 434
 - **Total Words**: 1,302
-- **Snapshot Time**: 2025-09-22 15:36:12
+- **Snapshot Time**: 2025-09-22 16:12:40
 
 ## Spec Progress Summary
 
@@ -22,18 +22,18 @@
 | .claude/settings.local.json | [binary] | [binary] | 369 |
 | .gitignore | 39 | 55 | 383 |
 | Journal20250921.md | [binary] | [binary] | 0 |
-| .kiro/file-snapshots/change-log.md | 73 | 193 | 1.4K |
-| .kiro/file-snapshots/current-snapshot.md | 730 | 6520 | 55K |
-| .kiro/file-snapshots/previous-snapshot.md | 730 | 6520 | 55K |
+| .kiro/file-snapshots/change-log.md | 89 | 232 | 1.8K |
+| .kiro/file-snapshots/current-snapshot.md | 729 | 6511 | 55K |
+| .kiro/file-snapshots/previous-snapshot.md | 729 | 6511 | 55K |
+| .kiro/hooks/hook-automation-guide.md | 256 | 1274 | 11K |
+| .kiro/hooks/hook-system-status.md | 27 | 115 | 912 |
 | .kiro/hooks/unified-progress-tracker.kiro.hook | [binary] | [binary] | 546 |
-| .kiro/specs/campfire-rust-rewrite/design.md | [binary] | [binary] | 0 |
+| .kiro/specs/campfire-rust-rewrite/design.md | 883 | 2942 | 26K |
 | .kiro/specs/campfire-rust-rewrite/Rails_Legacy.md | 367 | 1848 | 17K |
 | .kiro/specs/campfire-rust-rewrite/requirements.md | 159 | 1829 | 14K |
 | .kiro/specs/campfire-rust-rewrite/tasks.md | 3844 | 16738 | 151K |
 | .kiro/steering/code-conventions.md | 1997 | 6142 | 53K |
 | .kiro/steering/design101-tdd-architecture-principles.md | 945 | 3454 | 29K |
-| .kiro/steering/hook-automation-guide.md | 256 | 1274 | 11K |
-| .kiro/steering/hook-system-status.md | 27 | 115 | 912 |
 | .kiro/tree-with-wc.sh | 60 | 411 | 2.7K |
 | .kiro/unified-progress-tracker.sh | 297 | 1411 | 13K |
 | _LLMcampfiretxt/basecamp-once-campfire-8a5edab282632443.txt | 21829 | 56040 | 673K |
