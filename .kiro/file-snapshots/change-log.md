@@ -52,3 +52,22 @@ Unified tracking of all repository changes with comprehensive delta reporting.
 ### File-Level Changes
 ---
 
+
+## Delta Report - 2025-09-22 15:35:13
+
+### Summary Changes
+- **File Count**: 0 (712 total)
+- **Line Count**: 0 (0 total)
+- **Word Count**: 0 (0 total)
+
+### File-Level Changes
+**Added Files:**
+- .kiro/specs/campfire-rust-rewrite/rust-patterns.md
+- .kiro/specs/campfire-rust-rewrite/tdd-patterns.md
+
+**Removed Files:**
+- .kiro/steering/rust-patterns.md
+- .kiro/steering/tdd-patterns.md
+
+---
+
