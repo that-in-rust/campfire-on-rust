@@ -71,3 +71,19 @@ Unified tracking of all repository changes with comprehensive delta reporting.
 
 ---
 
+
+## Delta Report - 2025-09-22 15:36:12
+
+### Summary Changes
+- **File Count**: -1 (711 total)
+- **Line Count**: 434 (434 total)
+- **Word Count**: 1,302 (1,302 total)
+
+### File-Level Changes
+**Removed Files:**
+- .kiro/specs/campfire-rust-rewrite/Rails_Interface_Stub_Architecture.md
+- .kiro/specs/campfire-rust-rewrite/rust-patterns.md
+- .kiro/specs/campfire-rust-rewrite/tdd-patterns.md
+
+---
+

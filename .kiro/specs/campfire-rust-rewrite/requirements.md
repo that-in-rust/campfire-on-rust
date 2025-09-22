@@ -1,5 +1,7 @@
 # Requirements Document - MVP Phase 1
+## IMPORTANT FOR VISUALS AND DIAGRAMS
 
+ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP THAT
 ## Introduction
 
 This document outlines the requirements for the **MVP Phase 1** of rewriting the existing Ruby on Rails Campfire chat application using **simple, proven patterns** that prioritize rapid delivery and Rails compatibility over architectural innovation.

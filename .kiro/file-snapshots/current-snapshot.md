@@ -1,10 +1,10 @@
-# Repository Snapshot - 2025-09-22 15:35:13
+# Repository Snapshot - 2025-09-22 15:36:12
 
 ## Summary Statistics
-- **Total Files**: 712
-- **Total Lines**: 0
-- **Total Words**: 0
-- **Snapshot Time**: 2025-09-22 15:35:13
+- **Total Files**: 711
+- **Total Lines**: 434
+- **Total Words**: 1,302
+- **Snapshot Time**: 2025-09-22 15:36:12
 
 ## Spec Progress Summary
 
@@ -22,17 +22,14 @@
 | .claude/settings.local.json | [binary] | [binary] | 369 |
 | .gitignore | 39 | 55 | 383 |
 | Journal20250921.md | [binary] | [binary] | 0 |
-| .kiro/file-snapshots/change-log.md | 54 | 150 | 1001 |
+| .kiro/file-snapshots/change-log.md | 73 | 193 | 1.4K |
 | .kiro/file-snapshots/current-snapshot.md | 730 | 6520 | 55K |
 | .kiro/file-snapshots/previous-snapshot.md | 730 | 6520 | 55K |
 | .kiro/hooks/unified-progress-tracker.kiro.hook | [binary] | [binary] | 546 |
 | .kiro/specs/campfire-rust-rewrite/design.md | [binary] | [binary] | 0 |
-| .kiro/specs/campfire-rust-rewrite/Rails_Interface_Stub_Architecture.md | [binary] | [binary] | 0 |
 | .kiro/specs/campfire-rust-rewrite/Rails_Legacy.md | 367 | 1848 | 17K |
-| .kiro/specs/campfire-rust-rewrite/requirements.md | 157 | 1806 | 13K |
-| .kiro/specs/campfire-rust-rewrite/rust-patterns.md | 434 | 1302 | 12K |
+| .kiro/specs/campfire-rust-rewrite/requirements.md | 159 | 1829 | 14K |
 | .kiro/specs/campfire-rust-rewrite/tasks.md | 3844 | 16738 | 151K |
-| .kiro/specs/campfire-rust-rewrite/tdd-patterns.md | 583 | 1784 | 20K |
 | .kiro/steering/code-conventions.md | 1997 | 6142 | 53K |
 | .kiro/steering/design101-tdd-architecture-principles.md | 945 | 3454 | 29K |
 | .kiro/steering/hook-automation-guide.md | 256 | 1274 | 11K |
@@ -48,6 +45,8 @@
 | _refRustIdioms/i00-pattern-list.txt | 607 | 2069 | 18K |
 | _refRustIdioms/Rust Idiomatic Patterns Deep Dive_.md | 878 | 12280 | 95K |
 | _refRustIdioms/Rust Idiomatic Patterns Deep Dive_.rtf | [binary] | [binary] | 5.9M |
+| _refRustIdioms/rust-patterns.md | 434 | 1302 | 12K |
+| _refRustIdioms/tdd-patterns.md | 583 | 1784 | 20K |
 | _refRustIdioms/UBI Comprehensive Rust Idiomatic Patterns Guide.txt | 769 | 12536 | 90K |
 | _refRustIdioms/Unlocking _Compile-First Success__ A Layered Blueprint for Building and Governing Rust's Idiomatic-Archive.md | 416 | 5927 | 47K |
 | _refRustIdioms/You are an __omniscient superintelligence with an....md | 161 | 2182 | 16K |
