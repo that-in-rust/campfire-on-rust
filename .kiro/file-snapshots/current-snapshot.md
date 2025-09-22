@@ -1,10 +1,10 @@
-# Repository Snapshot - 2025-09-22 16:30:20
+# Repository Snapshot - 2025-09-22 18:01:38
 
 ## Summary Statistics
-- **Total Files**: 711
-- **Total Lines**: 434
-- **Total Words**: 1,302
-- **Snapshot Time**: 2025-09-22 16:30:20
+- **Total Files**: 725
+- **Total Lines**: 2,891
+- **Total Words**: 7,744
+- **Snapshot Time**: 2025-09-22 18:01:38
 
 ## Spec Progress Summary
 
@@ -16,22 +16,22 @@
 
 | File Path | Lines | Words | Size |
 |-----------|-------|-------|------|
-| Cargo.lock | 4506 | 8436 | 109K |
-| Cargo.toml | 66 | 230 | 1.4K |
+| Cargo.lock | 2839 | 5373 | 70K |
+| Cargo.toml | 58 | 217 | 1.4K |
 | CLAUDE.md | 722 | 4120 | 32K |
 | .claude/settings.local.json | [binary] | [binary] | 369 |
 | .gitignore | 39 | 55 | 383 |
 | Journal20250921.md | [binary] | [binary] | 0 |
-| .kiro/file-snapshots/change-log.md | 108 | 275 | 2.2K |
+| .kiro/file-snapshots/change-log.md | 119 | 306 | 2.3K |
 | .kiro/file-snapshots/current-snapshot.md | 729 | 6511 | 55K |
 | .kiro/file-snapshots/previous-snapshot.md | 729 | 6511 | 55K |
 | .kiro/hooks/hook-automation-guide.md | 256 | 1274 | 11K |
 | .kiro/hooks/hook-system-status.md | 27 | 115 | 912 |
-| .kiro/hooks/unified-progress-tracker.kiro.hook | [binary] | [binary] | 546 |
+| .kiro/hooks/unified-progress-tracker.kiro.hook | [binary] | [binary] | 549 |
 | .kiro/specs/campfire-rust-rewrite/design.md | 883 | 2942 | 26K |
 | .kiro/specs/campfire-rust-rewrite/Rails_Legacy.md | 367 | 1848 | 17K |
 | .kiro/specs/campfire-rust-rewrite/requirements.md | 159 | 1829 | 14K |
-| .kiro/specs/campfire-rust-rewrite/tasks.md | 197 | 1242 | 8.8K |
+| .kiro/specs/campfire-rust-rewrite/tasks.md | 203 | 1265 | 8.9K |
 | .kiro/steering/code-conventions.md | 1997 | 6142 | 53K |
 | .kiro/steering/design101-tdd-architecture-principles.md | 945 | 3454 | 29K |
 | .kiro/tree-with-wc.sh | 60 | 411 | 2.7K |
@@ -53,6 +53,20 @@
 | .scripts/recover-context.sh | 57 | 195 | 1.5K |
 | .scripts/update-context.sh | 47 | 211 | 1.7K |
 | SESSION_CONTEXT.md | 241 | 1388 | 11K |
+| src/database/mod.rs | 414 | 1106 | 14K |
+| src/errors.rs | 220 | 657 | 7.1K |
+| src/handlers/auth.rs | 34 | 100 | 932 |
+| src/handlers/messages.rs | 44 | 131 | 1.3K |
+| src/handlers/mod.rs | 3 | 12 | 61 |
+| src/handlers/rooms.rs | 32 | 92 | 779 |
+| src/handlers/users.rs | 19 | 47 | 441 |
+| src/main.rs | 68 | 129 | 1.6K |
+| src/models/mod.rs | 231 | 591 | 4.9K |
+| src/services/auth.rs | 330 | 786 | 10K |
+| src/services/connection.rs | 513 | 1314 | 17K |
+| src/services/message.rs | 449 | 1235 | 15K |
+| src/services/mod.rs | 8 | 24 | 191 |
+| src/services/room.rs | 92 | 218 | 2.2K |
 | .vscode/settings.json | [binary] | [binary] | 44 |
 | zzCampfireOriginal/app/assets/images/add.svg | [binary] | [binary] | 312 |
 | zzCampfireOriginal/app/assets/images/alert.svg | [binary] | [binary] | 373 |

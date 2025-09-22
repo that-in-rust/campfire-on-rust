@@ -1,6 +1,12 @@
 # Implementation Plan - Campfire Rust Rewrite MVP 1.0
 
+
+
 This implementation plan follows the TDD-First philosophy with Rails-Compatible Simplicity, focusing on building a working chat application using proven patterns adapted to Rust.
+
+## IMPORTANT FOR VISUALS AND DIAGRAMS
+
+ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP THAT
 
 ## Overview
 

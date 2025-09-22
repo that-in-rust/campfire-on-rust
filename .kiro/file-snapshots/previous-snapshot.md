@@ -1,10 +1,10 @@
-# Repository Snapshot - 2025-09-22 16:12:40
+# Repository Snapshot - 2025-09-22 16:30:20
 
 ## Summary Statistics
 - **Total Files**: 711
 - **Total Lines**: 434
 - **Total Words**: 1,302
-- **Snapshot Time**: 2025-09-22 16:12:40
+- **Snapshot Time**: 2025-09-22 16:30:20
 
 ## Spec Progress Summary
 
@@ -22,7 +22,7 @@
 | .claude/settings.local.json | [binary] | [binary] | 369 |
 | .gitignore | 39 | 55 | 383 |
 | Journal20250921.md | [binary] | [binary] | 0 |
-| .kiro/file-snapshots/change-log.md | 89 | 232 | 1.8K |
+| .kiro/file-snapshots/change-log.md | 108 | 275 | 2.2K |
 | .kiro/file-snapshots/current-snapshot.md | 729 | 6511 | 55K |
 | .kiro/file-snapshots/previous-snapshot.md | 729 | 6511 | 55K |
 | .kiro/hooks/hook-automation-guide.md | 256 | 1274 | 11K |
@@ -31,7 +31,7 @@
 | .kiro/specs/campfire-rust-rewrite/design.md | 883 | 2942 | 26K |
 | .kiro/specs/campfire-rust-rewrite/Rails_Legacy.md | 367 | 1848 | 17K |
 | .kiro/specs/campfire-rust-rewrite/requirements.md | 159 | 1829 | 14K |
-| .kiro/specs/campfire-rust-rewrite/tasks.md | 3844 | 16738 | 151K |
+| .kiro/specs/campfire-rust-rewrite/tasks.md | 197 | 1242 | 8.8K |
 | .kiro/steering/code-conventions.md | 1997 | 6142 | 53K |
 | .kiro/steering/design101-tdd-architecture-principles.md | 945 | 3454 | 29K |
 | .kiro/tree-with-wc.sh | 60 | 411 | 2.7K |
