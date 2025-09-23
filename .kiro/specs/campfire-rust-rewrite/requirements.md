@@ -40,6 +40,10 @@ This document outlines the requirements for the **MVP Phase 1** of rewriting the
 
 **MVP Scope:** Campfire is a web-based chat application that supports multiple rooms with access controls, direct messages, rich text messaging, search, notifications via Web Push, @mentions, and API support for bot integrations. File attachments, avatars, and OpenGraph previews are **gracefully disabled** with clear upgrade messaging.
 
+**Demo Experience:** Following Basecamp's approach, the application includes a complete offline demo mode with pre-loaded realistic data (8 users, 7 rooms, sample conversations) and simple credential-based login for immediate evaluation without setup complexity.
+
+**Deployment Strategy:** Single Rust binary deployment with automatic first-run admin setup, environment-based configuration, and Docker-first approach following Basecamp's proven patterns for simple, reliable deployment.
+
 **Architecture Approach:** Simple 3-layer monolith (Database → API → WebSocket) with server-rendered HTML using Askama templates, direct SQLite operations via rusqlite, and Rails-inspired patterns adapted to Rust's async/await model for real-time functionality.
 
 ## Technical Architecture Context
@@ -100,6 +104,44 @@ The simplified MVP implementation includes these core components:
 - **Simple beats clever** - Choose obvious Rust solutions over optimized ones
 
 ## Requirements
+
+### Requirement 0: Anti-Coordination Architecture Enforcement (MVP Phase 1)
+
+**User Story:** As a project stakeholder, I want absolute assurance that the MVP implementation remains simple and Rails-equivalent, so that we avoid coordination complexity that increases costs, development time, and system fragility.
+
+### Requirement 10: Basecamp-Inspired Demo Experience (MVP Phase 1)
+
+**User Story:** As a potential user evaluating Campfire, I want to immediately experience a fully functional chat application with realistic data offline on my machine, so that I can assess its capabilities without setup complexity or external dependencies.
+
+#### Acceptance Criteria
+
+1. WHEN I visit the application root URL THEN it SHALL detect demo mode automatically, display a professional landing page with live chat preview, show clear value proposition with performance metrics, and provide one-click access to pre-configured demo accounts
+2. WHEN demo mode is enabled THEN the system SHALL auto-initialize with 8 realistic demo users (admin, product manager, developers, designers, etc.), create 7 diverse rooms (General, Development, Design, Product Planning, Random, Support, Marketing), generate sample conversations demonstrating @mentions and /play commands, and include bot integration examples
+3. WHEN I access the demo login page THEN it SHALL display one-click login buttons for each demo user with role descriptions, show tooltips explaining each user's context and permissions, provide "Try Demo Now" and "Multi-User Testing Guide" options, and include clear instructions for simulating team conversations
+4. WHEN I log in as any demo user THEN I SHALL see a welcome overlay explaining key features, receive guided tour highlighting @mentions, /play sounds, search, and real-time capabilities, and access pre-loaded conversations that demonstrate all functionality
+5. WHEN I open multiple browser tabs THEN I SHALL be able to log in as different demo users simultaneously, see real-time message synchronization across sessions, experience typing indicators and presence awareness, and simulate realistic team chat scenarios
+6. WHEN demo data is missing THEN the system SHALL detect the condition, provide a one-click "Initialize Demo" button, create all demo content automatically, and display progress feedback during initialization
+7. WHEN I explore demo features THEN I SHALL find realistic conversations showcasing technical discussions, product planning, design collaboration, and casual team interaction, with embedded sound commands, @mentions, and bot responses
+8. WHEN I test the search functionality THEN it SHALL return results from pre-loaded conversations, demonstrate full-text search capabilities across all rooms, and show relevant message context and timestamps
+9. WHEN I access admin features as the demo admin THEN I SHALL see room management capabilities, user administration options, bot configuration examples, and system settings appropriate for evaluation
+10. WHEN I complete the demo evaluation THEN I SHALL understand the full feature set, have experienced real-time collaboration capabilities, know how to deploy for production use, and have clear next steps for implementation
+
+### Requirement 11: Basecamp-Style First-Run Setup (MVP Phase 1)
+
+**User Story:** As a system administrator deploying Campfire, I want a simple, guided first-run experience that creates the initial admin account and configures the system, so that I can get the chat application running quickly without complex setup procedures.
+
+#### Acceptance Criteria
+
+1. WHEN the application starts with an empty database THEN it SHALL detect first-run condition automatically, display a clean setup page with organization branding, prompt for admin account creation, and provide clear instructions for initial configuration
+2. WHEN I create the first admin account THEN the system SHALL validate email format and password strength, create the admin user with full permissions, establish the initial session, and redirect to the main chat interface
+3. WHEN the admin account is created THEN it SHALL be marked as the primary administrator, have access to all system settings and user management, be displayed on the login page as the contact for password resets, and receive administrative privileges for all rooms
+4. WHEN subsequent users visit the application THEN they SHALL see the standard login page with the admin contact email displayed, have access to user registration if enabled, see clear branding and welcome messaging, and understand how to request access
+5. WHEN I deploy via Docker THEN the system SHALL support environment variable configuration, provide automatic SSL with Let's Encrypt when SSL_DOMAIN is set, persist data in mapped volumes, and start successfully with minimal configuration
+6. WHEN I configure environment variables THEN I SHALL be able to set VAPID keys for push notifications, configure database location and backup settings, set security parameters and session timeouts, and customize application behavior without code changes
+7. WHEN the system is in production mode THEN it SHALL disable demo data initialization, require proper authentication for all access, log security events appropriately, and provide health check endpoints for monitoring
+8. WHEN I need to reset or recover admin access THEN the system SHALL provide clear documentation for password reset procedures, support command-line admin creation tools, maintain audit logs of administrative actions, and ensure secure recovery processes
+9. WHEN I scale the deployment THEN the system SHALL support multiple instances behind a load balancer, maintain session consistency across instances, handle database migrations automatically, and provide backup and restore capabilities
+10. WHEN I monitor the system THEN it SHALL provide health check endpoints, log important events and errors, expose metrics for monitoring tools, and maintain performance visibility for operational management
 
 ### Requirement 0: Anti-Coordination Architecture Enforcement (MVP Phase 1)
 

@@ -25,6 +25,7 @@ graph TB
             HTTP[HTTP Server<br/>Axum]
             WS[WebSocket Handler<br/>tokio-tungstenite]
             STATIC[Static Assets<br/>include_bytes!]
+            DEMO[Demo Pages<br/>Askama Templates]
         end
         
         subgraph "Service Layer"
@@ -34,16 +35,19 @@ graph TB
             USER[User<br/>Service]
             SEARCH[Search<br/>Service]
             PUSH[Push Notification<br/>Service]
+            SETUP[First Run Setup<br/>Service]
         end
         
         subgraph "Data Layer"
             DB[(SQLite Database<br/>rusqlite)]
             FTS[(FTS5 Search<br/>Virtual Table)]
+            DEMO_DATA[Demo Data<br/>Initializer]
         end
         
         subgraph "Background Tasks"
             WEBHOOK[Webhook<br/>Delivery]
             CLEANUP[Connection<br/>Cleanup]
+            DEMO_INIT[Demo Data<br/>Initialization]
         end
     end
     
@@ -52,6 +56,8 @@ graph TB
     HTTP --> ROOM
     HTTP --> USER
     HTTP --> SEARCH
+    HTTP --> SETUP
+    HTTP --> DEMO
     
     WS --> MSG
     WS --> ROOM
@@ -63,11 +69,63 @@ graph TB
     ROOM --> DB
     USER --> DB
     SEARCH --> FTS
+    SETUP --> DB
     
     MSG --> WEBHOOK
     WS --> CLEANUP
+    DEMO_INIT --> DEMO_DATA
+    DEMO_DATA --> DB
     
     PUSH --> USER
+```
+
+### Demo and Deployment Architecture
+
+```mermaid
+graph TB
+    subgraph "Demo Experience Flow"
+        VISIT[User Visits Root URL]
+        DETECT[Detect Demo Mode]
+        LANDING[Professional Landing Page]
+        PREVIEW[Live Chat Preview]
+        LOGIN[One-Click Demo Login]
+        TOUR[Guided Feature Tour]
+        MULTI[Multi-User Simulation]
+        
+        VISIT --> DETECT
+        DETECT --> LANDING
+        LANDING --> PREVIEW
+        LANDING --> LOGIN
+        LOGIN --> TOUR
+        TOUR --> MULTI
+    end
+    
+    subgraph "First Run Setup Flow"
+        START[Application Start]
+        CHECK[Check Database Empty]
+        SETUP_PAGE[First Run Setup Page]
+        ADMIN_CREATE[Create Admin Account]
+        REDIRECT[Redirect to Chat]
+        
+        START --> CHECK
+        CHECK -->|Empty DB| SETUP_PAGE
+        CHECK -->|Has Users| LOGIN
+        SETUP_PAGE --> ADMIN_CREATE
+        ADMIN_CREATE --> REDIRECT
+    end
+    
+    subgraph "Deployment Options"
+        DOCKER[Docker Container]
+        BINARY[Single Binary]
+        ENV[Environment Config]
+        SSL[Auto SSL/Let's Encrypt]
+        VOLUME[Persistent Storage]
+        
+        DOCKER --> ENV
+        DOCKER --> SSL
+        DOCKER --> VOLUME
+        BINARY --> ENV
+    end
 ```
 
 ### Technology Stack
