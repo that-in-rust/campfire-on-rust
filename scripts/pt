@@ -4,12 +4,12 @@
 # Subcommands:
 #   ingest [--force] [--extra "EntityA,EntityB,..."]  Build dump, ingest, generate viz/contexts under ./parseltongue_workspace/
 #   latest                                              Print latest analysis directory path
-#   open                                                Print path to latest architecture.html (or open via xdg-open with --open)
+#   open [--open]                                       Print path to latest architecture.html (or open via xdg-open)
 #   overview                                            Print quick pointers (routes file, handlers, services)
-#   query uses &lt;Entity&gt;                                 Count/display usage sites
-#   query calls &lt;Function&gt;                              Count/display callers
-#   query grep &lt;regex&gt;                                  Grep entity graph names (from latest)
-#   context &lt;Entity&gt; [--json] [--out]                   Generate human (and optional JSON) context for Entity
+#   query uses <Entity>                                 Show usage sites
+#   query calls <Function>                              Show callers
+#   query grep <regex>                                  Grep entity graph names (from latest)
+#   context <Entity> [--json] [--out]                   Generate human (and optional JSON) context for Entity
 #   impact [--entities "A,B"] [--functions "f,g"]      Print uses/calls counts and simple risk flags
 #   routes [--format table|plain]                       Extract route inventory from src/main.rs (best-effort)
 #
@@ -148,7 +148,7 @@ sub_open() {
 }
 
 sub_overview() {
-  cat &lt;&lt;EOF
+  cat <<EOF
 Repo overview:
 - Routes: src/main.rs
 - Handlers: src/handlers/*.rs
@@ -165,15 +165,15 @@ sub_query() {
   local mode="${1:-}"; shift || true
   case "$mode" in
     uses)
-      local target="${1:-}"; [[ -z "$target" ]] && { echo "usage: query uses &lt;Entity&gt;" >&2; exit 2; }
+      local target="${1:-}"; [[ -z "$target" ]] && { echo "usage: query uses <Entity>" >&2; exit 2; }
       (cd "$REPO_ROOT" && "$PT_BIN" query uses "$target") || true
       ;;
     calls)
-      local fn="${1:-}"; [[ -z "$fn" ]] && { echo "usage: query calls &lt;Function&gt;" >&2; exit 2; }
+      local fn="${1:-}"; [[ -z "$fn" ]] && { echo "usage: query calls <Function>" >&2; exit 2; }
       (cd "$REPO_ROOT" && "$PT_BIN" query calls "$fn") || true
       ;;
     grep)
-      local regex="${1:-}"; [[ -z "$regex" ]] && { echo "usage: query grep &lt;regex&gt;" >&2; exit 2; }
+      local regex="${1:-}"; [[ -z "$regex" ]] && { echo "usage: query grep <regex>" >&2; exit 2; }
       local d; d="$(latest_dir)"; [[ -z "$d" ]] && { echo "No analysis found" >&2; exit 1; }
       rg -n "$regex" "$d/all_entities.txt" || grep -nE "$regex" "$d/all_entities.txt" || true
       ;;
@@ -185,7 +185,7 @@ sub_query() {
 sub_context() {
   detect_pt
   local ent="${1:-}"; shift || true
-  [[ -z "$ent" ]] && { echo "usage: context &lt;Entity&gt; [--json] [--out]" >&2; exit 2; }
+  [[ -z "$ent" ]] && { echo "usage: context <Entity> [--json] [--out]" >&2; exit 2; }
   local as_json="no"; local write_out="no"
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -250,21 +250,17 @@ sub_routes() {
   done
   local main="$REPO_ROOT/src/main.rs"
   [[ -f "$main" ]] || { echo "not found: $main" >&2; exit 1; }
-  # Extract lines with .route(...) and identify method
-  # Handles get(...), post(...), axum::routing::delete(...), axum::routing::put(...)
-  awk '
+  # Extract lines with .route(...) and identify method (get|post|delete|put)
+  awk -v fmt="$format" '
     /[.]route\(/ {
-      line=$0
+      rec=$0
       path=""; method=""; handler=""
-      # path between first pair of quotes after .route(
-      if (match(line, /[.]route\(\s*"([^"]+)"/, m)) { path=m[1] }
-      # method is get|post|delete|put
-      if (match(line, /(get|post|delete|put)\s*\(/, m2)) { method=toupper(m2[1]) }
-      # handler inside parentheses after method
-      if (match(line, /(get|post|delete|put)\s*\(\s*([^)]+)\)/, h)) { handler=h[2] }
+      if (match(rec, /[.]route\(\s*"([^"]+)"/, m)) { path=m[1] }
+      if (match(rec, /(get|post|delete|put)\s*\(/, m2)) { method=toupper(m2[1]) }
+      if (match(rec, /(get|post|delete|put)\s*\(\s*([^)]+)\)/, h)) { handler=h[2] }
       gsub(/axum::routing::/, "", handler)
       if (path != "" && method != "") {
-        if ("'"$format"'"=="table") {
+        if (fmt=="table") {
           printf("| %-6s | %-40s | %s |\n", method, path, handler)
         } else {
           printf("%-6s %s -> %s\n", method, path, handler)
