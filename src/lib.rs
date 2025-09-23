@@ -11,6 +11,8 @@ pub mod validation;
 pub mod health;
 pub mod metrics;
 pub mod shutdown;
+pub mod config;
+pub mod logging;
 
 pub use database::CampfireDatabase;
 pub use services::auth::{AuthService, AuthServiceTrait};

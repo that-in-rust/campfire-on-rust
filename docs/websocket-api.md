@@ -4,6 +4,61 @@
 
 The Campfire Rust WebSocket API provides real-time communication for chat functionality. The WebSocket endpoint is available at `/ws` and supports authentication via multiple methods.
 
+## WebSocket Architecture
+
+```mermaid
+graph TD
+    subgraph "Connection Lifecycle"
+        direction TB
+        CONNECT[WebSocket Connect<br/>HTTP Upgrade]
+        AUTH[Authentication<br/>Token Validation]
+        REGISTER[Connection Registration<br/>ConnectionManager]
+        ACTIVE[Active Connection<br/>Message Exchange]
+        CLEANUP[Connection Cleanup<br/>Presence Update]
+    end
+    
+    subgraph "Message Flow"
+        direction TB
+        INCOMING[Incoming Messages<br/>Client → Server]
+        PARSE[Message Parsing<br/>JSON → Struct]
+        VALIDATE[Message Validation<br/>Business Rules]
+        PROCESS[Message Processing<br/>Service Layer]
+        BROADCAST[Broadcasting<br/>Room Subscribers]
+    end
+    
+    subgraph "Real-time Features"
+        direction TB
+        PRESENCE[Presence Tracking<br/>Online Users]
+        TYPING[Typing Indicators<br/>10s Timeout]
+        NOTIFICATIONS[Join/Leave Events<br/>Room Updates]
+        MISSED[Missed Messages<br/>Reconnection]
+    end
+    
+    CONNECT --> AUTH
+    AUTH --> REGISTER
+    REGISTER --> ACTIVE
+    ACTIVE --> CLEANUP
+    
+    ACTIVE --> INCOMING
+    INCOMING --> PARSE
+    PARSE --> VALIDATE
+    VALIDATE --> PROCESS
+    PROCESS --> BROADCAST
+    
+    REGISTER --> PRESENCE
+    ACTIVE --> TYPING
+    BROADCAST --> NOTIFICATIONS
+    CLEANUP --> MISSED
+    
+    classDef lifecycle fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef messages fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    classDef realtime fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    
+    class CONNECT,AUTH,REGISTER,ACTIVE,CLEANUP lifecycle
+    class INCOMING,PARSE,VALIDATE,PROCESS,BROADCAST messages
+    class PRESENCE,TYPING,NOTIFICATIONS,MISSED realtime
+```
+
 ## Authentication
 
 The WebSocket endpoint requires authentication before establishing a connection. Three authentication methods are supported:
@@ -159,6 +214,51 @@ Cookie: session_token=<session_token>
 ```
 
 ## Features Implemented
+
+```mermaid
+graph TD
+    subgraph "✅ Core Features"
+        direction TB
+        AUTH_FEAT[Authentication<br/>Multi-method Support]
+        CONN_MGMT[Connection Management<br/>Lifecycle Tracking]
+        MSG_HANDLE[Message Handling<br/>Bidirectional + Deduplication]
+        ERROR_HANDLE[Error Handling<br/>Client Notification]
+    end
+    
+    subgraph "✅ Real-time Features"
+        direction TB
+        BROADCAST[Room Broadcasting<br/>Message Distribution]
+        PRESENCE_GLOBAL[Global Presence<br/>Online Users]
+        PRESENCE_ROOM[Room Presence<br/>Per-room Tracking]
+        JOIN_LEAVE[Join/Leave Events<br/>Real-time Updates]
+    end
+    
+    subgraph "✅ Advanced Features"
+        direction TB
+        RECONNECT[Reconnection Support<br/>Critical Gap #2]
+        MISSED_MSG[Missed Messages<br/>State Recovery]
+        TYPING_IND[Typing Indicators<br/>10s Timeout]
+        CLEANUP[Background Cleanup<br/>Stale Connections]
+    end
+    
+    AUTH_FEAT --> BROADCAST
+    CONN_MGMT --> PRESENCE_GLOBAL
+    MSG_HANDLE --> PRESENCE_ROOM
+    ERROR_HANDLE --> JOIN_LEAVE
+    
+    BROADCAST --> RECONNECT
+    PRESENCE_GLOBAL --> MISSED_MSG
+    PRESENCE_ROOM --> TYPING_IND
+    JOIN_LEAVE --> CLEANUP
+    
+    classDef core fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px
+    classDef realtime fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    classDef advanced fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    
+    class AUTH_FEAT,CONN_MGMT,MSG_HANDLE,ERROR_HANDLE core
+    class BROADCAST,PRESENCE_GLOBAL,PRESENCE_ROOM,JOIN_LEAVE realtime
+    class RECONNECT,MISSED_MSG,TYPING_IND,CLEANUP advanced
+```
 
 ### ✅ Authentication
 - Multiple authentication methods (query, header, cookie)

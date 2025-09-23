@@ -4,6 +4,50 @@
 
 The Campfire Rust application provides full-text search functionality using SQLite FTS5 (Full-Text Search) for searching messages across rooms that the user has access to.
 
+## Search Architecture
+
+```mermaid
+graph TD
+    subgraph "Search Request Flow"
+        direction TB
+        CLIENT[Client Request<br/>GET /api/search?q=query]
+        AUTH[Authentication<br/>Session Validation]
+        VALIDATE[Query Validation<br/>Length + Format]
+        AUTHORIZE[Authorization<br/>Room Access Check]
+        SEARCH[FTS5 Search<br/>SQLite Virtual Table]
+        RANK[Result Ranking<br/>Relevance Score]
+        PAGINATE[Pagination<br/>Limit + Offset]
+        RESPONSE[JSON Response<br/>Results + Metadata]
+    end
+    
+    subgraph "Database Operations"
+        direction TB
+        FTS_TABLE[messages_fts<br/>Virtual Table]
+        TRIGGERS[Sync Triggers<br/>Auto-update]
+        TOKENIZER[Tokenization<br/>Unicode + Stemming]
+        RANKING_ALGO[BM25 Algorithm<br/>Relevance Scoring]
+    end
+    
+    CLIENT --> AUTH
+    AUTH --> VALIDATE
+    VALIDATE --> AUTHORIZE
+    AUTHORIZE --> SEARCH
+    SEARCH --> RANK
+    RANK --> PAGINATE
+    PAGINATE --> RESPONSE
+    
+    SEARCH --> FTS_TABLE
+    FTS_TABLE --> TRIGGERS
+    TRIGGERS --> TOKENIZER
+    TOKENIZER --> RANKING_ALGO
+    
+    classDef request fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef database fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    
+    class CLIENT,AUTH,VALIDATE,AUTHORIZE,SEARCH,RANK,PAGINATE,RESPONSE request
+    class FTS_TABLE,TRIGGERS,TOKENIZER,RANKING_ALGO database
+```
+
 ## Search Endpoint
 
 ### GET /api/search
@@ -128,6 +172,51 @@ Error types:
 ```
 
 ## Search Features
+
+```mermaid
+graph TD
+    subgraph "Search Capabilities"
+        direction TB
+        FTS[Full-Text Search<br/>SQLite FTS5]
+        CASE[Case-insensitive<br/>Matching]
+        STEM[Automatic Stemming<br/>Word Variants]
+        TOKEN[Tokenization<br/>Unicode Support]
+    end
+    
+    subgraph "Authorization Model"
+        direction TB
+        ROOM_ACCESS[Room Access Control<br/>Membership Check]
+        PRIVATE[Private Rooms<br/>Members Only]
+        OPEN[Open Rooms<br/>All Users]
+        FILTER[Result Filtering<br/>Access-based]
+    end
+    
+    subgraph "Result Processing"
+        direction TB
+        RELEVANCE[Relevance Ranking<br/>BM25 Score]
+        TIME_SORT[Time Sorting<br/>Secondary Sort]
+        SNIPPETS[Context Snippets<br/>~150 characters]
+        PAGINATION[Offset Pagination<br/>Max 100 results]
+    end
+    
+    FTS --> ROOM_ACCESS
+    CASE --> PRIVATE
+    STEM --> OPEN
+    TOKEN --> FILTER
+    
+    ROOM_ACCESS --> RELEVANCE
+    PRIVATE --> TIME_SORT
+    OPEN --> SNIPPETS
+    FILTER --> PAGINATION
+    
+    classDef search fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef auth fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    classDef results fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    
+    class FTS,CASE,STEM,TOKEN search
+    class ROOM_ACCESS,PRIVATE,OPEN,FILTER auth
+    class RELEVANCE,TIME_SORT,SNIPPETS,PAGINATION results
+```
 
 ### Full-Text Search
 

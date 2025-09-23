@@ -1,0 +1,60 @@
+# Rust build artifacts
+target/
+Cargo.lock
+
+# Development files
+.git/
+.gitignore
+README.md
+.env*
+.vscode/
+.idea/
+
+# Test files
+tests/
+*.test
+
+# Documentation
+docs/
+*.md
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+Jenkinsfile
+
+# Local development
+.kiro/
+zzCampfireOriginal/
+zzzzArchive/
+_LLMcampfiretxt/
+_refRustIdioms/
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Database files (will be in volumes)
+*.db
+*.db-*
+
+# Log files (will be in volumes)
+*.log
+logs/
+
+# Backup files
+backups/
+*.backup
+
+# Node modules (if any)
+node_modules/
+
+# Python cache (if any)
+__pycache__/
+*.pyc
