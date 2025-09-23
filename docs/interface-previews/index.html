@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campfire Interface Previews - Complete UI Gallery</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --color-primary: #1a73e8;
+            --color-secondary: #34a853;
+            --color-background: #ffffff;
+            --color-surface: #f8f9fa;
+            --color-text: #202124;
+            --color-text-secondary: #5f6368;
+            --color-border: #dadce0;
+            --color-hover: #f1f3f4;
+            --color-accent: #ff6b35;
+            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        body {
+            font-family: var(--font-family);
+            background-color: var(--color-background);
+            color: var(--color-text);
+            line-height: 1.5;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--color-accent) 0%, #ff8a50 100%);
+            color: white;
+            padding: 60px 20px;
+            text-align: center;
+        }
+        
+        .header-title {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+        
+        .header-subtitle {
+            font-size: 20px;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+        
+        .header-description {
+            font-size: 16px;
+            opacity: 0.8;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        .section {
+            margin-bottom: 48px;
+        }
+        
+        .section-title {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .section-description {
+            color: var(--color-text-secondary);
+            font-size: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 24px;
+        }
+        
+        .preview-card {
+            background: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .preview-card:hover {
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            transform: translateY(-4px);
+        }
+        
+        .preview-image {
+            height: 200px;
+            background: linear-gradient(135deg, var(--color-surface) 0%, #e8f0fe 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            border-bottom: 1px solid var(--color-border);
+        }
+        
+        .preview-content {
+            padding: 20px;
+        }
+        
+        .preview-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .preview-description {
+            color: var(--color-text-secondary);
+            font-size: 14px;
+            line-height: 1.4;
+            margin-bottom: 12px;
+        }
+        
+        .preview-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        
+        .feature-tag {
+            background: var(--color-surface);
+            color: var(--color-text-secondary);
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .stats {
+            background: var(--color-surface);
+            border-radius: 12px;
+            padding: 32px;
+            text-align: center;
+            margin-bottom: 48px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 24px;
+        }
+        
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .stat-number {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--color-accent);
+            margin-bottom: 4px;
+        }
+        
+        .stat-label {
+            color: var(--color-text-secondary);
+            font-size: 14px;
+        }
+        
+        .footer {
+            background: var(--color-surface);
+            padding: 32px 20px;
+            text-align: center;
+            border-top: 1px solid var(--color-border);
+        }
+        
+        .footer-text {
+            color: var(--color-text-secondary);
+            margin-bottom: 16px;
+        }
+        
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        
+        .footer-link {
+            color: var(--color-primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .footer-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 class="header-title">🔥 Campfire Interface Previews</h1>
+        <p class="header-subtitle">Complete UI Gallery - 12 Interactive Previews</p>
+        <p class="header-description">
+            Explore the full Campfire experience with these interactive HTML previews showcasing every aspect of the interface, from login to advanced features.
+        </p>
+    </div>
+    
+    <div class="container">
+        <div class="stats">
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-number">12</div>
+                    <div class="stat-label">Interface Previews</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">100%</div>
+                    <div class="stat-label">Interactive</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">26</div>
+                    <div class="stat-label">UI Components</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">59</div>
+                    <div class="stat-label">Sound Effects</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2 class="section-title">🎨 Core Interface</h2>
+            <p class="section-description">Essential user interface components for the main chat experience</p>
+            <div class="preview-grid">
+                <div class="preview-card" onclick="window.open('01-login-page.html', '_blank')">
+                    <div class="preview-image">🔐</div>
+                    <div class="preview-content">
+                        <h3 class="preview-title">Login Page</h3>
+                        <p class="preview-description">Clean authentication interface with gradient background and form validation</p>
+                        <div class="preview-features">
+                            <span class="feature-tag">Authentication</span>
+                            <span class="feature-tag">Form Validation</span>
+                            <span class="feature-tag">Responsive</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="preview-card" onclick="window.open('02-main-chat-interface.html', '_blank')">
+                    <div class="preview-image">💬</div>
+                    <div class="preview-content">
+                        <h3 class="preview-title">Main Chat Interface</h3>
+                        <p class="preview-description">Complete chat experience with sidebar, message history, and composer</p>
+                        <div class="preview-features">
+                            <span class="feature-tag">Real-time Chat</span>
+                            <span class="feature-tag">Room Sidebar</span>
+                            <span class="feature-tag">Message Composer</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="preview-card" onclick="window.open('06-mobile-chat.html', '_blank')">
+                    <div class="preview-image">📱</div>
+                    <div class="preview-content">
+                        <h3 class="preview-title">Mobile Chat</h3>
+                        <p class="preview-description">Touch-friendly mobile interface with collapsible sidebar and optimized layout</p>
+                        <div class="preview-features">
+                            <span class="feature-tag">Mobile Optimized</span>
+                            <span class="feature-tag">Touch Friendly</span>
+                            <span class="feature-tag">Responsive Design</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2 class="section-title">🏠 Room & User Management</h2>
+            <p class="section-description">Administrative interfaces for managing rooms, users, and system settings</p>
+            <div class="preview-grid">
+                <div class="preview-card" onclick="window.open('03-room-management.html', '_blank')">
+                    <div class="preview-image">#</div>
+                    <div class="preview-content">
+                        <h3 class="preview-title">Room Management</h3>
+                        <p class="preview-description">Create and manage chat rooms with different access levels and member controls</p>
+                        <div class="preview-features">
+                            <span class="feature-tag">Room Creation</span>
+                            <span class="feature-tag">Access Control</span>
+                            <span class="feature-tag">Member Management</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="preview-card" onclick="window.open('05-user-settings.html', '_blank')">
+                    <div class="preview-image">⚙️</div>
+                    <div class="preview-content">
+                        <h3 class="preview-title">User Settings</h3>
+                        <p class="preview-description">Comprehensive user preferences including profile, notifications, and privacy settings</p>
+                        <div class="preview-features">
+                            <span class="feature-tag">Profile Management</span>
+                            <span class="feature-tag">Notifications</span>
+                            <span class="feature-tag">Privacy Controls</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="preview-card" onclick="window.open('10-admin-dashboard.html', '_blank')">
+                    <div class="preview-image">📊</div>
+                    <div class="preview-content">
+                        <h3 class="preview-title">Admin Dashboard</h3>
+                        <p class="preview-description">System overview with user management, analytics, and real-time monitoring</p>
+                        <div class="preview-features">
+                            <span class="feature-tag">System Analytics</span>
+                            <span class="feature-tag">User Management</span>
+                            <span class="feature-tag">Real-time Logs</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2 class="section-title">🔍 Advanced Features</h2>
+            <p class="section-description">Powerful features that enhance the chat experience</p>
+            <div class="preview-grid">
+                <div class="preview-card" onclick="window.open('04-search-interface.html', '_blank')">
+                    <div class="preview-image">🔍</div>
+                    <div class="preview-content">
+                        <h3 class="preview-title">Search Interface</h3>
+                        <p class="preview-description">Full-text search with filters, result highlighting, and pagination</p>
+                        <div class="preview-features">
+                            <span class="feature-tag">Full-text Search</span>
+                            <span class="feature-tag">Result Highlighting</span>
+                            <span class="feature-tag">Advanced Filters</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="preview-card" onclick="window.open('07-sound-system.html', '_blank')">
+                    <div class="preview-image">🔊</div>
+                    <div class="preview-content">
+                        <h3 class="preview-title">Sound System</h3>
+                        <p class="preview-description">Interactive sound library with 59 embedded MP3 files and /play commands</p>
+                        <div class="preview-features">
+                            <span class="feature-tag">59 Sound Effects</span>
+                            <span class="feature-tag">/play Commands</span>
+                            <span class="feature-tag">Interactive Player</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="preview-card" onclick="window.open('08-push-notifications.html', '_blank')">
+                    <div class="preview-image">🔔</div>
+                    <div class="preview-content">
+                        <h3 class="preview-title">Push Notifications</h3>
+                        <p class="preview-description">Web Push integration with VAPID keys and notification preferences</p>
+                        <div class="preview-features">
+                            <span class="feature-tag">Web Push</span>
+                            <span class="feature-tag">VAPID Keys</span>
+                            <span class="feature-tag">Notification Settings</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2 class="section-title">🤖 Integration & Customization</h2>
+            <p class="section-description">Bot integration, theming, and error handling interfaces</p>
+            <div class="preview-grid">
+                <div class="preview-card" onclick="window.open('09-bot-integration.html', '_blank')">
+                    <div class="preview-image">🤖</div>
+                    <div class="preview-content">
+                        <h3 class="preview-title">Bot Integration</h3>
+                        <p class="preview-description">API documentation and bot management interface with webhook examples</p>
+                        <div class="preview-features">
+                            <span class="feature-tag">Bot API</span>
+                            <span class="feature-tag">Webhook Integration</span>
+                            <span class="feature-tag">API Documentation</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="preview-card" onclick="window.open('11-dark-mode.html', '_blank')">
+                    <div class="preview-image">🌙</div>
+                    <div class="preview-content">
+                        <h3 class="preview-title">Dark Mode</h3>
+                        <p class="preview-description">Beautiful dark theme with accessibility compliance and system preference detection</p>
+                        <div class="preview-features">
+                            <span class="feature-tag">Dark Theme</span>
+                            <span class="feature-tag">Accessibility</span>
+                            <span class="feature-tag">System Preference</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="preview-card" onclick="window.open('12-error-states.html', '_blank')">
+                    <div class="preview-image">⚠️</div>
+                    <div class="preview-content">
+                        <h3 class="preview-title">Error States</h3>
+                        <p class="preview-description">Graceful error handling with clear recovery paths and status indicators</p>
+                        <div class="preview-features">
+                            <span class="feature-tag">Error Recovery</span>
+                            <span class="feature-tag">Status Indicators</span>
+                            <span class="feature-tag">User Guidance</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p class="footer-text">
+            These interactive previews showcase the complete Campfire interface built with Rust and modern web technologies.
+        </p>
+        <div class="footer-links">
+            <a href="../README.md" class="footer-link">← Back to README</a>
+            <a href="../architecture.md" class="footer-link">Architecture Docs</a>
+            <a href="../api-overview.md" class="footer-link">API Documentation</a>
+            <a href="https://github.com/campfire-rust" class="footer-link">GitHub Repository</a>
+        </div>
+    </div>
+    
+    <script>
+        // Add some interactivity
+        document.addEventListener('DOMContentLoaded', function() {
+            // Animate stats on scroll
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const statNumbers = entry.target.querySelectorAll('.stat-number');
+                        statNumbers.forEach(stat => {
+                            const finalValue = parseInt(stat.textContent);
+                            let currentValue = 0;
+                            const increment = finalValue / 50;
+                            
+                            const timer = setInterval(() => {
+                                currentValue += increment;
+                                if (currentValue >= finalValue) {
+                                    stat.textContent = finalValue + (stat.textContent.includes('%') ? '%' : '');
+                                    clearInterval(timer);
+                                } else {
+                                    stat.textContent = Math.floor(currentValue) + (stat.textContent.includes('%') ? '%' : '');
+                                }
+                            }, 30);
+                        });
+                    }
+                });
+            });
+            
+            observer.observe(document.querySelector('.stats'));
+        });
+    </script>
+</body>
+</html>

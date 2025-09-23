@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campfire User Settings - Interface Preview</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --color-primary: #1a73e8;
+            --color-secondary: #34a853;
+            --color-danger: #ea4335;
+            --color-background: #ffffff;
+            --color-surface: #f8f9fa;
+            --color-text: #202124;
+            --color-text-secondary: #5f6368;
+            --color-border: #dadce0;
+            --color-hover: #f1f3f4;
+            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        body {
+            font-family: var(--font-family);
+            background-color: var(--color-background);
+            color: var(--color-text);
+            line-height: 1.5;
+            padding: 60px 20px 20px;
+        }
+        
+        .preview-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #ff6b35;
+            color: white;
+            text-align: center;
+            padding: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 1000;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .settings-header {
+            margin-bottom: 32px;
+        }
+        
+        .settings-title {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .settings-subtitle {
+            color: var(--color-text-secondary);
+            font-size: 16px;
+        }
+        
+        .settings-nav {
+            display: flex;
+            gap: 0;
+            margin-bottom: 32px;
+            border-bottom: 1px solid var(--color-border);
+        }
+        
+        .nav-tab {
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--color-text-secondary);
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .nav-tab.active {
+            color: var(--color-primary);
+            border-bottom-color: var(--color-primary);
+        }
+        
+        .nav-tab:hover {
+            color: var(--color-text);
+            background: var(--color-hover);
+        }
+        
+        .settings-section {
+            background: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            margin-bottom: 24px;
+        }
+        
+        .section-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--color-border);
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .section-description {
+            color: var(--color-text-secondary);
+            font-size: 14px;
+        }
+        
+        .section-content {
+            padding: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        .form-label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 6px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
+        }
+        
+        .form-textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .form-select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            font-size: 14px;
+            background: var(--color-background);
+        }
+        
+        .form-help {
+            font-size: 12px;
+            color: var(--color-text-secondary);
+            margin-top: 4px;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+        
+        .toggle-input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--color-border);
+            transition: 0.2s;
+            border-radius: 24px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.2s;
+            border-radius: 50%;
+        }
+        
+        .toggle-input:checked + .toggle-slider {
+            background-color: var(--color-primary);
+        }
+        
+        .toggle-input:checked + .toggle-slider:before {
+            transform: translateX(20px);
+        }
+        
+        .setting-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--color-border);
+        }
+        
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+        
+        .setting-info {
+            flex: 1;
+            margin-right: 16px;
+        }
+        
+        .setting-name {
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+        
+        .setting-description {
+            font-size: 14px;
+            color: var(--color-text-secondary);
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: 1px solid var(--color-border);
+            background: var(--color-background);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary);
+        }
+        
+        .btn-danger {
+            background: var(--color-danger);
+            color: white;
+            border-color: var(--color-danger);
+        }
+        
+        .btn:hover {
+            background: var(--color-hover);
+        }
+        
+        .btn-primary:hover {
+            background: #1557b0;
+        }
+        
+        .btn-danger:hover {
+            background: #d33b2c;
+        }
+        
+        .avatar-upload {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .avatar-preview {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: var(--color-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 32px;
+            font-weight: 600;
+        }
+        
+        .avatar-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .notification-group {
+            margin-bottom: 24px;
+        }
+        
+        .notification-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        .notification-title {
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--color-text);
+        }
+        
+        .api-token {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: var(--color-surface);
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        
+        .token-value {
+            flex: 1;
+            color: var(--color-text-secondary);
+        }
+        
+        .danger-zone {
+            border-color: var(--color-danger);
+        }
+        
+        .danger-zone .section-header {
+            border-bottom-color: var(--color-danger);
+        }
+        
+        .danger-zone .section-title {
+            color: var(--color-danger);
+        }
+    </style>
+</head>
+<body>
+    <div class="preview-banner">
+        🔥 Campfire Interface Preview - User Settings
+    </div>
+    
+    <div class="container">
+        <div class="settings-header">
+            <h1 class="settings-title">Account Settings</h1>
+            <p class="settings-subtitle">Manage your profile, notifications, and preferences</p>
+        </div>
+        
+        <div class="settings-nav">
+            <button class="nav-tab active">Profile</button>
+            <button class="nav-tab">Notifications</button>
+            <button class="nav-tab">Privacy</button>
+            <button class="nav-tab">API</button>
+            <button class="nav-tab">Account</button>
+        </div>
+        
+        <!-- Profile Settings -->
+        <div class="settings-section">
+            <div class="section-header">
+                <div class="section-title">Profile Information</div>
+                <div class="section-description">Update your personal information and avatar</div>
+            </div>
+            <div class="section-content">
+                <div class="form-group">
+                    <label class="form-label">Avatar</label>
+                    <div class="avatar-upload">
+                        <div class="avatar-preview">JD</div>
+                        <div class="avatar-actions">
+                            <button class="btn">Upload Photo</button>
+                            <button class="btn">Remove</button>
+                            <div class="form-help">Coming in v2.0 - Currently showing initials</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" class="form-input" value="John Doe">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" class="form-input" value="john.doe@example.com">
+                    <div class="form-help">Used for login and notifications</div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Bio</label>
+                    <textarea class="form-textarea" placeholder="Tell us about yourself...">Senior Developer at Acme Corp. Love working with Rust and building fast, reliable systems.</textarea>
+                    <div class="form-help">Optional - appears in your profile</div>
+                </div>
+                
+                <button class="btn btn-primary">Save Changes</button>
+            </div>
+        </div>
+        
+        <!-- Notification Settings -->
+        <div class="settings-section">
+            <div class="section-header">
+                <div class="section-title">Notification Preferences</div>
+                <div class="section-description">Choose when and how you want to be notified</div>
+            </div>
+            <div class="section-content">
+                <div class="notification-group">
+                    <div class="notification-title">Push Notifications</div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <div class="setting-name">Direct Messages</div>
+                            <div class="setting-description">Get notified when someone sends you a direct message</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" class="toggle-input" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <div class="setting-name">Mentions</div>
+                            <div class="setting-description">Get notified when someone mentions you with @username</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" class="toggle-input" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <div class="setting-name">Room Activity</div>
+                            <div class="setting-description">Get notified about activity in rooms you're active in</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" class="toggle-input">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="notification-group">
+                    <div class="notification-title">Sound Notifications</div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <div class="setting-name">Message Sounds</div>
+                            <div class="setting-description">Play sound when receiving messages</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" class="toggle-input" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <div class="setting-name">Sound Effects</div>
+                            <div class="setting-description">Play /play command sounds in chat</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" class="toggle-input" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- API Settings -->
+        <div class="settings-section">
+            <div class="section-header">
+                <div class="section-title">API Access</div>
+                <div class="section-description">Manage API tokens for bot integrations</div>
+            </div>
+            <div class="section-content">
+                <div class="form-group">
+                    <label class="form-label">Bot Token</label>
+                    <div class="api-token">
+                        <span class="token-value">cf_bot_1234567890abcdef...</span>
+                        <button class="btn">Copy</button>
+                        <button class="btn">Regenerate</button>
+                    </div>
+                    <div class="form-help">Use this token to authenticate bot requests to the API</div>
+                </div>
+                
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <div class="setting-name">Enable Bot Mode</div>
+                        <div class="setting-description">Allow this account to be used as a bot</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" class="toggle-input">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Privacy Settings -->
+        <div class="settings-section">
+            <div class="section-header">
+                <div class="section-title">Privacy & Security</div>
+                <div class="section-description">Control your privacy and security settings</div>
+            </div>
+            <div class="section-content">
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <div class="setting-name">Show Online Status</div>
+                        <div class="setting-description">Let others see when you're online</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" class="toggle-input" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <div class="setting-name">Show Typing Indicators</div>
+                        <div class="setting-description">Let others see when you're typing</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" class="toggle-input" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Change Password</label>
+                    <button class="btn">Update Password</button>
+                    <div class="form-help">Last changed 3 months ago</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Danger Zone -->
+        <div class="settings-section danger-zone">
+            <div class="section-header">
+                <div class="section-title">Danger Zone</div>
+                <div class="section-description">Irreversible and destructive actions</div>
+            </div>
+            <div class="section-content">
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <div class="setting-name">Delete Account</div>
+                        <div class="setting-description">Permanently delete your account and all associated data</div>
+                    </div>
+                    <button class="btn btn-danger">Delete Account</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

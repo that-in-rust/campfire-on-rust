@@ -231,6 +231,6 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
 
 - [x] Run .kiro/tree-with-wc.sh to analyze repository structure + Clean up any unnecessary files or directories - instead of deleting place them in zzzzArchive folder
 
-- [-] In README also add hyperlinks to offline HTML versions of the interface so that users can get an idea of what the interface looks like - at least 10 such HTMLs and if possible screenshots of those to make them feel it
+- [x] In README also add hyperlinks to offline HTML versions of the interface so that users can get an idea of what the interface looks like - at least 10 such HTMLs and if possible screenshots of those to make them feel it
 
-- [ ] Cany you study basecamp-once-campfire-8a5edab282632443.txt 1000 lines at a time (will take you 21 shots), to see how you can be inspired to improve your documentation, and also create a doc with differences of current version with the original campfire shared by dhh + jason fried + basecamp team; also add a thank you basecamp md file conveying gratitude for sharing this brilliant piece of code; use mermaid diagrams wherever you can
+- [x] Cany you study basecamp-once-campfire-8a5edab282632443.txt 1000 lines at a time (will take you 21 shots), to see how you can be inspired to improve your documentation, and also create a doc with differences of current version with the original campfire shared by dhh + jason fried + basecamp team; also add a thank you basecamp md file conveying gratitude for sharing this brilliant piece of code; use mermaid diagrams wherever you can

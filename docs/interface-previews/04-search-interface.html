@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campfire Search - Interface Preview</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --color-primary: #1a73e8;
+            --color-secondary: #34a853;
+            --color-background: #ffffff;
+            --color-surface: #f8f9fa;
+            --color-text: #202124;
+            --color-text-secondary: #5f6368;
+            --color-border: #dadce0;
+            --color-hover: #f1f3f4;
+            --color-highlight: #fff3cd;
+            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        body {
+            font-family: var(--font-family);
+            background-color: var(--color-background);
+            color: var(--color-text);
+            line-height: 1.5;
+            padding: 60px 20px 20px;
+        }
+        
+        .preview-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #ff6b35;
+            color: white;
+            text-align: center;
+            padding: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 1000;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .search-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        
+        .search-title {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .search-subtitle {
+            color: var(--color-text-secondary);
+            font-size: 16px;
+        }
+        
+        .search-box-container {
+            position: relative;
+            margin-bottom: 24px;
+        }
+        
+        .search-box {
+            width: 100%;
+            padding: 16px 20px 16px 50px;
+            font-size: 16px;
+            border: 2px solid var(--color-border);
+            border-radius: 12px;
+            background: var(--color-background);
+            transition: border-color 0.2s;
+        }
+        
+        .search-box:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--color-text-secondary);
+            font-size: 18px;
+        }
+        
+        .search-filters {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-chip {
+            padding: 6px 12px;
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .filter-chip.active {
+            background: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary);
+        }
+        
+        .filter-chip:hover {
+            background: var(--color-hover);
+        }
+        
+        .filter-chip.active:hover {
+            background: #1557b0;
+        }
+        
+        .search-stats {
+            margin-bottom: 20px;
+            color: var(--color-text-secondary);
+            font-size: 14px;
+        }
+        
+        .search-results {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .search-result {
+            background: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            padding: 20px;
+            transition: box-shadow 0.2s;
+        }
+        
+        .search-result:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .result-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        
+        .result-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--color-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .result-meta {
+            flex: 1;
+        }
+        
+        .result-author {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .result-location {
+            font-size: 12px;
+            color: var(--color-text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 2px;
+        }
+        
+        .result-time {
+            font-size: 12px;
+            color: var(--color-text-secondary);
+        }
+        
+        .result-content {
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+        
+        .highlight {
+            background: var(--color-highlight);
+            padding: 1px 2px;
+            border-radius: 2px;
+            font-weight: 500;
+        }
+        
+        .result-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 12px;
+            border: 1px solid var(--color-border);
+            background: var(--color-background);
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            color: var(--color-text);
+        }
+        
+        .btn-small:hover {
+            background: var(--color-hover);
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--color-text-secondary);
+        }
+        
+        .no-results-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        .no-results-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--color-text);
+        }
+        
+        .search-suggestions {
+            margin-top: 32px;
+            padding: 20px;
+            background: var(--color-surface);
+            border-radius: 8px;
+        }
+        
+        .suggestions-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        
+        .suggestions-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .suggestion-tag {
+            padding: 4px 8px;
+            background: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .suggestion-tag:hover {
+            background: var(--color-hover);
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 32px;
+        }
+        
+        .pagination-btn {
+            padding: 8px 12px;
+            border: 1px solid var(--color-border);
+            background: var(--color-background);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .pagination-btn:hover {
+            background: var(--color-hover);
+        }
+        
+        .pagination-btn.active {
+            background: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary);
+        }
+        
+        .pagination-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="preview-banner">
+        🔥 Campfire Interface Preview - Search Interface
+    </div>
+    
+    <div class="container">
+        <div class="search-header">
+            <h1 class="search-title">Search Messages</h1>
+            <p class="search-subtitle">Find conversations, files, and shared content across all rooms</p>
+        </div>
+        
+        <div class="search-box-container">
+            <div class="search-icon">🔍</div>
+            <input type="text" class="search-box" placeholder="Search messages, files, or people..." value="deployment rust">
+        </div>
+        
+        <div class="search-filters">
+            <div class="filter-chip active">All Results</div>
+            <div class="filter-chip">Messages</div>
+            <div class="filter-chip">Files</div>
+            <div class="filter-chip">People</div>
+            <div class="filter-chip">This Week</div>
+            <div class="filter-chip">General Room</div>
+        </div>
+        
+        <div class="search-stats">
+            Found 23 results for "deployment rust" in 0.12 seconds
+        </div>
+        
+        <div class="search-results">
+            <div class="search-result">
+                <div class="result-header">
+                    <div class="result-avatar">J</div>
+                    <div class="result-meta">
+                        <div class="result-author">John Doe</div>
+                        <div class="result-location">
+                            <span>#</span> General • 2 hours ago
+                        </div>
+                    </div>
+                    <div class="result-time">Today 2:30 PM</div>
+                </div>
+                <div class="result-content">
+                    The new <span class="highlight">Rust</span> <span class="highlight">deployment</span> is working perfectly! We've seen a 40% improvement in response times since switching from Rails. The memory usage is also significantly lower.
+                </div>
+                <div class="result-actions">
+                    <a href="#" class="btn-small">View in Room</a>
+                    <button class="btn-small">Copy Link</button>
+                </div>
+            </div>
+            
+            <div class="search-result">
+                <div class="result-header">
+                    <div class="result-avatar">A</div>
+                    <div class="result-meta">
+                        <div class="result-author">Alice Johnson</div>
+                        <div class="result-location">
+                            <span>#</span> Development • 1 day ago
+                        </div>
+                    </div>
+                    <div class="result-time">Yesterday 4:15 PM</div>
+                </div>
+                <div class="result-content">
+                    Just finished the <span class="highlight">Rust</span> migration guide. The <span class="highlight">deployment</span> process is much simpler now with the single binary approach. No more complex dependency management!
+                </div>
+                <div class="result-actions">
+                    <a href="#" class="btn-small">View in Room</a>
+                    <button class="btn-small">Copy Link</button>
+                </div>
+            </div>
+            
+            <div class="search-result">
+                <div class="result-header">
+                    <div class="result-avatar">B</div>
+                    <div class="result-meta">
+                        <div class="result-author">Bob Smith</div>
+                        <div class="result-location">
+                            <span>#</span> Development • 2 days ago
+                        </div>
+                    </div>
+                    <div class="result-time">Monday 10:22 AM</div>
+                </div>
+                <div class="result-content">
+                    The <span class="highlight">deployment</span> pipeline for our <span class="highlight">Rust</span> rewrite is ready for testing. We can now deploy with zero downtime and automatic rollbacks if needed.
+                </div>
+                <div class="result-actions">
+                    <a href="#" class="btn-small">View in Room</a>
+                    <button class="btn-small">Copy Link</button>
+                </div>
+            </div>
+            
+            <div class="search-result">
+                <div class="result-header">
+                    <div class="result-avatar">C</div>
+                    <div class="result-meta">
+                        <div class="result-author">Charlie Brown</div>
+                        <div class="result-location">
+                            <span>#</span> General • 3 days ago
+                        </div>
+                    </div>
+                    <div class="result-time">Sunday 3:45 PM</div>
+                </div>
+                <div class="result-content">
+                    Amazing work on the <span class="highlight">Rust</span> rewrite! The <span class="highlight">deployment</span> size went from 200MB to just 15MB. This will save us a lot on hosting costs. 🎉
+                </div>
+                <div class="result-actions">
+                    <a href="#" class="btn-small">View in Room</a>
+                    <button class="btn-small">Copy Link</button>
+                </div>
+            </div>
+            
+            <div class="search-result">
+                <div class="result-header">
+                    <div class="result-avatar">D</div>
+                    <div class="result-meta">
+                        <div class="result-author">Diana Wilson</div>
+                        <div class="result-location">
+                            <span>@</span> Direct Message • 1 week ago
+                        </div>
+                    </div>
+                    <div class="result-time">Last Tuesday 9:30 AM</div>
+                </div>
+                <div class="result-content">
+                    Can you help me understand the <span class="highlight">Rust</span> <span class="highlight">deployment</span> process? I'm particularly interested in how we handle database migrations in the new system.
+                </div>
+                <div class="result-actions">
+                    <a href="#" class="btn-small">View Conversation</a>
+                    <button class="btn-small">Copy Link</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="pagination">
+            <button class="pagination-btn" disabled>← Previous</button>
+            <button class="pagination-btn active">1</button>
+            <button class="pagination-btn">2</button>
+            <button class="pagination-btn">3</button>
+            <button class="pagination-btn">Next →</button>
+        </div>
+        
+        <div class="search-suggestions">
+            <div class="suggestions-title">Popular Search Terms</div>
+            <div class="suggestions-list">
+                <div class="suggestion-tag">deployment</div>
+                <div class="suggestion-tag">rust performance</div>
+                <div class="suggestion-tag">migration guide</div>
+                <div class="suggestion-tag">database</div>
+                <div class="suggestion-tag">websocket</div>
+                <div class="suggestion-tag">authentication</div>
+                <div class="suggestion-tag">testing</div>
+                <div class="suggestion-tag">docker</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

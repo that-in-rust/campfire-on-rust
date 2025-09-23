@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campfire Room Management - Interface Preview</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --color-primary: #1a73e8;
+            --color-secondary: #34a853;
+            --color-danger: #ea4335;
+            --color-background: #ffffff;
+            --color-surface: #f8f9fa;
+            --color-text: #202124;
+            --color-text-secondary: #5f6368;
+            --color-border: #dadce0;
+            --color-hover: #f1f3f4;
+            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        body {
+            font-family: var(--font-family);
+            background-color: var(--color-background);
+            color: var(--color-text);
+            line-height: 1.5;
+            padding: 60px 20px 20px;
+        }
+        
+        .preview-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #ff6b35;
+            color: white;
+            text-align: center;
+            padding: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 1000;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .page-header {
+            margin-bottom: 32px;
+        }
+        
+        .page-title {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .page-subtitle {
+            color: var(--color-text-secondary);
+            font-size: 16px;
+        }
+        
+        .actions-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding: 16px;
+            background: var(--color-surface);
+            border-radius: 8px;
+            border: 1px solid var(--color-border);
+        }
+        
+        .search-box {
+            flex: 1;
+            max-width: 300px;
+            padding: 8px 12px;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: 1px solid var(--color-border);
+            background: var(--color-background);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary);
+        }
+        
+        .btn:hover {
+            background: var(--color-hover);
+        }
+        
+        .btn-primary:hover {
+            background: #1557b0;
+        }
+        
+        .rooms-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        
+        .room-card {
+            background: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            padding: 20px;
+            transition: box-shadow 0.2s;
+        }
+        
+        .room-card:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .room-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .room-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: var(--color-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            margin-right: 12px;
+        }
+        
+        .room-icon.direct {
+            background: var(--color-secondary);
+        }
+        
+        .room-icon.closed {
+            background: var(--color-danger);
+        }
+        
+        .room-info {
+            flex: 1;
+        }
+        
+        .room-name {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .room-type {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            background: var(--color-surface);
+            color: var(--color-text-secondary);
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+        
+        .room-type.open {
+            background: #e8f5e8;
+            color: var(--color-secondary);
+        }
+        
+        .room-type.closed {
+            background: #fef2f2;
+            color: var(--color-danger);
+        }
+        
+        .room-type.direct {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+        
+        .room-topic {
+            color: var(--color-text-secondary);
+            font-size: 14px;
+            margin: 12px 0;
+            line-height: 1.4;
+        }
+        
+        .room-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 16px 0;
+            font-size: 14px;
+            color: var(--color-text-secondary);
+        }
+        
+        .room-members {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .room-activity {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .room-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--color-border);
+        }
+        
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal {
+            background: var(--color-background);
+            border-radius: 8px;
+            padding: 24px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            margin-bottom: 20px;
+        }
+        
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 6px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .form-textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .form-select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            font-size: 14px;
+            background: var(--color-background);
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 24px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="preview-banner">
+        🔥 Campfire Interface Preview - Room Management
+    </div>
+    
+    <div class="container">
+        <div class="page-header">
+            <h1 class="page-title">Room Management</h1>
+            <p class="page-subtitle">Create and manage chat rooms for your team</p>
+        </div>
+        
+        <div class="actions-bar">
+            <input type="text" class="search-box" placeholder="Search rooms..." value="">
+            <button class="btn btn-primary" onclick="showCreateModal()">+ Create Room</button>
+        </div>
+        
+        <div class="rooms-grid">
+            <div class="room-card">
+                <div class="room-header">
+                    <div class="room-icon">#</div>
+                    <div class="room-info">
+                        <div class="room-name">General</div>
+                        <span class="room-type open">Open</span>
+                    </div>
+                </div>
+                <div class="room-topic">
+                    Team discussions, announcements, and general chat. Everyone is welcome to join and participate.
+                </div>
+                <div class="room-stats">
+                    <div class="room-members">👥 12 members</div>
+                    <div class="room-activity">💬 Active 2 min ago</div>
+                </div>
+                <div class="room-actions">
+                    <button class="btn btn-small">Enter Room</button>
+                    <button class="btn btn-small">Settings</button>
+                </div>
+            </div>
+            
+            <div class="room-card">
+                <div class="room-header">
+                    <div class="room-icon">#</div>
+                    <div class="room-info">
+                        <div class="room-name">Development</div>
+                        <span class="room-type open">Open</span>
+                    </div>
+                </div>
+                <div class="room-topic">
+                    Technical discussions, code reviews, and development updates. Share your progress and get help from the team.
+                </div>
+                <div class="room-stats">
+                    <div class="room-members">👥 8 members</div>
+                    <div class="room-activity">💬 Active 5 min ago</div>
+                </div>
+                <div class="room-actions">
+                    <button class="btn btn-small">Enter Room</button>
+                    <button class="btn btn-small">Settings</button>
+                </div>
+            </div>
+            
+            <div class="room-card">
+                <div class="room-header">
+                    <div class="room-icon closed">🔒</div>
+                    <div class="room-info">
+                        <div class="room-name">Leadership</div>
+                        <span class="room-type closed">Closed</span>
+                    </div>
+                </div>
+                <div class="room-topic">
+                    Private discussions for team leads and managers. Invitation only.
+                </div>
+                <div class="room-stats">
+                    <div class="room-members">👥 4 members</div>
+                    <div class="room-activity">💬 Active 1 hour ago</div>
+                </div>
+                <div class="room-actions">
+                    <button class="btn btn-small">Enter Room</button>
+                    <button class="btn btn-small">Manage</button>
+                </div>
+            </div>
+            
+            <div class="room-card">
+                <div class="room-header">
+                    <div class="room-icon direct">@</div>
+                    <div class="room-info">
+                        <div class="room-name">Alice Johnson</div>
+                        <span class="room-type direct">Direct</span>
+                    </div>
+                </div>
+                <div class="room-topic">
+                    Private conversation with Alice Johnson
+                </div>
+                <div class="room-stats">
+                    <div class="room-members">👥 2 members</div>
+                    <div class="room-activity">💬 Active 10 min ago</div>
+                </div>
+                <div class="room-actions">
+                    <button class="btn btn-small">Enter Room</button>
+                </div>
+            </div>
+            
+            <div class="room-card">
+                <div class="room-header">
+                    <div class="room-icon">#</div>
+                    <div class="room-info">
+                        <div class="room-name">Random</div>
+                        <span class="room-type open">Open</span>
+                    </div>
+                </div>
+                <div class="room-topic">
+                    Off-topic discussions, fun conversations, and random thoughts. Share memes, play sounds, and have fun!
+                </div>
+                <div class="room-stats">
+                    <div class="room-members">👥 15 members</div>
+                    <div class="room-activity">💬 Active now</div>
+                </div>
+                <div class="room-actions">
+                    <button class="btn btn-small">Enter Room</button>
+                    <button class="btn btn-small">Settings</button>
+                </div>
+            </div>
+            
+            <div class="room-card">
+                <div class="room-header">
+                    <div class="room-icon">#</div>
+                    <div class="room-info">
+                        <div class="room-name">Support</div>
+                        <span class="room-type open">Open</span>
+                    </div>
+                </div>
+                <div class="room-topic">
+                    Get help with technical issues, ask questions, and provide support to team members.
+                </div>
+                <div class="room-stats">
+                    <div class="room-members">👥 6 members</div>
+                    <div class="room-activity">💬 Active 30 min ago</div>
+                </div>
+                <div class="room-actions">
+                    <button class="btn btn-small">Enter Room</button>
+                    <button class="btn btn-small">Settings</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Create Room Modal -->
+    <div class="modal-overlay hidden" id="createModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title">Create New Room</h2>
+                <p style="color: var(--color-text-secondary); font-size: 14px;">Set up a new chat room for your team</p>
+            </div>
+            
+            <form>
+                <div class="form-group">
+                    <label class="form-label">Room Name</label>
+                    <input type="text" class="form-input" placeholder="Enter room name" value="Project Alpha">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Room Type</label>
+                    <select class="form-select">
+                        <option value="open">Open - Anyone can join</option>
+                        <option value="closed">Closed - Invitation only</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Topic (Optional)</label>
+                    <textarea class="form-textarea" placeholder="Describe what this room is for...">Discussions about Project Alpha development, planning, and updates.</textarea>
+                </div>
+            </form>
+            
+            <div class="modal-actions">
+                <button class="btn" onclick="hideCreateModal()">Cancel</button>
+                <button class="btn btn-primary">Create Room</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function showCreateModal() {
+            document.getElementById('createModal').classList.remove('hidden');
+        }
+        
+        function hideCreateModal() {
+            document.getElementById('createModal').classList.add('hidden');
+        }
+        
+        // Close modal when clicking outside
+        document.getElementById('createModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                hideCreateModal();
+            }
+        });
+    </script>
+</body>
+</html>

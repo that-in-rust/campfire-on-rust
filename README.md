@@ -320,6 +320,34 @@ graph LR
     class P2A,P2B,P2C,P3A,P3B,P3C future
 ```
 
+## Interface Previews
+
+**🎨 [View Complete Interface Gallery](docs/interface-previews/index.html)** - Interactive overview of all 12 interface previews
+
+Experience the complete Campfire interface with these interactive HTML previews:
+
+### 🎨 **Core Interface**
+- **[Login Page](docs/interface-previews/01-login-page.html)** - Clean authentication with gradient background
+- **[Main Chat Interface](docs/interface-previews/02-main-chat-interface.html)** - Full chat experience with sidebar, messages, and composer
+- **[Mobile Chat](docs/interface-previews/06-mobile-chat.html)** - Responsive mobile interface with touch-friendly navigation
+
+### 🏠 **Room & User Management**
+- **[Room Management](docs/interface-previews/03-room-management.html)** - Create and manage chat rooms with different access levels
+- **[User Settings](docs/interface-previews/05-user-settings.html)** - Comprehensive user preferences and profile management
+- **[Admin Dashboard](docs/interface-previews/10-admin-dashboard.html)** - System overview with user management and analytics
+
+### 🔍 **Advanced Features**
+- **[Search Interface](docs/interface-previews/04-search-interface.html)** - Full-text search with filters and result highlighting
+- **[Sound System](docs/interface-previews/07-sound-system.html)** - Interactive sound library with 59 embedded MP3 files
+- **[Push Notifications](docs/interface-previews/08-push-notifications.html)** - Web Push integration with notification preferences
+
+### 🤖 **Integration & Customization**
+- **[Bot Integration](docs/interface-previews/09-bot-integration.html)** - API documentation and bot management interface
+- **[Dark Mode](docs/interface-previews/11-dark-mode.html)** - Beautiful dark theme with accessibility compliance
+- **[Error States](docs/interface-previews/12-error-states.html)** - Graceful error handling and recovery flows
+
+> **💡 Tip**: These are fully interactive HTML files that demonstrate the complete user experience. Open them in your browser to explore all features and interactions!
+
 ## Contributing
 
 This project follows **Rails-Compatible Simplicity** principles:
