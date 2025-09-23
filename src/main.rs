@@ -6,12 +6,12 @@ use axum::{
 };
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use campfire_on_rust::{
     AppState, CampfireDatabase, AuthService, RoomService, MessageService, 
     ConnectionManagerImpl, SearchService, PushNotificationServiceImpl, 
-    VapidConfig, BotServiceImpl, health, metrics, shutdown, config, logging
+    VapidConfig, BotServiceImpl, health, metrics, shutdown, config, logging, demo
 };
 use campfire_on_rust::middleware::security;
 
@@ -76,6 +76,15 @@ async fn main() -> Result<()> {
     // Initialize database with configuration
     let db = CampfireDatabase::new(&config.database.database_url).await?;
     let db_arc = Arc::new(db.clone());
+    
+    // Initialize demo data if demo mode is enabled
+    if config.features.demo_mode {
+        let demo_initializer = demo::DemoDataInitializer::new(db_arc.clone());
+        if let Err(e) = demo_initializer.initialize_if_needed().await {
+            warn!("Failed to initialize demo data: {}", e);
+            // Continue without demo data rather than failing
+        }
+    }
     
     // Initialize connection manager
     let connection_manager = Arc::new(ConnectionManagerImpl::new(db_arc.clone()));
@@ -153,9 +162,11 @@ async fn main() -> Result<()> {
 
     // Build application with routes based on feature flags
     let mut app = Router::new()
-        // HTML pages
-        .route("/", get(campfire_on_rust::assets::serve_chat_interface))
-        .route("/login", get(campfire_on_rust::assets::serve_login_page))
+        // HTML pages with demo mode awareness
+        .route("/", get(campfire_on_rust::handlers::pages::serve_root_page))
+        .route("/chat", get(campfire_on_rust::assets::serve_chat_interface))
+        .route("/login", get(campfire_on_rust::handlers::pages::serve_login_page))
+        .route("/demo", get(campfire_on_rust::assets::serve_demo_page))
         .route("/manifest.json", get(campfire_on_rust::assets::serve_manifest))
         
         // Static assets

@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
+    <meta name="view-transition" content="same-origin">
+    <meta name="color-scheme" content="light dark">
+    <title>Campfire Demo - Offline Experience</title>
+    <link rel="stylesheet" href="/static/css/campfire.css">
+    <style>
+        .demo-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: var(--color-surface);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .demo-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .demo-header h1 {
+            color: var(--color-primary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .demo-header p {
+            color: var(--color-text-secondary);
+            font-size: 1.1rem;
+        }
+        
+        .credentials-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        
+        .credential-card {
+            background: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            padding: 1rem;
+            transition: all 0.2s ease;
+        }
+        
+        .credential-card:hover {
+            border-color: var(--color-primary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .credential-email {
+            font-family: var(--font-mono);
+            font-weight: 600;
+            color: var(--color-primary);
+            margin-bottom: 0.25rem;
+        }
+        
+        .credential-password {
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .credential-role {
+            font-size: 0.85rem;
+            color: var(--color-text-tertiary);
+            font-style: italic;
+        }
+        
+        .features-section {
+            margin: 2rem 0;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            background: var(--color-background);
+            border-radius: 6px;
+            border: 1px solid var(--color-border);
+        }
+        
+        .feature-icon {
+            font-size: 1.2rem;
+        }
+        
+        .quick-start {
+            background: var(--color-primary-light);
+            border: 1px solid var(--color-primary);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+        }
+        
+        .quick-start h3 {
+            color: var(--color-primary);
+            margin-bottom: 1rem;
+        }
+        
+        .quick-start ol {
+            margin-left: 1.5rem;
+        }
+        
+        .quick-start li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 2rem;
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        .btn-primary {
+            background: var(--color-primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--color-primary-dark);
+            transform: translateY(-1px);
+        }
+        
+        .btn-secondary {
+            background: var(--color-background);
+            color: var(--color-text);
+            border: 1px solid var(--color-border);
+        }
+        
+        .btn-secondary:hover {
+            border-color: var(--color-primary);
+            color: var(--color-primary);
+        }
+        
+        .demo-note {
+            background: var(--color-warning-light);
+            border: 1px solid var(--color-warning);
+            border-radius: 6px;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+        
+        .demo-note strong {
+            color: var(--color-warning-dark);
+        }
+        
+        @media (max-width: 768px) {
+            .demo-container {
+                margin: 1rem;
+                padding: 1rem;
+            }
+            
+            .credentials-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <div class="demo-header">
+            <h1>🔥 Campfire Demo</h1>
+            <p>Experience the full power of team chat, offline and ready to explore</p>
+        </div>
+        
+        <div class="demo-note">
+            <strong>Offline Demo Mode:</strong> This is a fully functional chat application running locally on your machine. 
+            All data is stored in a local SQLite database - no internet connection required!
+        </div>
+        
+        <div class="quick-start">
+            <h3>🚀 Quick Start Guide</h3>
+            <ol>
+                <li>Choose any demo user from the credentials below</li>
+                <li>Click "Login to Chat" and enter the email and password</li>
+                <li>Explore different rooms: General, Development, Design, etc.</li>
+                <li>Try features like @mentions, /play sounds, and search</li>
+                <li>Open multiple browser tabs to simulate different users chatting</li>
+            </ol>
+        </div>
+        
+        <h3>👥 Demo User Accounts</h3>
+        <p>All demo users have the password: <code>password</code></p>
+        
+        <div class="credentials-grid">
+            <div class="credential-card">
+                <div class="credential-email">admin@campfire.demo</div>
+                <div class="credential-password">Password: password</div>
+                <div class="credential-role">System Administrator</div>
+            </div>
+            
+            <div class="credential-card">
+                <div class="credential-email">alice@campfire.demo</div>
+                <div class="credential-password">Password: password</div>
+                <div class="credential-role">Product Manager</div>
+            </div>
+            
+            <div class="credential-card">
+                <div class="credential-email">bob@campfire.demo</div>
+                <div class="credential-password">Password: password</div>
+                <div class="credential-role">Senior Developer</div>
+            </div>
+            
+            <div class="credential-card">
+                <div class="credential-email">carol@campfire.demo</div>
+                <div class="credential-password">Password: password</div>
+                <div class="credential-role">UX Designer</div>
+            </div>
+            
+            <div class="credential-card">
+                <div class="credential-email">david@campfire.demo</div>
+                <div class="credential-password">Password: password</div>
+                <div class="credential-role">DevOps Engineer</div>
+            </div>
+            
+            <div class="credential-card">
+                <div class="credential-email">eve@campfire.demo</div>
+                <div class="credential-password">Password: password</div>
+                <div class="credential-role">Marketing Manager</div>
+            </div>
+            
+            <div class="credential-card">
+                <div class="credential-email">frank@campfire.demo</div>
+                <div class="credential-password">Password: password</div>
+                <div class="credential-role">Sales Director</div>
+            </div>
+            
+            <div class="credential-card">
+                <div class="credential-email">grace@campfire.demo</div>
+                <div class="credential-password">Password: password</div>
+                <div class="credential-role">QA Engineer</div>
+            </div>
+        </div>
+        
+        <div class="features-section">
+            <h3>✨ Features to Explore</h3>
+            <div class="features-grid">
+                <div class="feature-item">
+                    <span class="feature-icon">💬</span>
+                    <span>Real-time messaging with WebSockets</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🏠</span>
+                    <span>Multiple room types (Open, Closed, Direct)</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">@</span>
+                    <span>@mentions with notifications</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🔊</span>
+                    <span>Sound system with 59 different sounds</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🔍</span>
+                    <span>Full-text search across all messages</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🤖</span>
+                    <span>Bot integration and API</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">📱</span>
+                    <span>Mobile-responsive design</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🌙</span>
+                    <span>Dark mode support</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="demo-note">
+            <strong>Multi-User Testing:</strong> Open multiple browser tabs or incognito windows to log in as different users 
+            and see real-time chat in action. Messages appear instantly across all connected sessions!
+        </div>
+        
+        <div class="action-buttons">
+            <a href="/login" class="btn btn-primary">Login to Chat</a>
+            <a href="https://github.com/that-in-rust/campfire-on-rust" class="btn btn-secondary" target="_blank">View Source Code</a>
+        </div>
+        
+        <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--color-border); text-align: center; color: var(--color-text-secondary); font-size: 0.9rem;">
+            <p>
+                Built with ❤️ in Rust • Inspired by Basecamp's Campfire • 
+                <a href="https://github.com/that-in-rust/campfire-on-rust" target="_blank" style="color: var(--color-primary);">Open Source</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>

@@ -248,6 +248,49 @@ pub async fn serve_login_page() -> impl IntoResponse {
     (headers, html)
 }
 
+/// Serve demo setup page
+pub async fn serve_demo_page() -> impl IntoResponse {
+    let html = include_str!("../templates/demo.html");
+    
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("text/html; charset=utf-8"),
+    );
+    
+    // Set cache headers for HTML
+    headers.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("public, max-age=3600"),
+    );
+    
+    // Security headers
+    headers.insert(
+        header::HeaderName::from_static("content-security-policy"),
+        HeaderValue::from_static(
+            "default-src 'self'; \
+             script-src 'self' 'unsafe-inline'; \
+             style-src 'self' 'unsafe-inline'; \
+             img-src 'self' data: https:; \
+             connect-src 'self' ws: wss:; \
+             font-src 'self'; \
+             media-src 'self';"
+        ),
+    );
+    
+    headers.insert(
+        header::HeaderName::from_static("x-frame-options"),
+        HeaderValue::from_static("DENY"),
+    );
+    
+    headers.insert(
+        header::HeaderName::from_static("x-content-type-options"),
+        HeaderValue::from_static("nosniff"),
+    );
+    
+    (headers, html)
+}
+
 /// Serve PWA manifest
 pub async fn serve_manifest() -> Response {
     serve_static_asset(Path("manifest.json".to_string())).await

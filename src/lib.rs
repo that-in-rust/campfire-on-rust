@@ -13,6 +13,7 @@ pub mod metrics;
 pub mod shutdown;
 pub mod config;
 pub mod logging;
+pub mod demo;
 
 pub use database::CampfireDatabase;
 pub use services::auth::{AuthService, AuthServiceTrait};

@@ -14,7 +14,13 @@ cd campfire-on-rust
 cargo run
 ```
 
-Access at `http://localhost:3000` with `admin@example.com` / `password`
+**Demo Experience**: Visit `http://localhost:3000` for a complete offline demo with sample users and conversations.
+
+**Quick Demo Login**: Use any of these accounts (password: `password`):
+- `admin@campfire.demo` - System Administrator  
+- `alice@campfire.demo` - Product Manager
+- `bob@campfire.demo` - Senior Developer
+- `carol@campfire.demo` - UX Designer
 
 ## Current Features
 

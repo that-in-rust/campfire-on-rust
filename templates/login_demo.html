@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+    
+    <title>Login - Campfire Demo</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" href="/static/images/campfire-icon.png" type="image/png">
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="/static/css/campfire.css">
+    
+    <style>
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+        
+        .login-card {
+            background: var(--color-background);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+        }
+        
+        .login-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        
+        .login-logo {
+            width: 80px;
+            height: 68px;
+            margin: 0 auto 16px;
+            display: block;
+        }
+        
+        .login-title {
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--color-text);
+            margin: 0 0 8px 0;
+        }
+        
+        .login-subtitle {
+            color: var(--color-text-secondary);
+            font-size: 16px;
+            margin: 0;
+        }
+        
+        .demo-notice {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        
+        .demo-notice h3 {
+            margin: 0 0 8px 0;
+            font-size: 18px;
+        }
+        
+        .demo-notice p {
+            margin: 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .quick-login {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .quick-login h4 {
+            margin: 0 0 12px 0;
+            color: var(--color-text);
+            font-size: 16px;
+        }
+        
+        .demo-users {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 8px;
+        }
+        
+        .demo-user-btn {
+            background: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+            font-size: 13px;
+        }
+        
+        .demo-user-btn:hover {
+            border-color: var(--color-primary);
+            background: var(--color-primary-light);
+        }
+        
+        .demo-user-email {
+            font-family: var(--font-mono);
+            font-weight: 600;
+            color: var(--color-primary);
+            display: block;
+        }
+        
+        .demo-user-role {
+            color: var(--color-text-secondary);
+            font-size: 11px;
+            margin-top: 2px;
+        }
+        
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 0;
+        }
+        
+        .form-label {
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        
+        .form-input {
+            padding: 12px 16px;
+            font-size: 16px;
+            border-radius: 8px;
+        }
+        
+        .form-input:focus {
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
+        }
+        
+        .login-button {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 8px;
+            background: var(--color-primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .login-button:hover {
+            background: #1557b0;
+        }
+        
+        .login-button:disabled {
+            background: var(--color-border);
+            cursor: not-allowed;
+        }
+        
+        .error-message {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        .success-message {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #16a34a;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        .login-footer {
+            text-align: center;
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid var(--color-border);
+        }
+        
+        .login-footer p {
+            color: var(--color-text-secondary);
+            font-size: 14px;
+            margin: 0;
+        }
+        
+        .demo-links {
+            text-align: center;
+            margin-top: 16px;
+        }
+        
+        .demo-links a {
+            color: var(--color-primary);
+            text-decoration: none;
+            font-size: 14px;
+            margin: 0 8px;
+        }
+        
+        .demo-links a:hover {
+            text-decoration: underline;
+        }
+        
+        /* Dark mode adjustments */
+        @media (prefers-color-scheme: dark) {
+            .login-container {
+                background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+            }
+            
+            .error-message {
+                background: #2d1b1b;
+                border-color: #5c2626;
+                color: #f87171;
+            }
+            
+            .success-message {
+                background: #1b2d1b;
+                border-color: #265c26;
+                color: #4ade80;
+            }
+        }
+        
+        /* Loading state */
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 768px) {
+            .login-card {
+                padding: 24px;
+            }
+            
+            .demo-users {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <img src="/static/images/campfire-icon.png" alt="Campfire" class="login-logo">
+                <h1 class="login-title">Campfire Demo</h1>
+                <p class="login-subtitle">Experience team chat offline</p>
+            </div>
+            
+            <div class="demo-notice">
+                <h3>🔥 Offline Demo Mode</h3>
+                <p>This is a fully functional chat app running locally. No internet required!</p>
+            </div>
+            
+            <div class="quick-login">
+                <h4>Quick Login - Click any demo user:</h4>
+                <div class="demo-users">
+                    <button class="demo-user-btn" onclick="quickLogin('admin@campfire.demo', 'password')">
+                        <span class="demo-user-email">admin@campfire.demo</span>
+                        <div class="demo-user-role">System Administrator</div>
+                    </button>
+                    <button class="demo-user-btn" onclick="quickLogin('alice@campfire.demo', 'password')">
+                        <span class="demo-user-email">alice@campfire.demo</span>
+                        <div class="demo-user-role">Product Manager</div>
+                    </button>
+                    <button class="demo-user-btn" onclick="quickLogin('bob@campfire.demo', 'password')">
+                        <span class="demo-user-email">bob@campfire.demo</span>
+                        <div class="demo-user-role">Senior Developer</div>
+                    </button>
+                    <button class="demo-user-btn" onclick="quickLogin('carol@campfire.demo', 'password')">
+                        <span class="demo-user-email">carol@campfire.demo</span>
+                        <div class="demo-user-role">UX Designer</div>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Error/Success messages will be inserted here -->
+            <div id="message-container"></div>
+            
+            <form class="login-form" id="login-form">
+                <div class="form-group">
+                    <label for="email" class="form-label">Email</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        class="form-input" 
+                        required 
+                        autocomplete="email"
+                        placeholder="Enter email or click a demo user above"
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label for="password" class="form-label">Password</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        class="form-input" 
+                        required 
+                        autocomplete="current-password"
+                        placeholder="All demo users: password"
+                    >
+                </div>
+                
+                <button type="submit" class="login-button" id="login-button">
+                    Sign In
+                </button>
+            </form>
+            
+            <div class="demo-links">
+                <a href="/demo">View Demo Guide</a>
+                <a href="https://github.com/that-in-rust/campfire-on-rust" target="_blank">Source Code</a>
+            </div>
+            
+            <div class="login-footer">
+                <p>Campfire Demo - Built with Rust 🦀</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('login-form');
+            const button = document.getElementById('login-button');
+            const messageContainer = document.getElementById('message-container');
+            
+            // Check if already logged in
+            checkAuthStatus();
+            
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await performLogin();
+            });
+            
+            async function performLogin() {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                
+                if (!email || !password) {
+                    showMessage('Please fill in all fields', 'error');
+                    return;
+                }
+                
+                // Show loading state
+                button.disabled = true;
+                button.innerHTML = '<span class="loading-spinner"></span>Signing in...';
+                
+                try {
+                    const response = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ email, password })
+                    });
+                    
+                    if (response.ok) {
+                        showMessage('Login successful! Redirecting...', 'success');
+                        setTimeout(() => {
+                            window.location.href = '/chat';
+                        }, 1000);
+                    } else {
+                        const error = await response.json();
+                        showMessage(error.message || 'Login failed', 'error');
+                    }
+                } catch (error) {
+                    console.error('Login error:', error);
+                    showMessage('Network error. Please try again.', 'error');
+                } finally {
+                    // Reset button state
+                    button.disabled = false;
+                    button.innerHTML = 'Sign In';
+                }
+            }
+            
+            // Quick login function for demo users
+            window.quickLogin = async function(email, password) {
+                document.getElementById('email').value = email;
+                document.getElementById('password').value = password;
+                await performLogin();
+            };
+            
+            async function checkAuthStatus() {
+                try {
+                    const response = await fetch('/api/users/me');
+                    if (response.ok) {
+                        // Already logged in, redirect to chat
+                        window.location.href = '/chat';
+                    }
+                } catch (error) {
+                    // Not logged in, stay on login page
+                    console.log('Not authenticated');
+                }
+            }
+            
+            function showMessage(text, type) {
+                const className = type === 'error' ? 'error-message' : 'success-message';
+                messageContainer.innerHTML = `<div class="${className}">${text}</div>`;
+                
+                // Auto-hide success messages
+                if (type === 'success') {
+                    setTimeout(() => {
+                        messageContainer.innerHTML = '';
+                    }, 3000);
+                }
+            }
+            
+            // Handle Enter key in password field
+            document.getElementById('password').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    form.dispatchEvent(new Event('submit'));
+                }
+            });
+        });
+    </script>
+</body>
+</html>
