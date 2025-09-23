@@ -10,10 +10,14 @@
 
 ```mermaid
 graph TD
-    A[Campfire Rust] --> B[Single Binary<br/>Zero Dependencies]
-    A --> C[Complete UI<br/>26 Templates + Assets]
-    A --> D[Rails Patterns<br/>Rust Performance]
-    A --> E[Production Ready<br/>85-90% Cost Reduction]
+    subgraph "Campfire Rust Essence"
+        direction TB
+        A[Campfire Rust<br/>Complete Rewrite]
+        A --> B[Single Binary<br/>Zero Dependencies]
+        A --> C[Complete UI<br/>26 Templates + Assets]
+        A --> D[Rails Patterns<br/>Rust Performance]
+        A --> E[Production Ready<br/>85-90% Cost Reduction]
+    end
     
     classDef essence fill:#e1f5fe,stroke:#01579b,stroke-width:3px
     classDef benefit fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
@@ -144,29 +148,29 @@ graph TD
 Everything you expect from a modern chat application:
 
 ```mermaid
-graph LR
-    subgraph "Core Features"
+graph TD
+    subgraph "Complete Chat Experience"
         direction TB
-        RT[Real-time Messaging<br/>WebSocket Broadcasting]
-        RM[Room Management<br/>Open/Closed/Direct]
-        AU[Authentication<br/>Secure Sessions]
-        RX[Rich Text<br/>@mentions + Formatting]
-    end
-    
-    subgraph "Advanced Features"
-        direction TB
-        SO[Sound System<br/>59 MP3 Files + /play]
-        SE[Full-text Search<br/>SQLite FTS5]
-        PN[Push Notifications<br/>Web Push + VAPID]
-        BI[Bot Integration<br/>Webhooks + API]
-    end
-    
-    subgraph "Production Ready"
-        direction TB
-        UI[Complete UI<br/>26 Templates + Assets]
-        SB[Single Binary<br/>Embedded Assets]
-        MO[Monitoring<br/>Health + Metrics]
-        SE2[Security<br/>Rate Limiting + CORS]
+        subgraph "Core Features"
+            RT[Real-time Messaging<br/>WebSocket Broadcasting]
+            RM[Room Management<br/>Open/Closed/Direct]
+            AU[Authentication<br/>Secure Sessions]
+            RX[Rich Text<br/>@mentions + Formatting]
+        end
+        
+        subgraph "Advanced Features"
+            SO[Sound System<br/>59 MP3 Files + /play]
+            SE[Full-text Search<br/>SQLite FTS5]
+            PN[Push Notifications<br/>Web Push + VAPID]
+            BI[Bot Integration<br/>Webhooks + API]
+        end
+        
+        subgraph "Production Ready"
+            UI[Complete UI<br/>26 Templates + Assets]
+            SB[Single Binary<br/>Embedded Assets]
+            MO[Monitoring<br/>Health + Metrics]
+            SE2[Security<br/>Rate Limiting + CORS]
+        end
     end
     
     classDef core fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
@@ -407,29 +411,29 @@ graph TD
 ### Real-World Performance Metrics
 
 ```mermaid
-graph LR
-    subgraph "Memory Usage"
+graph TD
+    subgraph "Performance Comparison: Rust vs Rails"
         direction TB
-        M1[Rust: 30-60MB<br/>✅ 85% Reduction]
-        M2[Rails: 200-400MB<br/>❌ High Memory]
-    end
-    
-    subgraph "Response Time"
-        direction TB
-        R1[Rust: <10ms<br/>✅ Sub-10ms API]
-        R2[Rails: 50-200ms<br/>❌ Slower Response]
-    end
-    
-    subgraph "Concurrent Users"
-        direction TB
-        C1[Rust: 500+ WS<br/>✅ High Concurrency]
-        C2[Rails: 100-200<br/>❌ Limited Scale]
-    end
-    
-    subgraph "Startup Time"
-        direction TB
-        S1[Rust: <2 seconds<br/>✅ Fast Boot]
-        S2[Rails: 10-30 seconds<br/>❌ Slow Boot]
+        
+        subgraph "Memory Usage"
+            M1[Rust: 30-60MB<br/>✅ 85% Reduction]
+            M2[Rails: 200-400MB<br/>❌ High Memory]
+        end
+        
+        subgraph "Response Time"
+            R1[Rust: <10ms<br/>✅ Sub-10ms API]
+            R2[Rails: 50-200ms<br/>❌ Slower Response]
+        end
+        
+        subgraph "Concurrent Users"
+            C1[Rust: 500+ WS<br/>✅ High Concurrency]
+            C2[Rails: 100-200<br/>❌ Limited Scale]
+        end
+        
+        subgraph "Startup Time"
+            S1[Rust: <2 seconds<br/>✅ Fast Boot]
+            S2[Rails: 10-30 seconds<br/>❌ Slow Boot]
+        end
     end
     
     classDef rust fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px
@@ -712,34 +716,36 @@ cargo test --test property_test
 ## Evolution Roadmap
 
 ```mermaid
-graph LR
-    subgraph "Phase 1: MVP (Current)"
+graph TD
+    subgraph "Evolution Roadmap"
         direction TB
-        P1A[Complete Text Chat]
-        P1B[Real-time Features]
-        P1C[Search + Push]
+        
+        subgraph "Phase 1: MVP (Current)"
+            P1A[Complete Text Chat]
+            P1B[Real-time Features]
+            P1C[Search + Push]
+        end
+        
+        P1A --> P2A
+        P1B --> P2B
+        P1C --> P2C
+        
+        subgraph "Phase 2: Enhanced"
+            P2A[File Attachments]
+            P2B[Avatar Uploads]
+            P2C[Image Processing]
+        end
+        
+        P2A --> P3A
+        P2B --> P3B
+        P2C --> P3C
+        
+        subgraph "Phase 3: Advanced"
+            P3A[OpenGraph Previews]
+            P3B[Video Processing]
+            P3C[Advanced Integrations]
+        end
     end
-    
-    subgraph "Phase 2: Enhanced"
-        direction TB
-        P2A[File Attachments]
-        P2B[Avatar Uploads]
-        P2C[Image Processing]
-    end
-    
-    subgraph "Phase 3: Advanced"
-        direction TB
-        P3A[OpenGraph Previews]
-        P3B[Video Processing]
-        P3C[Advanced Integrations]
-    end
-    
-    P1A --> P2A
-    P1B --> P2B
-    P1C --> P2C
-    P2A --> P3A
-    P2B --> P3B
-    P2C --> P3C
     
     classDef current fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px
     classDef future fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
@@ -973,24 +979,25 @@ graph TD
 ### Current Status: **MVP Phase 1 - 95% Complete** ✅
 
 ```mermaid
-graph LR
-    subgraph "Completed (95%)"
+graph TD
+    subgraph "Project Status Overview"
         direction TB
-        C1[✅ Core Chat Features]
-        C2[✅ Real-time WebSocket]
-        C3[✅ Authentication System]
-        C4[✅ Search & Push Notifications]
-        C5[✅ Production Ready]
-    end
-    
-    subgraph "In Progress (4%)"
-        direction TB
-        P1[🚧 WebSocket Handler<br/>Final Integration]
-    end
-    
-    subgraph "Remaining (1%)"
-        direction TB
-        R1[📋 Repository Cleanup]
+        
+        subgraph "Completed (95%)"
+            C1[✅ Core Chat Features]
+            C2[✅ Real-time WebSocket]
+            C3[✅ Authentication System]
+            C4[✅ Search & Push Notifications]
+            C5[✅ Production Ready]
+        end
+        
+        subgraph "In Progress (4%)"
+            P1[🚧 WebSocket Handler<br/>Final Integration]
+        end
+        
+        subgraph "Remaining (1%)"
+            R1[📋 Repository Cleanup]
+        end
     end
     
     classDef completed fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px
@@ -1005,26 +1012,35 @@ graph LR
 ### Evolution Roadmap
 
 ```mermaid
-graph LR
-    subgraph "Phase 1: MVP (Current)"
+graph TD
+    subgraph "Development Roadmap"
         direction TB
-        P1A[✅ Complete Text Chat]
-        P1B[✅ Real-time Features]
-        P1C[✅ Search + Push]
-    end
-    
-    subgraph "Phase 2: Enhanced"
-        direction TB
-        P2A[📁 File Attachments]
-        P2B[👤 Avatar Uploads]
-        P2C[🖼️ Image Processing]
-    end
-    
-    subgraph "Phase 3: Advanced"
-        direction TB
-        P3A[🔗 OpenGraph Previews]
-        P3B[🎥 Video Processing]
-        P3C[🔧 Advanced Integrations]
+        
+        subgraph "Phase 1: MVP (Current)"
+            P1A[✅ Complete Text Chat]
+            P1B[✅ Real-time Features]
+            P1C[✅ Search + Push]
+        end
+        
+        P1A --> P2A
+        P1B --> P2B
+        P1C --> P2C
+        
+        subgraph "Phase 2: Enhanced"
+            P2A[📁 File Attachments]
+            P2B[👤 Avatar Uploads]
+            P2C[🖼️ Image Processing]
+        end
+        
+        P2A --> P3A
+        P2B --> P3B
+        P2C --> P3C
+        
+        subgraph "Phase 3: Advanced"
+            P3A[🔗 OpenGraph Previews]
+            P3B[🎥 Video Processing]
+            P3C[🔧 Advanced Integrations]
+        end
     end
     
     P1A --> P2A
