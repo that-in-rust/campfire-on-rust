@@ -379,8 +379,88 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
 
 - [x] Do cargo run as per the README and observe the location - is something happening, is what you are saying happening - walk me through 
 
-- [ ] In order tha people believe that this chat app works, they should be able to do a small demo and touch and feel off it offline on their system, how can you enable that, think of each and every step of user experience
-  - [ ] User goes to the local port you say, they should see the same experience as they would in a HQ enterprise app (except that login is simply by email password, but since we do not have email server - idk maybe it should detect offline demo as a feature flag - and should offer some kind of place to have the email ids password and roles entered so we can test the experience of chatting - think what dhh and json fried would think to help people sample it easily)
+- [ ] **Demo Experience and First-Run Setup (Basecamp-Inspired Patterns)**
+  - [ ] **Demo Experience Implementation**
+    - [ ] **8.1 Implement Basecamp-style demo mode detection and auto-initialization**
+      - Create demo mode environment variable detection (CAMPFIRE_DEMO_MODE=true)
+      - Implement automatic demo data initialization on first boot if enabled
+      - Add demo user creation with realistic personas (admin, product manager, developers, designers)
+      - Create sample rooms (General, Development, Design, Product Planning, Random, Support, Marketing)
+      - Generate realistic conversations with @mentions, /play commands, and bot interactions
+      - _Requirements: Requirement 10.2, 10.6_
+
+    - [ ] **8.2 Create professional landing page with live chat preview**
+      - Design enterprise-grade landing page with gradient background and professional typography
+      - Add live chat preview window showing simulated real-time conversations
+      - Include animated typing indicators and message delivery simulation
+      - Display performance metrics (sub-1ms delivery, 5MB memory, 0.1% CPU, 100% offline)
+      - Add clear value proposition and feature highlights
+      - _Requirements: Requirement 10.1, 10.7_
+
+    - [ ] **8.3 Build one-click demo login system with user personas**
+      - Create demo login page with one-click user selection buttons
+      - Add realistic user personas with role descriptions and tooltips
+      - Implement quick login functionality that pre-fills credentials
+      - Show user context (admin privileges, team role, room access)
+      - Add multi-user testing instructions and guidance
+      - _Requirements: Requirement 10.3, 10.5_
+
+    - [ ] **8.4 Implement guided welcome tour for first-time demo users**
+      - Create welcome overlay explaining key features on first demo login
+      - Add interactive tour highlighting @mentions, /play sounds, search, real-time features
+      - Include multi-user testing guide with tab opening instructions
+      - Show contextual tooltips for interactive elements
+      - Provide "Skip Tour" and "Multi-User Guide" options
+      - _Requirements: Requirement 10.4, 10.5_
+
+    - [ ] **8.5 Build demo data initialization service**
+      - Create DemoDataInitializer service with realistic user creation
+      - Implement sample room creation with different types (open, closed, direct)
+      - Generate authentic conversations demonstrating all features
+      - Add bot integration examples and webhook demonstrations
+      - Include sound command usage and @mention examples
+      - _Requirements: Requirement 10.2, 10.7, 10.8_
+
+  - [ ] **First-Run Setup Implementation**
+    - [ ] **8.6 Add Basecamp-style first-run setup for production deployment**
+      - Implement first-run detection (check if User.count() == 0)
+      - Create clean admin setup page with organization branding
+      - Add admin account creation form with email/password validation
+      - Implement automatic admin privileges and session creation
+      - Display admin contact email on subsequent login pages
+      - _Requirements: Requirement 11.1, 11.2, 11.3, 11.4_
+
+    - [ ] **8.7 Create environment-based configuration system**
+      - Implement Docker-first deployment with environment variables
+      - Add SSL_DOMAIN support for automatic Let's Encrypt SSL
+      - Create VAPID key configuration for push notifications
+      - Add database location and backup settings
+      - Implement security parameters and session timeout configuration
+      - _Requirements: Requirement 11.5, 11.6, 11.7_
+
+    - [ ] **8.8 Implement demo status API and initialization endpoint**
+      - Create /api/demo/status endpoint returning demo mode state
+      - Add /api/demo/initialize POST endpoint for manual demo setup
+      - Implement demo user count and room count reporting
+      - Add feature availability status (websockets, search, sounds, push, bots)
+      - Provide demo credentials and quick start URLs
+      - _Requirements: Requirement 10.6, 10.9_
+
+    - [ ] **8.9 Add production deployment health checks and monitoring**
+      - Implement health check endpoints (/health, /health/ready, /health/live)
+      - Add metrics exposure for monitoring tools
+      - Create audit logging for administrative actions
+      - Implement backup and restore documentation
+      - Add performance visibility and operational monitoring
+      - _Requirements: Requirement 11.8, 11.9, 11.10_
+
+    - [ ] **8.10 Create comprehensive demo documentation and user guides**
+      - Write multi-user testing guide with step-by-step instructions
+      - Create deployment documentation with Docker examples
+      - Add environment variable reference and configuration guide
+      - Document admin recovery procedures and security best practices
+      - Include performance benchmarks and scaling considerations
+      - _Requirements: Requirement 10.10, Requirement 11.8, 11.9_
 
 
 - [ ] How can I deploy this campfire-on-rust to https://railway.com/dashboard give me a step by step document well researched; How will it feel to look at 
