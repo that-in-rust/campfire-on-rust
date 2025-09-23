@@ -165,7 +165,7 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
   - Add search result authorization (only show accessible messages)
   - _Requirements: Requirement 7.1-7.5 (search functionality)_
 
-- [-] **5.2 Rich Text and Sound System**
+- [x] **5.2 Rich Text and Sound System**
   - Enhance HTML sanitization for rich text features (bold, italic, links)
   - Add support for @mentions with user linking and notifications
   - Embed MP3 sound files using rust-embed crate
@@ -173,7 +173,7 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
   - Add sound playback WebSocket messages
   - _Requirements: Requirement 5.1-5.4 (rich text), 6.1-6.3 (sound system)_
 
-- [ ] **5.3 Push Notifications**
+- [x] **5.3 Push Notifications**
   - Add web-push crate dependency and implement Web Push with VAPID keys
   - Create push notification service with subscription management
   - Add notification preferences per user in database
@@ -181,7 +181,7 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
   - Add push notification endpoints for subscription management
   - _Requirements: Requirement 8.1-8.6 (push notifications)_
 
-- [ ] **5.4 Bot API Integration**
+- [x] **5.4 Bot API Integration**
   - Implement bot authentication with API tokens (using existing bot_token field)
   - Create bot-specific endpoints for message posting
   - Add bot user type validation and permissions
@@ -191,7 +191,7 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
 
 ### Phase 6: Frontend and Production
 
-- [ ] **6.1 Static Asset Serving**
+- [-] **6.1 Static Asset Serving**
   - Add rust-embed crate dependency for asset embedding
   - Embed frontend assets (HTML, CSS, JS) at compile time
   - Serve static files from embedded assets with proper MIME types

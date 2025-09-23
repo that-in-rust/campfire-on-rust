@@ -8,6 +8,7 @@ use crate::errors::{MessageError, ValidationError, BroadcastError, RoomError};
 use crate::models::{Message, MessageId, RoomId, UserId, WebSocketMessage};
 use crate::services::connection::ConnectionManager;
 use crate::services::room::RoomServiceTrait;
+use crate::services::push::PushNotificationService;
 use crate::rich_text::{RichTextProcessor, RichTextError};
 use crate::sounds::SoundManager;
 
@@ -64,6 +65,7 @@ pub struct MessageService {
     db: Arc<CampfireDatabase>,
     connection_manager: Arc<dyn ConnectionManager>,
     room_service: Arc<dyn RoomServiceTrait>,
+    push_service: Option<Arc<dyn PushNotificationService>>,
 }
 
 impl MessageService {
@@ -76,6 +78,21 @@ impl MessageService {
             db,
             connection_manager,
             room_service,
+            push_service: None,
+        }
+    }
+    
+    pub fn with_push_service(
+        db: Arc<CampfireDatabase>, 
+        connection_manager: Arc<dyn ConnectionManager>,
+        room_service: Arc<dyn RoomServiceTrait>,
+        push_service: Arc<dyn PushNotificationService>,
+    ) -> Self {
+        Self {
+            db,
+            connection_manager,
+            room_service,
+            push_service: Some(push_service),
         }
     }
     
@@ -216,7 +233,30 @@ impl MessageServiceTrait for MessageService {
             tracing::warn!("Failed to broadcast message {}: {}", persisted_message.id.0, broadcast_error);
         }
         
-        // Step 6: Broadcast sound playback commands if any
+        // Step 6: Send push notifications if service is available
+        if let Some(push_service) = &self.push_service {
+            // Get room information for notification context
+            if let Ok(Some(room)) = self.room_service.get_room_by_id(room_id).await {
+                // Get sender name for notification
+                if let Ok(Some(sender)) = self.db.get_user_by_id(user_id).await {
+                    // Send message notification
+                    if let Err(e) = push_service.send_message_notification(&persisted_message, &room, &sender.name).await {
+                        tracing::warn!("Failed to send push notification for message {}: {}", persisted_message.id.0, e);
+                    }
+                    
+                    // Send mention notifications for each mentioned user
+                    for mention in &persisted_message.mentions {
+                        if let Ok(Some(mentioned_user)) = self.db.get_user_by_email(mention).await {
+                            if let Err(e) = push_service.send_mention_notification(&persisted_message, &room, &sender.name, mentioned_user.id).await {
+                                tracing::warn!("Failed to send mention notification to {}: {}", mention, e);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Step 7: Broadcast sound playback commands if any
         for sound_name in &play_commands {
             if SoundManager::sound_exists(sound_name) {
                 let sound_message = WebSocketMessage::SoundPlayback {
@@ -228,6 +268,17 @@ impl MessageServiceTrait for MessageService {
                 
                 if let Err(e) = self.connection_manager.broadcast_to_room(room_id, sound_message).await {
                     tracing::warn!("Failed to broadcast sound playback {}: {}", sound_name, e);
+                }
+                
+                // Send push notification for sound playback if service is available
+                if let Some(push_service) = &self.push_service {
+                    if let Ok(Some(room)) = self.room_service.get_room_by_id(room_id).await {
+                        if let Ok(Some(sender)) = self.db.get_user_by_id(user_id).await {
+                            if let Err(e) = push_service.send_sound_notification(sound_name, &room, &sender.name).await {
+                                tracing::warn!("Failed to send sound notification for {}: {}", sound_name, e);
+                            }
+                        }
+                    }
                 }
             }
         }

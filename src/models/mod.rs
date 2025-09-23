@@ -15,6 +15,9 @@ pub struct MessageId(pub Uuid);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ConnectionId(pub Uuid);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct PushSubscriptionId(pub Uuid);
+
 // ID implementations
 impl UserId {
     pub fn new() -> Self {
@@ -35,6 +38,12 @@ impl MessageId {
 }
 
 impl ConnectionId {
+    pub fn new() -> Self {
+        Self(Uuid::new_v4())
+    }
+}
+
+impl PushSubscriptionId {
     pub fn new() -> Self {
         Self(Uuid::new_v4())
     }
@@ -89,6 +98,18 @@ impl From<ConnectionId> for Uuid {
     }
 }
 
+impl From<Uuid> for PushSubscriptionId {
+    fn from(uuid: Uuid) -> Self {
+        Self(uuid)
+    }
+}
+
+impl From<PushSubscriptionId> for Uuid {
+    fn from(subscription_id: PushSubscriptionId) -> Self {
+        subscription_id.0
+    }
+}
+
 // Display implementations for error messages
 impl std::fmt::Display for UserId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -114,6 +135,12 @@ impl std::fmt::Display for ConnectionId {
     }
 }
 
+impl std::fmt::Display for PushSubscriptionId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 // Core domain models
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
@@ -127,6 +154,29 @@ pub struct User {
     pub created_at: DateTime<Utc>,
 }
 
+impl User {
+    /// Check if this user is a bot (has a bot_token)
+    pub fn is_bot(&self) -> bool {
+        self.bot_token.is_some()
+    }
+    
+    /// Generate bot key for API authentication (user_id-bot_token)
+    pub fn bot_key(&self) -> Option<String> {
+        self.bot_token.as_ref().map(|token| format!("{}-{}", self.id.0, token))
+    }
+    
+    /// Convert User to Bot if it's a bot user
+    pub fn to_bot(&self) -> Option<Bot> {
+        self.bot_token.as_ref().map(|token| Bot {
+            id: self.id,
+            name: self.name.clone(),
+            bot_token: token.clone(),
+            webhook_url: None, // Will be populated from webhook table
+            created_at: self.created_at,
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Room {
     pub id: RoomId,
@@ -137,7 +187,7 @@ pub struct Room {
     pub last_message_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RoomType {
     Open,    // Anyone can join
     Closed,  // Invitation only
@@ -298,4 +348,145 @@ pub enum WebSocketMessage {
         room_id: RoomId,
         timestamp: DateTime<Utc>,
     },
+}
+
+// Push notification models
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PushSubscription {
+    pub id: PushSubscriptionId,
+    pub user_id: UserId,
+    pub endpoint: String,
+    pub p256dh_key: String,
+    pub auth_key: String,
+    pub created_at: DateTime<Utc>,
+    pub last_used_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotificationPreferences {
+    pub user_id: UserId,
+    pub mentions_enabled: bool,
+    pub direct_messages_enabled: bool,
+    pub all_messages_enabled: bool,
+    pub sounds_enabled: bool,
+    pub updated_at: DateTime<Utc>,
+}
+
+impl Default for NotificationPreferences {
+    fn default() -> Self {
+        Self {
+            user_id: UserId::new(), // This will be overridden
+            mentions_enabled: true,
+            direct_messages_enabled: true,
+            all_messages_enabled: false,
+            sounds_enabled: true,
+            updated_at: Utc::now(),
+        }
+    }
+}
+
+// Push notification request/response DTOs
+#[derive(Debug, Deserialize)]
+pub struct CreatePushSubscriptionRequest {
+    pub endpoint: String,
+    pub keys: PushSubscriptionKeys,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PushSubscriptionKeys {
+    pub p256dh: String,
+    pub auth: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateNotificationPreferencesRequest {
+    pub mentions_enabled: Option<bool>,
+    pub direct_messages_enabled: Option<bool>,
+    pub all_messages_enabled: Option<bool>,
+    pub sounds_enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum NotificationType {
+    NewMessage,
+    Mention,
+    DirectMessage,
+    SoundPlayback,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PushNotificationPayload {
+    pub title: String,
+    pub body: String,
+    pub icon: Option<String>,
+    pub badge: Option<String>,
+    pub tag: Option<String>,
+    pub data: serde_json::Value,
+}
+
+// Bot-related models and DTOs
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Bot {
+    pub id: UserId,
+    pub name: String,
+    pub bot_token: String,
+    pub webhook_url: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+impl Bot {
+    /// Generate bot key in format "user_id-bot_token" for API authentication
+    pub fn bot_key(&self) -> String {
+        format!("{}-{}", self.id.0, self.bot_token)
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateBotRequest {
+    pub name: String,
+    pub webhook_url: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateBotRequest {
+    pub name: Option<String>,
+    pub webhook_url: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BotMessageRequest {
+    pub body: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebhookPayload {
+    pub user: WebhookUser,
+    pub room: WebhookRoom,
+    pub message: WebhookMessage,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebhookUser {
+    pub id: UserId,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebhookRoom {
+    pub id: RoomId,
+    pub name: String,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebhookMessage {
+    pub id: MessageId,
+    pub body: WebhookMessageBody,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebhookMessageBody {
+    pub html: String,
+    pub plain: String,
 }

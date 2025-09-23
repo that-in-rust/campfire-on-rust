@@ -1,5 +1,5 @@
 use thiserror::Error;
-use crate::models::{UserId, RoomId, MessageId, ConnectionId};
+use crate::models::{UserId, RoomId, MessageId, ConnectionId, PushSubscriptionId};
 
 // Library-level errors using thiserror for structured, matchable errors
 #[derive(Error, Debug)]
@@ -185,6 +185,92 @@ pub enum ValidationError {
     RequiredField { field: String },
 }
 
+#[derive(Error, Debug)]
+pub enum PushNotificationError {
+    #[error("Push subscription not found: {subscription_id}")]
+    SubscriptionNotFound { subscription_id: PushSubscriptionId },
+    
+    #[error("Invalid push subscription endpoint: {endpoint}")]
+    InvalidEndpoint { endpoint: String },
+    
+    #[error("Invalid VAPID keys")]
+    InvalidVapidKeys,
+    
+    #[error("Failed to send push notification: {0}")]
+    SendFailed(String),
+    
+    #[error("VAPID signature creation failed: {0}")]
+    VapidSignature(String),
+    
+    #[error("Push message creation failed: {0}")]
+    MessageCreation(String),
+    
+    #[error("JSON serialization failed: {0}")]
+    JsonSerialization(#[from] serde_json::Error),
+    
+    #[error("Database operation failed: {0}")]
+    Database(#[from] DatabaseError),
+    
+    #[error("UUID parsing error: {0}")]
+    UuidParse(#[from] uuid::Error),
+}
+
+#[derive(Error, Debug)]
+pub enum BotError {
+    #[error("Invalid bot token")]
+    InvalidToken,
+    
+    #[error("Bot not found: {bot_id}")]
+    NotFound { bot_id: UserId },
+    
+    #[error("User {user_id} is not a bot")]
+    NotABot { user_id: UserId },
+    
+    #[error("Bot token already exists")]
+    TokenExists,
+    
+    #[error("Invalid webhook URL: {url}")]
+    InvalidWebhookUrl { url: String },
+    
+    #[error("Webhook delivery failed: {reason}")]
+    WebhookDeliveryFailed { reason: String },
+    
+    #[error("Webhook timeout after {timeout_seconds} seconds")]
+    WebhookTimeout { timeout_seconds: u64 },
+    
+    #[error("Invalid bot name: {reason}")]
+    InvalidName { reason: String },
+    
+    #[error("Database operation failed: {0}")]
+    Database(#[from] DatabaseError),
+    
+    #[error("HTTP request failed: {0}")]
+    HttpRequest(String),
+    
+    #[error("JSON serialization failed: {0}")]
+    JsonSerialization(#[from] serde_json::Error),
+}
+
+// From implementations for web-push errors
+impl From<web_push::WebPushError> for PushNotificationError {
+    fn from(err: web_push::WebPushError) -> Self {
+        match err {
+            web_push::WebPushError::InvalidUri => {
+                PushNotificationError::InvalidEndpoint { 
+                    endpoint: "Invalid URI".to_string() 
+                }
+            }
+            _ => PushNotificationError::SendFailed(err.to_string()),
+        }
+    }
+}
+
+impl From<sqlx::Error> for PushNotificationError {
+    fn from(err: sqlx::Error) -> Self {
+        PushNotificationError::Database(DatabaseError::Connection(err))
+    }
+}
+
 // Application-level result type
 pub type Result<T> = std::result::Result<T, anyhow::Error>;
 
@@ -229,6 +315,40 @@ impl From<AuthError> for axum::http::StatusCode {
             AuthError::Database(_) 
             | AuthError::PasswordHash(_) 
             | AuthError::TokenGeneration => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+}
+
+impl From<PushNotificationError> for axum::http::StatusCode {
+    fn from(err: PushNotificationError) -> Self {
+        match err {
+            PushNotificationError::SubscriptionNotFound { .. } => axum::http::StatusCode::NOT_FOUND,
+            PushNotificationError::InvalidEndpoint { .. } 
+            | PushNotificationError::InvalidVapidKeys => axum::http::StatusCode::BAD_REQUEST,
+            PushNotificationError::SendFailed(_)
+            | PushNotificationError::VapidSignature(_)
+            | PushNotificationError::MessageCreation(_)
+            | PushNotificationError::JsonSerialization(_)
+            | PushNotificationError::Database(_)
+            | PushNotificationError::UuidParse(_) => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+}
+
+impl From<BotError> for axum::http::StatusCode {
+    fn from(err: BotError) -> Self {
+        match err {
+            BotError::InvalidToken => axum::http::StatusCode::UNAUTHORIZED,
+            BotError::NotFound { .. } => axum::http::StatusCode::NOT_FOUND,
+            BotError::NotABot { .. } => axum::http::StatusCode::FORBIDDEN,
+            BotError::TokenExists => axum::http::StatusCode::CONFLICT,
+            BotError::InvalidWebhookUrl { .. } 
+            | BotError::InvalidName { .. } => axum::http::StatusCode::BAD_REQUEST,
+            BotError::WebhookDeliveryFailed { .. }
+            | BotError::WebhookTimeout { .. }
+            | BotError::Database(_)
+            | BotError::HttpRequest(_)
+            | BotError::JsonSerialization(_) => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }

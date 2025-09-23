@@ -29,6 +29,12 @@ pub trait DatabaseWriter: Send + Sync {
     
     /// Create a room membership
     async fn create_membership(&self, membership: Membership) -> Result<(), DatabaseError>;
+    
+    /// Create a push subscription
+    async fn create_push_subscription(&self, subscription: PushSubscription) -> Result<(), DatabaseError>;
+    
+    /// Update notification preferences
+    async fn update_notification_preferences(&self, preferences: NotificationPreferences) -> Result<(), DatabaseError>;
 }
 
 /// Write operations that can be sent to the writer task
@@ -56,6 +62,14 @@ pub enum WriteOperation {
     },
     CreateMembership {
         membership: Membership,
+        respond_to: oneshot::Sender<Result<(), DatabaseError>>,
+    },
+    CreatePushSubscription {
+        subscription: PushSubscription,
+        respond_to: oneshot::Sender<Result<(), DatabaseError>>,
+    },
+    UpdateNotificationPreferences {
+        preferences: NotificationPreferences,
         respond_to: oneshot::Sender<Result<(), DatabaseError>>,
     },
 }
@@ -105,6 +119,14 @@ impl SerializedDatabaseWriter {
                 }
                 WriteOperation::CreateMembership { membership, respond_to } => {
                     let result = database.create_membership_internal(&membership).await;
+                    let _ = respond_to.send(result);
+                }
+                WriteOperation::CreatePushSubscription { subscription, respond_to } => {
+                    let result = database.create_push_subscription_internal(&subscription).await;
+                    let _ = respond_to.send(result);
+                }
+                WriteOperation::UpdateNotificationPreferences { preferences, respond_to } => {
+                    let result = database.update_notification_preferences_internal(&preferences).await;
                     let _ = respond_to.send(result);
                 }
             }
@@ -195,6 +217,36 @@ impl DatabaseWriter for SerializedDatabaseWriter {
         self.write_sender
             .send(WriteOperation::CreateMembership {
                 membership,
+                respond_to: tx,
+            })
+            .await
+            .map_err(|_| DatabaseError::WriterChannelClosed)?;
+        
+        rx.await
+            .map_err(|_| DatabaseError::WriterChannelClosed)?
+    }
+    
+    async fn create_push_subscription(&self, subscription: PushSubscription) -> Result<(), DatabaseError> {
+        let (tx, rx) = oneshot::channel();
+        
+        self.write_sender
+            .send(WriteOperation::CreatePushSubscription {
+                subscription,
+                respond_to: tx,
+            })
+            .await
+            .map_err(|_| DatabaseError::WriterChannelClosed)?;
+        
+        rx.await
+            .map_err(|_| DatabaseError::WriterChannelClosed)?
+    }
+    
+    async fn update_notification_preferences(&self, preferences: NotificationPreferences) -> Result<(), DatabaseError> {
+        let (tx, rx) = oneshot::channel();
+        
+        self.write_sender
+            .send(WriteOperation::UpdateNotificationPreferences {
+                preferences,
                 respond_to: tx,
             })
             .await
@@ -361,6 +413,40 @@ impl Database {
                 DELETE FROM messages_fts WHERE message_id = old.id;
                 INSERT INTO messages_fts(message_id, content) VALUES (new.id, new.content);
             END
+            "#
+        )
+        .execute(&self.pool)
+        .await?;
+
+        // Create push subscriptions table
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS push_subscriptions (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL REFERENCES users(id),
+                endpoint TEXT NOT NULL,
+                p256dh_key TEXT NOT NULL,
+                auth_key TEXT NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_used_at DATETIME,
+                UNIQUE(user_id, endpoint)
+            )
+            "#
+        )
+        .execute(&self.pool)
+        .await?;
+
+        // Create notification preferences table
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS notification_preferences (
+                user_id TEXT PRIMARY KEY REFERENCES users(id),
+                mentions_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                direct_messages_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                all_messages_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+                sounds_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
             "#
         )
         .execute(&self.pool)
@@ -1089,5 +1175,272 @@ impl CampfireDatabase {
     
     pub async fn create_membership(&self, membership: Membership) -> Result<(), DatabaseError> {
         self.writer.create_membership(membership).await
+    }
+    
+    // Push notification operations
+    
+    pub async fn get_push_subscriptions_for_user(
+        &self,
+        user_id: UserId,
+    ) -> Result<Vec<PushSubscription>, DatabaseError> {
+        self.read_db.get_push_subscriptions_for_user(user_id).await
+    }
+    
+    pub async fn delete_push_subscription(
+        &self,
+        subscription_id: PushSubscriptionId,
+    ) -> Result<(), DatabaseError> {
+        self.read_db.delete_push_subscription(subscription_id).await
+    }
+    
+    pub async fn get_notification_preferences(
+        &self,
+        user_id: UserId,
+    ) -> Result<NotificationPreferences, DatabaseError> {
+        self.read_db.get_notification_preferences(user_id).await
+    }
+    
+    pub async fn get_notification_recipients(
+        &self,
+        message: &Message,
+        room: &Room,
+    ) -> Result<Vec<(UserId, NotificationPreferences)>, DatabaseError> {
+        self.read_db.get_notification_recipients(message, room).await
+    }
+    
+    pub async fn create_push_subscription(&self, subscription: PushSubscription) -> Result<(), DatabaseError> {
+        self.writer.create_push_subscription(subscription).await
+    }
+    
+    pub async fn update_notification_preferences(&self, preferences: NotificationPreferences) -> Result<(), DatabaseError> {
+        self.writer.update_notification_preferences(preferences).await
+    }
+}
+// 
+// Database operations for push notifications
+impl Database {
+    pub(crate) async fn create_push_subscription_internal(
+        &self,
+        subscription: &PushSubscription,
+    ) -> Result<(), DatabaseError> {
+        sqlx::query(
+            r#"
+            INSERT OR REPLACE INTO push_subscriptions 
+            (id, user_id, endpoint, p256dh_key, auth_key, created_at, last_used_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            "#
+        )
+        .bind(subscription.id.0.to_string())
+        .bind(subscription.user_id.0.to_string())
+        .bind(&subscription.endpoint)
+        .bind(&subscription.p256dh_key)
+        .bind(&subscription.auth_key)
+        .bind(subscription.created_at)
+        .bind(subscription.last_used_at)
+        .execute(&self.pool)
+        .await?;
+        
+        Ok(())
+    }
+    
+    pub async fn get_push_subscriptions_for_user(
+        &self,
+        user_id: UserId,
+    ) -> Result<Vec<PushSubscription>, DatabaseError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT id, user_id, endpoint, p256dh_key, auth_key, created_at, last_used_at
+            FROM push_subscriptions 
+            WHERE user_id = ?
+            "#
+        )
+        .bind(user_id.0.to_string())
+        .fetch_all(&self.pool)
+        .await?;
+        
+        let mut subscriptions = Vec::new();
+        for row in rows {
+            let id_str: &str = row.get("id");
+            let user_id_str: &str = row.get("user_id");
+            
+            subscriptions.push(PushSubscription {
+                id: PushSubscriptionId(uuid::Uuid::parse_str(id_str)?),
+                user_id: UserId(uuid::Uuid::parse_str(user_id_str)?),
+                endpoint: row.get("endpoint"),
+                p256dh_key: row.get("p256dh_key"),
+                auth_key: row.get("auth_key"),
+                created_at: row.get("created_at"),
+                last_used_at: row.get("last_used_at"),
+            });
+        }
+        
+        Ok(subscriptions)
+    }
+    
+    pub async fn delete_push_subscription(
+        &self,
+        subscription_id: PushSubscriptionId,
+    ) -> Result<(), DatabaseError> {
+        sqlx::query("DELETE FROM push_subscriptions WHERE id = ?")
+            .bind(subscription_id.0.to_string())
+            .execute(&self.pool)
+            .await?;
+        
+        Ok(())
+    }
+    
+    pub(crate) async fn update_notification_preferences_internal(
+        &self,
+        preferences: &NotificationPreferences,
+    ) -> Result<(), DatabaseError> {
+        sqlx::query(
+            r#"
+            INSERT OR REPLACE INTO notification_preferences 
+            (user_id, mentions_enabled, direct_messages_enabled, all_messages_enabled, sounds_enabled, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            "#
+        )
+        .bind(preferences.user_id.0.to_string())
+        .bind(preferences.mentions_enabled)
+        .bind(preferences.direct_messages_enabled)
+        .bind(preferences.all_messages_enabled)
+        .bind(preferences.sounds_enabled)
+        .bind(preferences.updated_at)
+        .execute(&self.pool)
+        .await?;
+        
+        Ok(())
+    }
+    
+    pub async fn get_notification_preferences(
+        &self,
+        user_id: UserId,
+    ) -> Result<NotificationPreferences, DatabaseError> {
+        let row = sqlx::query(
+            r#"
+            SELECT user_id, mentions_enabled, direct_messages_enabled, all_messages_enabled, sounds_enabled, updated_at
+            FROM notification_preferences 
+            WHERE user_id = ?
+            "#
+        )
+        .bind(user_id.0.to_string())
+        .fetch_optional(&self.pool)
+        .await?;
+        
+        if let Some(row) = row {
+            let user_id_str: &str = row.get("user_id");
+            Ok(NotificationPreferences {
+                user_id: UserId(uuid::Uuid::parse_str(user_id_str)?),
+                mentions_enabled: row.get("mentions_enabled"),
+                direct_messages_enabled: row.get("direct_messages_enabled"),
+                all_messages_enabled: row.get("all_messages_enabled"),
+                sounds_enabled: row.get("sounds_enabled"),
+                updated_at: row.get("updated_at"),
+            })
+        } else {
+            // Return default preferences if none exist
+            Ok(NotificationPreferences {
+                user_id,
+                ..Default::default()
+            })
+        }
+    }
+    
+    /// Get users who should receive push notifications for a message
+    pub async fn get_notification_recipients(
+        &self,
+        message: &Message,
+        room: &Room,
+    ) -> Result<Vec<(UserId, NotificationPreferences)>, DatabaseError> {
+        let mut recipients = Vec::new();
+        
+        // For direct messages, notify the other participant
+        if room.room_type == RoomType::Direct {
+            let rows = sqlx::query(
+                r#"
+                SELECT rm.user_id, 
+                       COALESCE(np.mentions_enabled, 1) as mentions_enabled,
+                       COALESCE(np.direct_messages_enabled, 1) as direct_messages_enabled,
+                       COALESCE(np.all_messages_enabled, 0) as all_messages_enabled,
+                       COALESCE(np.sounds_enabled, 1) as sounds_enabled,
+                       COALESCE(np.updated_at, CURRENT_TIMESTAMP) as updated_at
+                FROM room_memberships rm
+                LEFT JOIN notification_preferences np ON rm.user_id = np.user_id
+                WHERE rm.room_id = ? AND rm.user_id != ? AND np.direct_messages_enabled != 0
+                "#
+            )
+            .bind(message.room_id.0.to_string())
+            .bind(message.creator_id.0.to_string())
+            .fetch_all(&self.pool)
+            .await?;
+            
+            for row in rows {
+                let user_id_str: &str = row.get("user_id");
+                recipients.push((
+                    UserId(uuid::Uuid::parse_str(user_id_str)?),
+                    NotificationPreferences {
+                        user_id: UserId(uuid::Uuid::parse_str(user_id_str)?),
+                        mentions_enabled: row.get("mentions_enabled"),
+                        direct_messages_enabled: row.get("direct_messages_enabled"),
+                        all_messages_enabled: row.get("all_messages_enabled"),
+                        sounds_enabled: row.get("sounds_enabled"),
+                        updated_at: row.get("updated_at"),
+                    },
+                ));
+            }
+        } else {
+            // For mentions, notify mentioned users
+            if !message.mentions.is_empty() {
+                for mention in &message.mentions {
+                    if let Some(user) = self.get_user_by_email(mention).await? {
+                        let preferences = self.get_notification_preferences(user.id).await?;
+                        if preferences.mentions_enabled {
+                            recipients.push((user.id, preferences));
+                        }
+                    }
+                }
+            }
+            
+            // For all messages (if enabled), notify all room members except sender
+            let rows = sqlx::query(
+                r#"
+                SELECT rm.user_id,
+                       COALESCE(np.mentions_enabled, 1) as mentions_enabled,
+                       COALESCE(np.direct_messages_enabled, 1) as direct_messages_enabled,
+                       COALESCE(np.all_messages_enabled, 0) as all_messages_enabled,
+                       COALESCE(np.sounds_enabled, 1) as sounds_enabled,
+                       COALESCE(np.updated_at, CURRENT_TIMESTAMP) as updated_at
+                FROM room_memberships rm
+                LEFT JOIN notification_preferences np ON rm.user_id = np.user_id
+                WHERE rm.room_id = ? AND rm.user_id != ? AND np.all_messages_enabled = 1
+                "#
+            )
+            .bind(message.room_id.0.to_string())
+            .bind(message.creator_id.0.to_string())
+            .fetch_all(&self.pool)
+            .await?;
+            
+            for row in rows {
+                let user_id_str: &str = row.get("user_id");
+                let user_id = UserId(uuid::Uuid::parse_str(user_id_str)?);
+                
+                // Skip if already added for mentions
+                if !recipients.iter().any(|(id, _)| *id == user_id) {
+                    recipients.push((
+                        user_id,
+                        NotificationPreferences {
+                            user_id,
+                            mentions_enabled: row.get("mentions_enabled"),
+                            direct_messages_enabled: row.get("direct_messages_enabled"),
+                            all_messages_enabled: row.get("all_messages_enabled"),
+                            sounds_enabled: row.get("sounds_enabled"),
+                            updated_at: row.get("updated_at"),
+                        },
+                    ));
+                }
+            }
+        }
+        
+        Ok(recipients)
     }
 }

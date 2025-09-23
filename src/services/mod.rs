@@ -3,9 +3,13 @@ pub mod message;
 pub mod room;
 pub mod connection;
 pub mod search;
+pub mod push;
+pub mod bot;
 
 pub use auth::AuthService;
-pub use message::MessageService;
+pub use message::{MessageService, MessageServiceTrait};
 pub use room::RoomService;
 pub use connection::ConnectionManager;
 pub use search::{SearchService, SearchServiceTrait};
+pub use push::{PushNotificationService, PushNotificationServiceImpl, VapidConfig};
+pub use bot::{BotService, BotServiceImpl};

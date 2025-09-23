@@ -5,3 +5,5 @@ pub mod rooms;
 pub mod websocket;
 pub mod search;
 pub mod sounds;
+pub mod push;
+pub mod bot;

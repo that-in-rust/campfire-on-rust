@@ -57,6 +57,12 @@ pub trait RoomServiceTrait: Send + Sync {
         &self,
         user_id: UserId,
     ) -> Result<Vec<Room>, RoomError>;
+    
+    /// Gets a room by ID
+    async fn get_room_by_id(
+        &self,
+        room_id: RoomId,
+    ) -> Result<Option<Room>, RoomError>;
 }
 
 #[derive(Clone)]
@@ -231,5 +237,12 @@ impl RoomServiceTrait for RoomService {
         let rooms = self.db.get_user_rooms(user_id).await?;
         
         Ok(rooms)
+    }
+    
+    async fn get_room_by_id(
+        &self,
+        room_id: RoomId,
+    ) -> Result<Option<Room>, RoomError> {
+        Ok(self.db.get_room_by_id(room_id).await?)
     }
 }

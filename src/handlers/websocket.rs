@@ -445,12 +445,28 @@ mod tests {
             room_service.clone(),
         ));
         
+        // Create push notification service for testing
+        let vapid_config = crate::VapidConfig::default();
+        let push_service = Arc::new(crate::PushNotificationServiceImpl::new(
+            db.clone(),
+            db.writer(),
+            vapid_config,
+        ));
+        
+        let bot_service = Arc::new(crate::BotServiceImpl::new(
+            db_arc.clone(),
+            db.writer(),
+            message_service.clone(),
+        ));
+        
         AppState {
             db,
             auth_service,
             room_service,
             message_service,
             search_service,
+            push_service,
+            bot_service,
         }
     }
 
