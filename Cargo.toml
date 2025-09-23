@@ -44,6 +44,9 @@ rust-embed = { version = "8.0", features = ["debug-embed"] }
 # Base64 encoding for secure tokens
 base64 = "0.13"
 
+# Environment variable loading
+dotenvy = "0.15"
+
 # Async trait support
 async-trait = "0.1"
 

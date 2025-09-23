@@ -17,6 +17,14 @@ use campfire_on_rust::middleware::security;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Load environment variables from .env file if it exists
+    if let Err(e) = dotenvy::dotenv() {
+        // Only warn if the error is not "file not found"
+        if !e.to_string().contains("not found") {
+            eprintln!("Warning: Failed to load .env file: {}", e);
+        }
+    }
+    
     // Load configuration from environment
     let config = config::Config::from_env()?;
     

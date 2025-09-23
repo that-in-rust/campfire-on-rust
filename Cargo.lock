@@ -389,6 +389,7 @@ dependencies = [
  "base64 0.13.1",
  "bcrypt",
  "chrono",
+ "dotenvy",
  "futures-util",
  "governor",
  "hyper 0.14.32",
