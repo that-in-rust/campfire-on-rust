@@ -375,6 +375,9 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
 
 - [x] README is not following minimalist minto pyramid principle - why do we need to know how was it built and roadmap - just focus on what is working and what is not curretly in scope
 
-- [-] README is needs to use probablistic, low drama language. We did not every feature - "We took the brilliant Campfire architecture from Basecamp and rebuilt it in Rust, maintaining every feature while achieving dramatic performance improvements and cost reductions." -- why the lie - mention decent approximations with low drama
+- [x] README is needs to use probablistic, low drama language. We did not every feature - "We took the brilliant Campfire architecture from Basecamp and rebuilt it in Rust, maintaining every feature while achieving dramatic performance improvements and cost reductions." -- why the lie - mention decent approximations with low drama
 
-- [ ] Do cargo run as per the README and observe the location - is something happening, is what you are saying happening - walk me through 
+- [-] Do cargo run as per the README and observe the location - is something happening, is what you are saying happening - walk me through 
+
+
+- [ ] How can I deploy this campfire-on-rust to https://railway.com/dashboard give me a step by step document well researched; How will it feel to look at 

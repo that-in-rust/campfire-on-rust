@@ -1,10 +1,10 @@
 # Campfire Rust
 
-**A working Rust implementation of Basecamp's Campfire chat application.**
+**A Rust-based chat application inspired by Basecamp's Campfire.**
 
 ## What Works Now
 
-**Text-based chat with real-time features** - A decent approximation of the original Campfire functionality, suitable for production use.
+**Text-based chat with real-time features** - A working approximation of core Campfire functionality. Suitable for teams needing basic chat capabilities.
 
 ## Quick Start
 
@@ -34,11 +34,15 @@ graph TD
     class A,B,C,D,E,F working
 ```
 
-## Not Currently in Scope
+## Implementation Notes
+
+This is a **working approximation** of Campfire's core functionality, not a complete recreation. Key differences:
 
 - **File attachments** - UI shows "Coming in v2.0" messaging
 - **Avatar uploads** - Text initials displayed instead  
 - **OpenGraph previews** - Links shown without preview cards
+- **Architecture** - Uses SQLite instead of PostgreSQL, different session handling
+- **Performance** - Likely different characteristics than the original Rails application
 
 ## Troubleshooting
 
@@ -57,7 +61,7 @@ cargo run
 
 ## Interface Previews
 
-View the complete interface at [docs/interface-previews/](docs/interface-previews/):
+Preview the interface components at [docs/interface-previews/](docs/interface-previews/):
 
 - [Login Page](docs/interface-previews/01-login-page.html)
 - [Main Chat Interface](docs/interface-previews/02-main-chat-interface.html)
@@ -83,4 +87,4 @@ View the complete interface at [docs/interface-previews/](docs/interface-preview
 
 ## Acknowledgments
 
-This project exists thanks to **Basecamp**, **DHH**, and **Jason Fried** for open-sourcing the original Campfire application.
+This project was inspired by the original Campfire application from **Basecamp**. Thanks to **DHH** and **Jason Fried** for open-sourcing the original codebase, which provided valuable reference for understanding chat application patterns.
