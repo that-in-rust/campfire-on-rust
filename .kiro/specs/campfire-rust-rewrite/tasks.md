@@ -380,7 +380,7 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
 - [x] Do cargo run as per the README and observe the location - is something happening, is what you are saying happening - walk me through 
 
 - [ ] In order tha people believe that this chat app works, they should be able to do a small demo and touch and feel off it offline on their system, how can you enable that, think of each and every step of user experience
-  - [-] User goes to the local port you say, they should see the same experience as they would in a HQ enterprise app (except that login is simply by email password, but since we do not have email server - idk maybe it should detect offline demo as a feature flag - and should offer some kind of place to have the email ids password and roles entered so we can test the experience of chatting - think what dhh and json fried would think to help people sample it easily)
+  - [ ] User goes to the local port you say, they should see the same experience as they would in a HQ enterprise app (except that login is simply by email password, but since we do not have email server - idk maybe it should detect offline demo as a feature flag - and should offer some kind of place to have the email ids password and roles entered so we can test the experience of chatting - think what dhh and json fried would think to help people sample it easily)
 
 
 - [ ] How can I deploy this campfire-on-rust to https://railway.com/dashboard give me a step by step document well researched; How will it feel to look at 
