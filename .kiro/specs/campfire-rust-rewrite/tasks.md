@@ -371,10 +371,10 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
  
 - [x] If there are in md docs in the documentation or elsewhere, make sure you read them and add at least 1 or more mermaid diagrams based on the steering docs x minimalistic x Minto Pyramid Principle - starting from essence at the top and then adding details and lower layers x also all the mermaid diagrams should follow guidance of steering docs x .kiro/steering/mermaid-design-patterns.md x .kiro/steering/mermaid-status-report.md x .kiro/steering/mermaid-syntax-guide.md x .kiro/steering/mermaid-troubleshooting.md
 
-- [ ] README has https://github.com/that-in-rust/campfire-on-rust.git WRONG; 
+- [x] README has https://github.com/that-in-rust/campfire-on-rust.git WRONG; 
+
+- [x] README is not following minimalist minto pyramid principle - why do we need to know how was it built and roadmap - just focus on what is working and what is not curretly in scope
+
+- [-] README is needs to use probablistic, low drama language. We did not every feature - "We took the brilliant Campfire architecture from Basecamp and rebuilt it in Rust, maintaining every feature while achieving dramatic performance improvements and cost reductions." -- why the lie - mention decent approximations with low drama
 
 - [ ] Do cargo run as per the README and observe the location - is something happening, is what you are saying happening - walk me through 
-- [ ] README is not following minimalist minto pyramid principle - why do we need to know how was it built and roadmap - just focus on what is working and what is not curretly in scope
-
-- [ ] README is needs to use probablistic, low drama language. We did not every feature - "We took the brilliant Campfire architecture from Basecamp and rebuilt it in Rust, maintaining every feature while achieving dramatic performance improvements and cost reductions." -- why the lie - mention decent approximations with low drama
-

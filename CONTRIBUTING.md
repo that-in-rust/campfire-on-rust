@@ -150,11 +150,11 @@ graph TD
 # Click "Fork" button on the repository page
 
 # 2. Clone your fork
-git clone https://github.com/YOUR_USERNAME/campfire-rust-rewrite.git
-cd campfire-rust-rewrite
+git clone https://github.com/YOUR_USERNAME/campfire-on-rust.git
+cd campfire-on-rust
 
 # 3. Add upstream remote for syncing
-git remote add upstream https://github.com/basecamp/campfire-rust-rewrite.git
+git remote add upstream https://github.com/that-in-rust/campfire-on-rust.git
 
 # 4. Install Rust toolchain (if not already installed)
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh

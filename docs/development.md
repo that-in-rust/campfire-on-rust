@@ -715,8 +715,8 @@ test/test-improvements       # Test additions/improvements
 
 ```bash
 # Clone repository
-git clone <repository-url>
-cd campfire-rust-rewrite
+git clone https://github.com/that-in-rust/campfire-on-rust.git
+cd campfire-on-rust
 
 # Set up environment
 cp .env.example .env

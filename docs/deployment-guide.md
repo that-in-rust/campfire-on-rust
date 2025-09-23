@@ -38,8 +38,8 @@ graph TD
 
 ```bash
 # 1. Clone and configure
-git clone <repository-url>
-cd campfire-rust-rewrite
+git clone https://github.com/that-in-rust/campfire-on-rust.git
+cd campfire-on-rust
 cp .env.example .env.production
 
 # 2. Deploy with Docker Compose
