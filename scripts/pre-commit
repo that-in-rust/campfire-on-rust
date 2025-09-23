@@ -1,0 +1,57 @@
+#!/bin/bash
+# Pre-commit hook for Campfire Rust rewrite project
+# This script runs before each commit to ensure code quality
+
+set -e
+
+echo "Running pre-commit checks..."
+
+# Check if we're in a git repository
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    echo "Error: Not in a git repository"
+    exit 1
+fi
+
+# Check for staged files
+if git diff --cached --quiet; then
+    echo "No staged changes found"
+    exit 0
+fi
+
+# Format check
+echo "Checking code formatting..."
+if ! cargo fmt -- --check; then
+    echo "❌ Code formatting check failed"
+    echo "Run 'cargo fmt' to fix formatting issues"
+    exit 1
+fi
+echo "✅ Code formatting check passed"
+
+# Clippy linting
+echo "Running clippy lints..."
+if ! cargo clippy --all-targets --all-features -- -D warnings; then
+    echo "❌ Clippy linting failed"
+    echo "Fix the linting issues above"
+    exit 1
+fi
+echo "✅ Clippy linting passed"
+
+# Run tests
+echo "Running tests..."
+if ! cargo test --all-features; then
+    echo "❌ Tests failed"
+    echo "Fix the failing tests above"
+    exit 1
+fi
+echo "✅ Tests passed"
+
+# Security audit
+echo "Running security audit..."
+if ! cargo audit; then
+    echo "❌ Security audit failed"
+    echo "Address the security vulnerabilities above"
+    exit 1
+fi
+echo "✅ Security audit passed"
+
+echo "🎉 All pre-commit checks passed!"
