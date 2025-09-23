@@ -384,7 +384,8 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
     - [ ] **8.1 Implement Basecamp-style demo mode detection and auto-initialization**
       - Create demo mode environment variable detection (CAMPFIRE_DEMO_MODE=true)
       - Implement automatic demo data initialization on first boot if enabled
-      - Add demo user creation with realistic personas (admin, product manager, developers, designers)
+      - Add demo user creation with realistic personas (a
+      dmin, product manager, developers, designers)
       - Create sample rooms (General, Development, Design, Product Planning, Random, Support, Marketing)
       - Generate realistic conversations with @mentions, /play commands, and bot interactions
       - _Requirements: Requirement 10.2, 10.6_

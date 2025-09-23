@@ -40,7 +40,7 @@ This document outlines the requirements for the **MVP Phase 1** of rewriting the
 
 **MVP Scope:** Campfire is a web-based chat application that supports multiple rooms with access controls, direct messages, rich text messaging, search, notifications via Web Push, @mentions, and API support for bot integrations. File attachments, avatars, and OpenGraph previews are **gracefully disabled** with clear upgrade messaging.
 
-**Demo Experience:** Following Basecamp's approach, the application includes a complete offline demo mode with pre-loaded realistic data (8 users, 7 rooms, sample conversations) and simple credential-based login for immediate evaluation without setup complexity.
+**DHH-Inspired Approach:** Following Basecamp's radical simplicity philosophy, the application eliminates demo complexity entirely. Instead, it provides an**DHH-Inspired Approach:** Following DHH's radical simplicity philosophy, the application eliminates demo complexity entirely. Instead, it provides an excellent first-run experience that gets users into real usage immediately - "the best demo is the real product working well."
 
 **Deployment Strategy:** Single Rust binary deployment with automatic first-run admin setup, environment-based configuration, and Docker-first approach following Basecamp's proven patterns for simple, reliable deployment.
 
@@ -200,3 +200,50 @@ The MVP includes all essential Campfire features for text-based chat:
 
 
 I hope I get the requirements right
+
+
+DHH's Philosophy: Radical Simplicity
+Core Decision: No Demo Mode - Just Make The Real Thing Great
+
+DHH chose to eliminate the complexity of maintaining separate demo experiences by focusing on:
+
+1. First-Run Setup Over Demo
+No fake data or simulated environments
+Real account creation with immediate value
+Simple onboarding that gets users into actual usage quickly
+"The best demo is the real product working well"
+2. Opinionated Defaults
+Pre-configured sensible settings
+Minimal configuration options exposed to users
+Convention over configuration throughout
+Remove decisions that don't matter to most users
+3. Progressive Disclosure
+Start with the simplest possible interface
+Advanced features revealed only when needed
+No overwhelming feature tours or complex wizards
+Let users discover capabilities naturally through use
+4. Real Data From Day One
+Users create actual rooms and send real messages immediately
+No transition from "demo mode" to "real mode"
+Immediate investment in the platform
+No confusion about what's real vs fake
+5. Deployment Simplicity
+Single binary deployment
+Minimal external dependencies
+Self-contained with SQLite for small deployments
+Easy upgrade path to PostgreSQL when needed
+The Anti-Pattern DHH Avoided
+He specifically rejected the common SaaS pattern of:
+
+Complex demo environments with fake data
+Separate "trial" vs "real" modes
+Feature-heavy onboarding flows
+Multiple deployment configurations
+Why This Matters for Your Campfire Rewrite
+DHH's choices suggest your current approach should prioritize:
+
+Excellent first-run experience over elaborate demos
+Real functionality immediately over simulated environments
+Simple deployment over complex configuration options
+Progressive feature discovery over comprehensive tours
+The original Campfire succeeded because it was immediately useful, not because it had a great demo. The demo was just "here's a chat room, start chatting."
