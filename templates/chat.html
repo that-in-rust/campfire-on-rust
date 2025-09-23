@@ -148,7 +148,166 @@
             overflow: hidden;
             clip: rect(0, 0, 0, 0);
             white-space: nowrap;
-            border: 0;
+        }
+        
+        /* Demo overlay styles */
+        .demo-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        
+        .demo-welcome-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        .demo-welcome-header {
+            padding: 2rem 2rem 1rem;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .demo-welcome-header h2 {
+            margin: 0;
+            color: #2c3e50;
+            font-size: 1.5rem;
+        }
+        
+        .demo-close-btn {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            color: #6c757d;
+            cursor: pointer;
+            padding: 0;
+            width: 2rem;
+            height: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+        
+        .demo-close-btn:hover {
+            background: #f8f9fa;
+            color: #495057;
+        }
+        
+        .demo-welcome-body {
+            padding: 1rem 2rem 2rem;
+        }
+        
+        .demo-features, .demo-tips {
+            margin: 1.5rem 0;
+        }
+        
+        .demo-features h3, .demo-tips h3 {
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+        
+        .demo-features ul, .demo-tips ul {
+            margin: 0;
+            padding-left: 1.5rem;
+        }
+        
+        .demo-features li, .demo-tips li {
+            margin-bottom: 0.5rem;
+            line-height: 1.4;
+        }
+        
+        .demo-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+            justify-content: center;
+        }
+        
+        .demo-actions .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-weight: 600;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .demo-actions .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        
+        .demo-actions .btn-primary:hover {
+            background: #0056b3;
+        }
+        
+        .demo-actions .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .demo-actions .btn-secondary:hover {
+            background: #545b62;
+        }
+        
+        /* Guided tour highlight */
+        .tour-highlight {
+            position: relative;
+            z-index: 9999;
+            box-shadow: 0 0 0 4px #007bff, 0 0 0 8px rgba(0, 123, 255, 0.3);
+            border-radius: 4px;
+        }
+        
+        .tour-tooltip {
+            position: absolute;
+            background: #333;
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            max-width: 250px;
+            z-index: 10001;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .tour-tooltip::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 0;
+            border: 8px solid transparent;
+        }
+        
+        .tour-tooltip.top::after {
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border-top-color: #333;
+        }
+        
+        .tour-tooltip.bottom::after {
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border-bottom-color: #333;
         }
         
         .skip-navigation {

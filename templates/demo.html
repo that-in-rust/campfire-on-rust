@@ -5,16 +5,215 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
     <meta name="view-transition" content="same-origin">
     <meta name="color-scheme" content="light dark">
-    <title>Campfire Demo - Offline Experience</title>
+    <title>Campfire Demo - Enterprise Team Chat</title>
     <link rel="stylesheet" href="/static/css/campfire.css">
     <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .hero-section {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: white;
+        }
+        
+        .hero-title {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin: 0 0 1rem 0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            background: linear-gradient(45deg, #ff6b6b, #ffd93d);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .hero-subtitle {
+            font-size: 1.5rem;
+            margin: 0 0 0.5rem 0;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+        
+        .hero-description {
+            font-size: 1.1rem;
+            margin: 0 0 2rem 0;
+            opacity: 0.8;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.5;
+        }
+        
+        .hero-cta {
+            display: inline-flex;
+            gap: 1rem;
+            margin-bottom: 3rem;
+        }
+        
+        .cta-button {
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .cta-primary {
+            background: #ff6b6b;
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+        }
+        
+        .cta-primary:hover {
+            background: #ff5252;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.6);
+        }
+        
+        .cta-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .cta-secondary:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .demo-preview {
+            max-width: 1200px;
+            margin: 0 auto 4rem;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .preview-header {
+            background: #f8f9fa;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .preview-dots {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .preview-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .dot-red { background: #ff5f56; }
+        .dot-yellow { background: #ffbd2e; }
+        .dot-green { background: #27ca3f; }
+        
+        .preview-title {
+            margin-left: 1rem;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .chat-preview {
+            display: flex;
+            height: 500px;
+        }
+        
+        .preview-sidebar {
+            width: 250px;
+            background: #2c3e50;
+            color: white;
+            padding: 1rem;
+        }
+        
+        .preview-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+        }
+        
+        .preview-messages {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+        
+        .preview-message {
+            margin-bottom: 1rem;
+            padding: 0.75rem 1rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            opacity: 0;
+            animation: fadeInUp 0.6s ease forwards;
+        }
+        
+        .message-author {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.25rem;
+        }
+        
+        .message-content {
+            color: #495057;
+            line-height: 1.4;
+        }
+        
+        .message-time {
+            font-size: 0.8rem;
+            color: #6c757d;
+            margin-top: 0.25rem;
+        }
+        
+        .typing-indicator {
+            padding: 0.75rem 1rem;
+            background: rgba(108, 117, 125, 0.1);
+            border-radius: 8px;
+            font-style: italic;
+            color: #6c757d;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+        
         .demo-container {
-            max-width: 800px;
-            margin: 2rem auto;
+            max-width: 1200px;
+            margin: 0 auto;
             padding: 2rem;
-            background: var(--color-surface);
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            background: white;
+            border-radius: 16px 16px 0 0;
         }
         
         .demo-header {
@@ -188,11 +387,63 @@
     </style>
 </head>
 <body>
-    <div class="demo-container">
-        <div class="demo-header">
-            <h1>🔥 Campfire Demo</h1>
-            <p>Experience enterprise-grade team chat, running completely offline</p>
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <h1 class="hero-title">🔥 Campfire</h1>
+        <p class="hero-subtitle">Enterprise team chat that actually works</p>
+        <p class="hero-description">
+            Built with Rust for blazing performance. Running completely offline on your machine. 
+            No cloud dependencies, no monthly fees, no vendor lock-in.
+        </p>
+        <div class="hero-cta">
+            <a href="#preview" class="cta-button cta-primary">See It In Action</a>
+            <a href="/login" class="cta-button cta-secondary">Try Demo Now</a>
         </div>
+        
+        <div style="margin-top: 2rem; font-size: 0.9rem; opacity: 0.7;">
+            ✨ <strong>Fully loaded demo:</strong> 8 users, 7 rooms, realistic conversations, all features enabled
+        </div>
+    </div>
+    
+    <!-- Live Preview -->
+    <div class="demo-preview" id="preview">
+        <div class="preview-header">
+            <div class="preview-dots">
+                <div class="preview-dot dot-red"></div>
+                <div class="preview-dot dot-yellow"></div>
+                <div class="preview-dot dot-green"></div>
+            </div>
+            <div class="preview-title">Campfire - Development Team</div>
+        </div>
+        
+        <div class="chat-preview">
+            <div class="preview-sidebar">
+                <div style="font-weight: 600; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.2);">
+                    Rooms
+                </div>
+                <div style="margin-bottom: 0.5rem; padding: 0.5rem; background: rgba(255,255,255,0.1); border-radius: 4px;">
+                    # General
+                </div>
+                <div style="margin-bottom: 0.5rem; padding: 0.5rem; color: rgba(255,255,255,0.7);">
+                    # Development
+                </div>
+                <div style="margin-bottom: 0.5rem; padding: 0.5rem; color: rgba(255,255,255,0.7);">
+                    # Design
+                </div>
+                <div style="margin-bottom: 0.5rem; padding: 0.5rem; color: rgba(255,255,255,0.7);">
+                    # Random
+                </div>
+            </div>
+            
+            <div class="preview-main">
+                <div class="preview-messages" id="live-messages">
+                    <!-- Messages will be added dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="demo-container">
         
         <div class="demo-note">
             <strong>🚀 Fully Offline Experience:</strong> This is a production-ready chat application running locally on your machine. 
@@ -344,6 +595,9 @@
     
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
+            // Start live demo simulation
+            startLiveDemo();
+            
             // Load demo status
             await loadDemoStatus();
             
@@ -357,7 +611,123 @@
                     window.location.href = '/login';
                 });
             });
+            
+            // Smooth scroll for CTA
+            document.querySelector('a[href="#preview"]').addEventListener('click', (e) => {
+                e.preventDefault();
+                document.getElementById('preview').scrollIntoView({ 
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+            });
         });
+        
+        function startLiveDemo() {
+            const messagesContainer = document.getElementById('live-messages');
+            let messageIndex = 0;
+            
+            const demoMessages = [
+                {
+                    author: 'Alice Johnson',
+                    content: 'Good morning team! Ready for the sprint planning?',
+                    time: '9:15 AM',
+                    delay: 1000
+                },
+                {
+                    author: 'Bob Smith',
+                    content: 'Absolutely! I\'ve got the performance metrics ready to share.',
+                    time: '9:16 AM',
+                    delay: 3000
+                },
+                {
+                    author: 'Carol Davis',
+                    content: 'The new UI mockups are looking great! @alice want to review them?',
+                    time: '9:17 AM',
+                    delay: 4000
+                },
+                {
+                    author: 'Alice Johnson',
+                    content: '@carol Yes! Let\'s schedule a quick design review. /play tada',
+                    time: '9:18 AM',
+                    delay: 3000
+                },
+                {
+                    author: 'Demo Bot',
+                    content: '🤖 Daily standup reminder: Meeting starts in 15 minutes!',
+                    time: '9:19 AM',
+                    delay: 5000
+                },
+                {
+                    author: 'Bob Smith',
+                    content: 'This real-time chat is so smooth! Much better than our old system.',
+                    time: '9:20 AM',
+                    delay: 4000
+                }
+            ];
+            
+            function addMessage(message) {
+                const messageEl = document.createElement('div');
+                messageEl.className = 'preview-message';
+                messageEl.style.animationDelay = '0s';
+                
+                messageEl.innerHTML = `
+                    <div class="message-author">${message.author}</div>
+                    <div class="message-content">${message.content}</div>
+                    <div class="message-time">${message.time}</div>
+                `;
+                
+                messagesContainer.appendChild(messageEl);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+            
+            function showTypingIndicator(author) {
+                const typingEl = document.createElement('div');
+                typingEl.className = 'typing-indicator';
+                typingEl.id = 'typing-indicator';
+                typingEl.textContent = `${author} is typing...`;
+                messagesContainer.appendChild(typingEl);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                
+                return typingEl;
+            }
+            
+            function removeTypingIndicator() {
+                const typingEl = document.getElementById('typing-indicator');
+                if (typingEl) {
+                    typingEl.remove();
+                }
+            }
+            
+            function scheduleNextMessage() {
+                if (messageIndex >= demoMessages.length) {
+                    // Restart the demo after a pause
+                    setTimeout(() => {
+                        messagesContainer.innerHTML = '';
+                        messageIndex = 0;
+                        scheduleNextMessage();
+                    }, 10000);
+                    return;
+                }
+                
+                const message = demoMessages[messageIndex];
+                
+                setTimeout(() => {
+                    // Show typing indicator
+                    const typingEl = showTypingIndicator(message.author);
+                    
+                    // Remove typing and add message after a short delay
+                    setTimeout(() => {
+                        removeTypingIndicator();
+                        addMessage(message);
+                        messageIndex++;
+                        scheduleNextMessage();
+                    }, 1500);
+                }, message.delay);
+            }
+            
+            // Start the demo
+            scheduleNextMessage();
+        }
         
         async function loadDemoStatus() {
             try {

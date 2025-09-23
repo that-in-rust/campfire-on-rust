@@ -128,6 +128,33 @@
             margin-top: 2px;
         }
         
+        .demo-user-desc {
+            color: var(--color-text-tertiary);
+            font-size: 10px;
+            margin-top: 1px;
+            font-style: italic;
+        }
+        
+        .demo-user-btn {
+            position: relative;
+        }
+        
+        .demo-user-btn:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 0.5rem;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 1000;
+            margin-bottom: 5px;
+        }
+        
         .login-form {
             display: flex;
             flex-direction: column;
@@ -291,29 +318,35 @@
             <div class="quick-login">
                 <h4>🎯 One-Click Demo Login - Choose any user:</h4>
                 <div class="demo-users">
-                    <button class="demo-user-btn" onclick="quickLogin('admin@campfire.demo', 'password')">
+                    <button class="demo-user-btn" onclick="quickLogin('admin@campfire.demo', 'password')" data-tooltip="Full admin access - can manage all rooms and users">
                         <span class="demo-user-email">admin@campfire.demo</span>
                         <div class="demo-user-role">👑 System Administrator</div>
+                        <div class="demo-user-desc">Complete system access</div>
                     </button>
-                    <button class="demo-user-btn" onclick="quickLogin('alice@campfire.demo', 'password')">
+                    <button class="demo-user-btn" onclick="quickLogin('alice@campfire.demo', 'password')" data-tooltip="Product team lead - active in planning and general discussions">
                         <span class="demo-user-email">alice@campfire.demo</span>
                         <div class="demo-user-role">📋 Product Manager</div>
+                        <div class="demo-user-desc">Leads product strategy</div>
                     </button>
-                    <button class="demo-user-btn" onclick="quickLogin('bob@campfire.demo', 'password')">
+                    <button class="demo-user-btn" onclick="quickLogin('bob@campfire.demo', 'password')" data-tooltip="Senior developer - technical discussions and code reviews">
                         <span class="demo-user-email">bob@campfire.demo</span>
                         <div class="demo-user-role">💻 Senior Developer</div>
+                        <div class="demo-user-desc">Technical team lead</div>
                     </button>
-                    <button class="demo-user-btn" onclick="quickLogin('carol@campfire.demo', 'password')">
+                    <button class="demo-user-btn" onclick="quickLogin('carol@campfire.demo', 'password')" data-tooltip="Design team - UI/UX discussions and creative collaboration">
                         <span class="demo-user-email">carol@campfire.demo</span>
                         <div class="demo-user-role">🎨 UX Designer</div>
+                        <div class="demo-user-desc">User experience expert</div>
                     </button>
-                    <button class="demo-user-btn" onclick="quickLogin('david@campfire.demo', 'password')">
+                    <button class="demo-user-btn" onclick="quickLogin('david@campfire.demo', 'password')" data-tooltip="Infrastructure and deployment - DevOps discussions">
                         <span class="demo-user-email">david@campfire.demo</span>
                         <div class="demo-user-role">⚙️ DevOps Engineer</div>
+                        <div class="demo-user-desc">Infrastructure specialist</div>
                     </button>
-                    <button class="demo-user-btn" onclick="quickLogin('eve@campfire.demo', 'password')">
+                    <button class="demo-user-btn" onclick="quickLogin('eve@campfire.demo', 'password')" data-tooltip="Marketing team - campaigns and customer insights">
                         <span class="demo-user-email">eve@campfire.demo</span>
                         <div class="demo-user-role">📢 Marketing Manager</div>
+                        <div class="demo-user-desc">Growth and marketing</div>
                     </button>
                 </div>
                 <p style="text-align: center; margin-top: 12px; font-size: 13px; color: var(--color-text-secondary);">
