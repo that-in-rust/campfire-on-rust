@@ -24,11 +24,29 @@ async fn create_test_app() -> Router {
         room_service.clone()
     ));
     
+    let search_service = Arc::new(campfire_on_rust::SearchService::new(
+        db_arc.clone(),
+        room_service.clone(),
+    ));
+    let push_service = Arc::new(campfire_on_rust::PushNotificationServiceImpl::new(
+        db_arc.as_ref().clone(),
+        db_arc.writer(),
+        campfire_on_rust::VapidConfig::default(),
+    ));
+    let bot_service = Arc::new(campfire_on_rust::BotServiceImpl::new(
+        db_arc.clone(),
+        db_arc.writer(),
+        message_service.clone(),
+    ));
+    
     let app_state = AppState {
         db,
         auth_service,
         room_service,
         message_service,
+        search_service,
+        push_service,
+        bot_service,
     };
 
     Router::new()

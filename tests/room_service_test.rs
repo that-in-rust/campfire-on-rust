@@ -1,7 +1,8 @@
 use campfire_on_rust::{CampfireDatabase, RoomService, RoomServiceTrait};
 use campfire_on_rust::models::{
-    User, UserId, RoomId, RoomType, InvolvementLevel, CreateRoomRequest
+    User, UserId, RoomId, RoomType, InvolvementLevel
 };
+use campfire_on_rust::validation::CreateRoomRequest;
 use campfire_on_rust::errors::RoomError;
 use chrono::Utc;
 use std::sync::Arc;

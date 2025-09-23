@@ -404,6 +404,7 @@ dependencies = [
  "signal-hook",
  "signal-hook-tokio",
  "sqlx",
+ "tempfile",
  "testcontainers",
  "thiserror",
  "tokio",

@@ -13,7 +13,7 @@ async fn create_test_app() -> (Router, Arc<CampfireDatabase>) {
     let db = Arc::new(CampfireDatabase::new(":memory:").await.unwrap());
     
     // Create connection manager
-    let connection_manager = Arc::new(ConnectionManagerImpl::new());
+    let connection_manager = Arc::new(ConnectionManagerImpl::new(db.clone()));
     
     // Create services
     let auth_service = Arc::new(AuthService::new(db.clone()));
@@ -23,12 +23,29 @@ async fn create_test_app() -> (Router, Arc<CampfireDatabase>) {
         connection_manager,
         room_service.clone()
     ));
+    let search_service = Arc::new(campfire_on_rust::SearchService::new(
+        db.clone(),
+        room_service.clone(),
+    ));
+    let push_service = Arc::new(campfire_on_rust::PushNotificationServiceImpl::new(
+        db.as_ref().clone(),
+        db.writer(),
+        campfire_on_rust::VapidConfig::default(),
+    ));
+    let bot_service = Arc::new(campfire_on_rust::BotServiceImpl::new(
+        db.clone(),
+        db.writer(),
+        message_service.clone(),
+    ));
     
     let app_state = AppState {
         db: (*db).clone(),
         auth_service,
         room_service,
         message_service,
+        search_service,
+        push_service,
+        bot_service,
     };
 
     let router = Router::new()

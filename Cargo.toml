@@ -75,6 +75,7 @@ tokio-test = "0.4"
 mockall = "0.12"
 testcontainers = "0.15"
 hyper = { version = "0.14", features = ["full"] }
+tempfile = "3.0"
 
 [lib]
 name = "campfire_on_rust"

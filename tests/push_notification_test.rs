@@ -1,14 +1,12 @@
 use campfire_on_rust::{
-    CampfireDatabase, PushNotificationServiceImpl, VapidConfig,
-    models::*,
+    CampfireDatabase, PushNotificationServiceImpl, VapidConfig, PushNotificationService,
+    models::*, validation::{CreatePushSubscriptionRequest, PushSubscriptionKeys},
 };
-use std::sync::Arc;
 
 #[tokio::test]
 async fn test_push_notification_service_creation() {
     // Create test database
     let db = CampfireDatabase::new(":memory:").await.unwrap();
-    let writer = db.writer();
     
     // Create VAPID config
     let vapid_config = VapidConfig::default();
@@ -16,7 +14,7 @@ async fn test_push_notification_service_creation() {
     // Create push notification service
     let push_service = PushNotificationServiceImpl::new(
         db.clone(),
-        writer,
+        db.writer(),
         vapid_config,
     );
     
@@ -55,7 +53,6 @@ async fn test_push_notification_service_creation() {
 async fn test_push_subscription_creation() {
     // Create test database
     let db = CampfireDatabase::new(":memory:").await.unwrap();
-    let writer = db.writer();
     
     // Create VAPID config
     let vapid_config = VapidConfig::default();
@@ -63,7 +60,7 @@ async fn test_push_subscription_creation() {
     // Create push notification service
     let push_service = PushNotificationServiceImpl::new(
         db.clone(),
-        writer,
+        db.writer(),
         vapid_config,
     );
     
@@ -90,7 +87,6 @@ async fn test_push_subscription_creation() {
 async fn test_notification_preferences_defaults() {
     // Create test database
     let db = CampfireDatabase::new(":memory:").await.unwrap();
-    let writer = db.writer();
     
     // Create VAPID config
     let vapid_config = VapidConfig::default();
@@ -98,7 +94,7 @@ async fn test_notification_preferences_defaults() {
     // Create push notification service
     let push_service = PushNotificationServiceImpl::new(
         db.clone(),
-        writer,
+        db.writer(),
         vapid_config,
     );
     

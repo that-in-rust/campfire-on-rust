@@ -61,6 +61,9 @@ async fn create_test_message(db: &CampfireDatabase, room_id: RoomId, user_id: Us
         content: content.to_string(),
         client_message_id: Uuid::new_v4(),
         created_at: Utc::now(),
+        html_content: None,
+        mentions: Vec::new(),
+        sound_commands: Vec::new(),
     };
     
     db.writer().create_message_with_deduplication(message.clone()).await.unwrap()

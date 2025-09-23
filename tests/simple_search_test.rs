@@ -56,6 +56,9 @@ async fn test_basic_search_functionality() {
         content: "Hello world".to_string(),
         client_message_id: Uuid::new_v4(),
         created_at: Utc::now(),
+        html_content: None,
+        mentions: Vec::new(),
+        sound_commands: Vec::new(),
     };
     
     let message2 = Message {
@@ -65,6 +68,9 @@ async fn test_basic_search_functionality() {
         content: "This is a test message".to_string(),
         client_message_id: Uuid::new_v4(),
         created_at: Utc::now(),
+        html_content: None,
+        mentions: Vec::new(),
+        sound_commands: Vec::new(),
     };
     
     db.writer().create_message_with_deduplication(message1).await.unwrap();

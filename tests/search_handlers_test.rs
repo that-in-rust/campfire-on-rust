@@ -5,7 +5,7 @@ use axum::{
 };
 use campfire_on_rust::{
     AppState, CampfireDatabase, AuthService, RoomService, MessageService, 
-    ConnectionManagerImpl, SearchService,
+    ConnectionManagerImpl, SearchService, AuthServiceTrait,
 };
 use campfire_on_rust::models::*;
 use serde_json::{json, Value};
@@ -30,12 +30,25 @@ async fn setup_test_app() -> (Router, Arc<CampfireDatabase>, User, String) {
         room_service.clone(),
     ));
     
+    let push_service = Arc::new(campfire_on_rust::PushNotificationServiceImpl::new(
+        db.as_ref().clone(),
+        db.writer(),
+        campfire_on_rust::VapidConfig::default(),
+    ));
+    let bot_service = Arc::new(campfire_on_rust::BotServiceImpl::new(
+        db.clone(),
+        db.writer(),
+        message_service.clone(),
+    ));
+    
     let app_state = AppState {
         db: CampfireDatabase::new(":memory:").await.unwrap(),
         auth_service: auth_service.clone(),
         room_service: room_service.clone(),
         message_service,
         search_service,
+        push_service,
+        bot_service,
     };
     
     let app = Router::new()
@@ -95,6 +108,9 @@ async fn create_test_room_with_messages(
             content: content.to_string(),
             client_message_id: Uuid::new_v4(),
             created_at: Utc::now(),
+            html_content: None,
+            mentions: Vec::new(),
+            sound_commands: Vec::new(),
         };
         
         db.writer().create_message_with_deduplication(message).await.unwrap();
@@ -376,6 +392,9 @@ async fn test_search_messages_authorization_filtering() {
         content: "Secret message".to_string(),
         client_message_id: Uuid::new_v4(),
         created_at: Utc::now(),
+        html_content: None,
+        mentions: Vec::new(),
+        sound_commands: Vec::new(),
     };
     
     db.writer().create_message_with_deduplication(private_message).await.unwrap();

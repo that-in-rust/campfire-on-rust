@@ -458,6 +458,10 @@ mod tests {
             }
         }
         
+        // Set required VAPID keys for test
+        env::set_var("CAMPFIRE_VAPID_PRIVATE_KEY", "test_private_key");
+        env::set_var("CAMPFIRE_VAPID_PUBLIC_KEY", "test_public_key");
+        
         let config = Config::from_env().unwrap();
         
         assert_eq!(config.server.bind_address.port(), 3000);

@@ -86,6 +86,9 @@ async fn test_message_deduplication_with_writer_pattern() {
         content: "Test message".to_string(),
         client_message_id,
         created_at: Utc::now(),
+        html_content: None,
+        mentions: Vec::new(),
+        sound_commands: Vec::new(),
     };
     
     // First creation should succeed
@@ -99,6 +102,9 @@ async fn test_message_deduplication_with_writer_pattern() {
         content: "Different content".to_string(), // Different content
         client_message_id, // Same client_message_id
         created_at: Utc::now(),
+        html_content: None,
+        mentions: Vec::new(),
+        sound_commands: Vec::new(),
     };
     
     let result2 = writer.create_message_with_deduplication(message2).await.unwrap();
@@ -154,6 +160,9 @@ async fn test_concurrent_message_creation() {
                 content: format!("Message {}", i),
                 client_message_id: uuid::Uuid::new_v4(),
                 created_at: Utc::now(),
+                html_content: None,
+                mentions: Vec::new(),
+                sound_commands: Vec::new(),
             };
             
             writer_clone.create_message_with_deduplication(message).await
