@@ -162,6 +162,9 @@ pub struct FeatureFlags {
     
     /// Enable file uploads (future feature)
     pub file_uploads: bool,
+    
+    /// Enable offline demo mode with sample data
+    pub demo_mode: bool,
 }
 
 impl Config {
@@ -440,6 +443,10 @@ impl FeatureFlags {
                 .unwrap_or_else(|_| "false".to_string())
                 .parse()
                 .context("Invalid CAMPFIRE_FEATURE_FILES")?,
+            demo_mode: env::var("CAMPFIRE_DEMO_MODE")
+                .unwrap_or_else(|_| "true".to_string())
+                .parse()
+                .context("Invalid CAMPFIRE_DEMO_MODE")?,
         })
     }
 }
