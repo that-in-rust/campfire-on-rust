@@ -9,7 +9,7 @@ use tracing::{error, info, warn};
 use crate::errors::AuthError;
 use crate::middleware::session::SessionToken;
 use crate::models::LoginResponse;
-use crate::validation::{ValidatedJson, LoginRequest, sanitization};
+use crate::validation::{LoginRequest, sanitization, validate_request};
 use crate::AppState;
 
 /// POST /api/auth/login
@@ -31,8 +31,13 @@ use crate::AppState;
 /// - 500 Internal Server Error: Server error
 pub async fn login(
     State(state): State<AppState>,
-    ValidatedJson(request): ValidatedJson<LoginRequest>,
+    Json(request): Json<LoginRequest>,
 ) -> Response {
+    // Validate request
+    if let Err(validation_error) = validate_request(&request) {
+        return validation_error.into_response();
+    }
+    
     // Sanitize input
     let email = sanitization::sanitize_plain_text(&request.email);
     let password = request.password; // Don't sanitize passwords

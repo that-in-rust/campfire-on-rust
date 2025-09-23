@@ -8,6 +8,9 @@ pub mod rich_text;
 pub mod sounds;
 pub mod assets;
 pub mod validation;
+pub mod health;
+pub mod metrics;
+pub mod shutdown;
 
 pub use database::CampfireDatabase;
 pub use services::auth::{AuthService, AuthServiceTrait};

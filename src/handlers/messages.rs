@@ -10,7 +10,7 @@ use uuid::Uuid;
 use crate::errors::MessageError;
 use crate::middleware::AuthenticatedUser;
 use crate::models::{Message, MessageId, RoomId};
-use crate::validation::{ValidatedJson, CreateMessageRequest, sanitization};
+use crate::validation::{CreateMessageRequest, sanitization, validate_request};
 use crate::AppState;
 
 #[derive(Deserialize)]
@@ -61,13 +61,18 @@ pub async fn create_message(
     State(state): State<AppState>,
     Path(room_id_str): Path<String>,
     auth_user: AuthenticatedUser,
-    ValidatedJson(request): ValidatedJson<CreateMessageRequest>,
+    Json(request): Json<CreateMessageRequest>,
 ) -> Result<Response, Response> {
     info!(
         "Creating message in room {} for user {}",
         room_id_str, auth_user.user.id
     );
 
+    // Validate request
+    if let Err(validation_error) = validate_request(&request) {
+        return Err(validation_error.into_response());
+    }
+    
     // Parse room_id from path parameter
     let room_id = parse_room_id(&room_id_str)?;
 

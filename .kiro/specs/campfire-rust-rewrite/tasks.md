@@ -199,7 +199,7 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
   - Create basic HTML templates for the chat interface
   - _Requirements: Requirement 8.7 (embedded assets)_
 
-- [-] **6.2 Rate Limiting and Security**
+- [x] **6.2 Rate Limiting and Security**
   - Add governor crate dependency and implement rate limiting middleware
   - Enhance CORS middleware configuration for production
   - Implement request size limits and timeout handling
@@ -207,7 +207,7 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
   - Add input validation and sanitization for all endpoints
   - _Requirements: Requirement 3.4 (rate limiting), 0.1-0.12 (security)_
 
-- [ ] **6.3 Graceful Shutdown and Health Checks**
+- [x] **6.3 Graceful Shutdown and Health Checks**
   - Implement graceful shutdown handling with signal handling
   - Enhance health check endpoint with database connectivity checks
   - Create proper resource cleanup on shutdown (connections, tasks)
@@ -230,3 +230,5 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
 - [ ] Update All README and docs with Mermaid diagrams referencing the steering docs - Create README and documentation - take help of (.kiro/steering/mermaid-troubleshooting.md;.kiro/steering/mermaid-syntax-guide.md;kiro/steering/mermaid-status-report.md;.kiro/steering/mermaid-design-patterns.md) x Can we make the README minimalistic x Minto Pyramid Principle - starting from essence at the top and then adding details and lower layers x also all the mermaid diagrams should follow guidance of steering docs x .kiro/steering/mermaid-design-patterns.md x .kiro/steering/mermaid-status-report.md x .kiro/steering/mermaid-syntax-guide.md x .kiro/steering/mermaid-troubleshooting.md
 
 - [ ] Run .kiro/tree-with-wc.sh to analyze repository structure + Clean up any unnecessary files or directories - instead of deleting place them in zzzzArchive folder
+
+- [ ] In README also add hyperlinks to offline HTML versions of the interface so that users can get an idea of what the interface looks like - at least 10 such HTMLs and if possible screenshots of those to make them feel it

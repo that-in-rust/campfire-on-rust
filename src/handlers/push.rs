@@ -4,18 +4,24 @@ use axum::{
     response::Json,
     Extension,
 };
-use crate::errors::PushNotificationError;
 use crate::models::*;
-use crate::validation::{ValidatedJson, CreatePushSubscriptionRequest};
+use crate::validation::{CreatePushSubscriptionRequest, validate_request};
 use crate::services::PushNotificationService;
-use std::sync::Arc;
 
 /// Create a new push subscription
 pub async fn create_push_subscription(
     State(app_state): State<crate::AppState>,
     Extension(user): Extension<User>,
-    ValidatedJson(request): ValidatedJson<CreatePushSubscriptionRequest>,
+    Json(request): Json<CreatePushSubscriptionRequest>,
 ) -> Result<Json<PushSubscription>, (StatusCode, Json<serde_json::Value>)> {
+    // Validate request
+    if let Err(validation_error) = validate_request(&request) {
+        return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
+            "error": validation_error.error,
+            "details": validation_error.details
+        }))));
+    }
+    
     let push_service = &app_state.push_service;
     match push_service.create_subscription(user.id, request).await {
         Ok(subscription) => Ok(Json(subscription)),

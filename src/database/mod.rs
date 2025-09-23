@@ -462,6 +462,44 @@ impl Database {
     pub async fn begin(&self) -> Result<Transaction<'_, Sqlite>, sqlx::Error> {
         self.pool.begin().await
     }
+    
+    /// Health check method for database connectivity
+    pub async fn health_check(&self) -> Result<DatabaseStats, DatabaseError> {
+        let start = std::time::Instant::now();
+        
+        // Simple query to test connectivity
+        let row = sqlx::query("SELECT COUNT(*) as count FROM users")
+            .fetch_one(&self.pool)
+            .await?;
+        
+        let user_count: i64 = row.get("count");
+        let query_time = start.elapsed();
+        
+        // Get connection pool stats
+        let connection_count = self.pool.size();
+        
+        Ok(DatabaseStats {
+            connection_count: connection_count as u32,
+            total_queries: user_count as u64, // Simplified - in production you'd track this properly
+            avg_query_time_ms: query_time.as_millis() as u64,
+        })
+    }
+    
+    /// Simple ping method for readiness checks
+    pub async fn ping(&self) -> Result<(), DatabaseError> {
+        sqlx::query("SELECT 1")
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(())
+    }
+}
+
+/// Database statistics for health checks
+#[derive(Debug, Clone)]
+pub struct DatabaseStats {
+    pub connection_count: u32,
+    pub total_queries: u64,
+    pub avg_query_time_ms: u64,
 }
 
 // Internal database operations (used by the writer task)
@@ -1103,6 +1141,16 @@ impl CampfireDatabase {
         room_id: RoomId,
     ) -> Result<Option<Message>, DatabaseError> {
         self.read_db.get_message_by_client_id(client_message_id, room_id).await
+    }
+    
+    /// Health check method for database connectivity
+    pub async fn health_check(&self) -> Result<DatabaseStats, DatabaseError> {
+        self.read_db.health_check().await
+    }
+    
+    /// Simple ping method for readiness checks
+    pub async fn ping(&self) -> Result<(), DatabaseError> {
+        self.read_db.ping().await
     }
     
     pub async fn get_room_messages(

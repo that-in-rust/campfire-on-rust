@@ -8,8 +8,8 @@ use uuid::Uuid;
 
 use crate::errors::RoomError;
 use crate::middleware::session::AuthenticatedUser;
-use crate::models::{Room, RoomId, InvolvementLevel};
-use crate::validation::{ValidatedJson, CreateRoomRequest, AddRoomMemberRequest, sanitization};
+use crate::models::{Room, RoomId};
+use crate::validation::{CreateRoomRequest, AddRoomMemberRequest, sanitization, validate_request};
 use crate::AppState;
 
 /// GET /api/rooms
@@ -61,8 +61,13 @@ pub async fn get_rooms(
 pub async fn create_room(
     auth_user: AuthenticatedUser,
     State(state): State<AppState>,
-    ValidatedJson(request): ValidatedJson<CreateRoomRequest>,
+    Json(request): Json<CreateRoomRequest>,
 ) -> Result<(StatusCode, Json<Room>), RoomApiError> {
+    // Validate request
+    if let Err(validation_error) = validate_request(&request) {
+        return Err(RoomApiError::ValidationError(validation_error));
+    }
+    
     // Sanitize input
     let name = sanitization::sanitize_room_name(&request.name);
     let topic = request.topic.map(|t| sanitization::sanitize_user_input(&t));
@@ -166,8 +171,13 @@ pub async fn add_room_member(
     auth_user: AuthenticatedUser,
     State(state): State<AppState>,
     Path(room_id_str): Path<String>,
-    ValidatedJson(request): ValidatedJson<AddRoomMemberRequest>,
+    Json(request): Json<AddRoomMemberRequest>,
 ) -> Result<StatusCode, RoomApiError> {
+    // Validate request
+    if let Err(validation_error) = validate_request(&request) {
+        return Err(RoomApiError::ValidationError(validation_error));
+    }
+    
     // Parse room ID
     let room_id = parse_room_id(&room_id_str)?;
 
@@ -208,6 +218,7 @@ pub enum RoomApiError {
     AccessDenied { room_id: RoomId },
     Database(sqlx::Error),
     RoomService(RoomError),
+    ValidationError(crate::validation::ValidationErrorResponse),
 }
 
 impl From<RoomError> for RoomApiError {
@@ -248,6 +259,9 @@ impl IntoResponse for RoomApiError {
                 format!("Invalid involvement level: {}", level),
                 "INVALID_INVOLVEMENT_LEVEL",
             ),
+            RoomApiError::ValidationError(validation_error) => {
+                return validation_error.into_response();
+            },
             RoomApiError::NotFound { room_id } => (
                 StatusCode::NOT_FOUND,
                 format!("Room not found: {}", room_id),

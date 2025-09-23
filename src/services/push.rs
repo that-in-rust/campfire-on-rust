@@ -1,6 +1,7 @@
 use crate::database::{CampfireDatabase, DatabaseWriter};
-use crate::errors::{PushNotificationError, DatabaseError};
+use crate::errors::PushNotificationError;
 use crate::models::*;
+use crate::validation::CreatePushSubscriptionRequest;
 use async_trait::async_trait;
 use chrono::Utc;
 use std::sync::Arc;

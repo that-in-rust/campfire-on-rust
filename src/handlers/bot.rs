@@ -10,7 +10,7 @@ use uuid::Uuid;
 use crate::errors::BotError;
 use crate::middleware::session::AuthenticatedUser;
 use crate::models::*;
-use crate::validation::{ValidatedJson, CreateBotRequest, CreateBotMessageRequest, sanitization};
+use crate::validation::{CreateBotRequest, CreateBotMessageRequest, sanitization, validate_request};
 use crate::AppState;
 
 /// GET /api/bots
@@ -78,7 +78,7 @@ pub async fn list_bots(
 pub async fn create_bot(
     State(state): State<AppState>,
     auth_user: AuthenticatedUser,
-    ValidatedJson(request): ValidatedJson<CreateBotRequest>,
+    Json(request): Json<CreateBotRequest>,
 ) -> Response {
     // Check admin privileges
     if !auth_user.user.admin {
@@ -90,13 +90,19 @@ pub async fn create_bot(
         );
     }
     
+    // Validate request
+    if let Err(validation_error) = validate_request(&request) {
+        return validation_error.into_response();
+    }
+    
     // Sanitize input
     let name = sanitization::sanitize_user_input(&request.name);
-    let description = request.description.map(|d| sanitization::sanitize_user_input(&d));
+    let _description = request.description.map(|d| sanitization::sanitize_user_input(&d));
+    let webhook_url = request.webhook_url.map(|url| sanitization::sanitize_user_input(&url));
     
     info!("Creating bot '{}' for admin {}", name, auth_user.user.id);
     
-    match state.bot_service.create_bot(name, description).await {
+    match state.bot_service.create_bot(name, webhook_url).await {
         Ok(bot) => {
             info!("Created bot: {} ({})", bot.name, bot.id);
             (StatusCode::CREATED, Json(json!({
@@ -344,7 +350,7 @@ pub async fn reset_bot_token(
 pub async fn create_bot_message(
     State(state): State<AppState>,
     Path((room_id, bot_key)): Path<(Uuid, String)>,
-    ValidatedJson(request): ValidatedJson<CreateBotMessageRequest>,
+    Json(request): Json<CreateBotMessageRequest>,
 ) -> Response {
     let room_id = RoomId(room_id);
     
@@ -370,6 +376,11 @@ pub async fn create_bot_message(
             );
         }
     };
+    
+    // Validate request
+    if let Err(validation_error) = validate_request(&request) {
+        return validation_error.into_response();
+    }
     
     // Sanitize message content
     let content = sanitization::sanitize_message_content(&request.content);

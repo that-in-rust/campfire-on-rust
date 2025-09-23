@@ -36,9 +36,10 @@ pub async fn search_messages(
     
     // Create sanitized search request
     let search_request = crate::services::search::SearchRequest {
-        q: sanitized_query,
+        query: sanitized_query,
         limit: params.limit,
-        room_id: params.room_id,
+        offset: None,
+        room_id: params.room_id.map(|id| crate::models::RoomId(id)),
     };
     
     match state.search_service.search_messages(auth_user.user.id, search_request).await {

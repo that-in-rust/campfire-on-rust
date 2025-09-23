@@ -1,35 +1,12 @@
 use serde::{Deserialize, Serialize};
 use validator::{Validate, ValidationError};
 use axum::{
-    async_trait,
-    extract::{FromRequest, Request},
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
 use std::collections::HashMap;
 use ammonia::Builder;
-
-/// Validated JSON extractor that automatically validates input
-pub struct ValidatedJson<T>(pub T);
-
-#[async_trait]
-impl<T, S> FromRequest<S> for ValidatedJson<T>
-where
-    T: for<'de> Deserialize<'de> + Validate,
-    S: Send + Sync,
-{
-    type Rejection = ValidationError;
-
-    async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
-        let Json(value) = Json::<T>::from_request(req, state)
-            .await
-            .map_err(|_| ValidationError::new("invalid_json"))?;
-        
-        value.validate()?;
-        Ok(ValidatedJson(value))
-    }
-}
 
 /// Custom validation error response
 #[derive(Debug, Serialize)]
@@ -38,26 +15,28 @@ pub struct ValidationErrorResponse {
     pub details: HashMap<String, Vec<String>>,
 }
 
-impl IntoResponse for ValidationError {
+impl IntoResponse for ValidationErrorResponse {
     fn into_response(self) -> Response {
+        (StatusCode::BAD_REQUEST, Json(self)).into_response()
+    }
+}
+
+/// Helper function to validate and return error response if validation fails
+pub fn validate_request<T: Validate>(request: &T) -> Result<(), ValidationErrorResponse> {
+    request.validate().map_err(|e| {
         let mut details = HashMap::new();
-        
-        // Convert validation errors to a more user-friendly format
-        for (field, errors) in self.field_errors() {
+        for (field, errors) in e.field_errors() {
             let error_messages: Vec<String> = errors
                 .iter()
                 .map(|e| e.message.as_ref().unwrap_or(&"Invalid value".into()).to_string())
                 .collect();
             details.insert(field.to_string(), error_messages);
         }
-        
-        let response = ValidationErrorResponse {
+        ValidationErrorResponse {
             error: "Validation failed".to_string(),
             details,
-        };
-        
-        (StatusCode::BAD_REQUEST, Json(response)).into_response()
-    }
+        }
+    })
 }
 
 /// Login request validation
@@ -133,6 +112,11 @@ pub struct CreatePushSubscriptionRequest {
     #[validate(url(message = "Invalid endpoint URL"))]
     pub endpoint: String,
     
+    pub keys: PushSubscriptionKeys,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+pub struct PushSubscriptionKeys {
     #[validate(length(min = 1, message = "p256dh key is required"))]
     pub p256dh: String,
     
@@ -148,6 +132,9 @@ pub struct CreateBotRequest {
     
     #[validate(length(max = 200, message = "Description must be less than 200 characters"))]
     pub description: Option<String>,
+    
+    #[validate(url(message = "Invalid webhook URL"))]
+    pub webhook_url: Option<String>,
 }
 
 /// Bot message request validation
@@ -159,14 +146,25 @@ pub struct CreateBotMessageRequest {
 
 /// Content sanitization utilities
 pub mod sanitization {
-    use ammonia::Builder;
+    use super::Builder;
+    use std::collections::HashSet;
     
     /// Sanitize HTML content for messages
     pub fn sanitize_message_content(content: &str) -> String {
+        let mut allowed_tags = HashSet::new();
+        allowed_tags.insert("b");
+        allowed_tags.insert("i");
+        allowed_tags.insert("u");
+        allowed_tags.insert("strong");
+        allowed_tags.insert("em");
+        allowed_tags.insert("br");
+        allowed_tags.insert("p");
+        allowed_tags.insert("a");
+        allowed_tags.insert("code");
+        allowed_tags.insert("pre");
+        
         Builder::default()
-            .tags(hashset![
-                "b", "i", "u", "strong", "em", "br", "p", "a", "code", "pre"
-            ])
+            .tags(allowed_tags)
             .link_rel(Some("nofollow noopener noreferrer"))
             .clean(content)
             .to_string()
@@ -181,9 +179,20 @@ pub mod sanitization {
     
     /// Validate and sanitize room name
     pub fn sanitize_room_name(name: &str) -> String {
-        // Remove HTML and trim whitespace
-        let sanitized = sanitize_plain_text(name);
-        sanitized.trim().to_string()
+        // Simple HTML tag removal using regex-like approach
+        let mut result = String::new();
+        let mut in_tag = false;
+        
+        for ch in name.chars() {
+            match ch {
+                '<' => in_tag = true,
+                '>' => in_tag = false,
+                _ if !in_tag => result.push(ch),
+                _ => {} // Skip characters inside tags
+            }
+        }
+        
+        result.trim().to_string()
     }
     
     /// Validate and sanitize user input

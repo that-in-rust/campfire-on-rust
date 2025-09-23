@@ -1,15 +1,20 @@
 use anyhow::Result;
 use axum::{
+    middleware,
     routing::{get, post},
     Router,
 };
 use std::net::SocketAddr;
-use tower::ServiceBuilder;
+use std::time::Duration;
 use tower_http::trace::TraceLayer;
-use tracing::{info, Level};
+use tracing::{error, info, Level};
 use tracing_subscriber;
 
-use campfire_on_rust::{AppState, CampfireDatabase, AuthService, RoomService, MessageService, ConnectionManagerImpl, SearchService, PushNotificationServiceImpl, VapidConfig, BotServiceImpl};
+use campfire_on_rust::{
+    AppState, CampfireDatabase, AuthService, RoomService, MessageService, 
+    ConnectionManagerImpl, SearchService, PushNotificationServiceImpl, 
+    VapidConfig, BotServiceImpl, health, metrics, shutdown
+};
 use campfire_on_rust::middleware::security;
 use std::sync::Arc;
 
@@ -21,6 +26,37 @@ async fn main() -> Result<()> {
         .init();
 
     info!("Starting Campfire Rust server...");
+
+    // Initialize health check system
+    health::init();
+
+    // Initialize metrics system
+    if let Err(e) = metrics::init_metrics() {
+        error!("Failed to initialize metrics: {}", e);
+        // Continue without metrics rather than failing
+    }
+
+    // Initialize shutdown coordinator
+    let mut shutdown_coordinator = shutdown::ShutdownCoordinator::new();
+    let shutdown_receiver = shutdown_coordinator.subscribe();
+
+    // Start listening for shutdown signals
+    shutdown_coordinator.listen_for_signals().await;
+
+    // Run startup validation
+    let mut startup_validator = shutdown::StartupValidator::new();
+    startup_validator.add_check(shutdown::DatabaseConnectivityCheck::new("campfire.db".to_string()));
+    startup_validator.add_check(shutdown::ConfigurationCheck::new("campfire".to_string()));
+    startup_validator.add_check(shutdown::ServicesCheck::new(vec![
+        "auth".to_string(),
+        "messaging".to_string(),
+        "push".to_string(),
+    ]));
+
+    if let Err(e) = startup_validator.validate_all().await {
+        error!("Startup validation failed: {}", e);
+        return Err(anyhow::anyhow!("Startup validation failed: {}", e));
+    }
 
     // Initialize database
     let db = CampfireDatabase::new("campfire.db").await?;
@@ -71,6 +107,26 @@ async fn main() -> Result<()> {
         bot_service,
     };
 
+    // Setup resource manager for cleanup
+    let mut resource_manager = shutdown::ResourceManager::new();
+    resource_manager.add_resource(shutdown::DatabaseResource::new("campfire_db".to_string()));
+    resource_manager.add_resource(shutdown::WebSocketResource::new("websocket_connections".to_string(), 0));
+
+    // Add shutdown tasks
+    let resource_manager_arc = Arc::new(resource_manager);
+    let resource_manager_for_shutdown = resource_manager_arc.clone();
+    
+    shutdown_coordinator.add_task(
+        "resource_cleanup".to_string(),
+        Duration::from_secs(10),
+        move || {
+            let rm = resource_manager_for_shutdown.clone();
+            tokio::spawn(async move {
+                rm.cleanup_all().await;
+            })
+        }
+    );
+
     // Build application with routes
     let app = Router::new()
         // HTML pages
@@ -81,8 +137,12 @@ async fn main() -> Result<()> {
         // Static assets
         .route("/static/*path", get(campfire_on_rust::assets::serve_static_asset))
         
-        // Health check
-        .route("/health", get(health_check))
+        // Health and monitoring endpoints
+        .route("/health", get(health::health_check))
+        .route("/health/ready", get(health::readiness_check))
+        .route("/health/live", get(health::liveness_check))
+        .route("/metrics", get(metrics::metrics_endpoint))
+        .route("/metrics/summary", get(metrics::metrics_summary))
         
         // WebSocket
         .route("/ws", get(campfire_on_rust::handlers::websocket::websocket_handler))
@@ -120,24 +180,45 @@ async fn main() -> Result<()> {
     let app = app.route("/api/push/test", post(campfire_on_rust::handlers::push::send_test_notification));
     
     let app = app
-        .layer(
-            ServiceBuilder::new()
-                .layer(TraceLayer::new_for_http())
-                .layer(security::create_security_middleware_stack())
-        )
+        .layer(middleware::from_fn(metrics::record_http_request))
+        .layer(security::create_request_size_limit_layer())
+        .layer(security::create_timeout_layer())
+        .layer(security::create_production_cors_layer())
+        .layer(security::create_security_headers_layer())
+        .layer(TraceLayer::new_for_http())
         .with_state(app_state);
 
-    // Start server
+    // Start server with graceful shutdown
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     info!("Server listening on {}", addr);
     
-    axum::Server::bind(&addr)
+    let server = axum::Server::bind(&addr)
         .serve(app.into_make_service())
-        .await?;
+        .with_graceful_shutdown(async {
+            let mut shutdown_receiver = shutdown_receiver;
+            if let Ok(signal) = shutdown_receiver.recv().await {
+                info!("Received shutdown signal: {:?}", signal);
+            }
+        });
 
+    // Run server and wait for shutdown
+    tokio::select! {
+        result = server => {
+            if let Err(e) = result {
+                error!("Server error: {}", e);
+                return Err(e.into());
+            }
+        }
+        _ = shutdown_coordinator.wait_for_shutdown() => {
+            info!("Shutdown signal received, stopping server...");
+        }
+    }
+
+    // Perform final cleanup
+    info!("Performing final cleanup...");
+    shutdown_coordinator.shutdown(shutdown::ShutdownSignal::Application).await;
+
+    info!("Campfire server shutdown complete");
     Ok(())
 }
 
-async fn health_check() -> &'static str {
-    "OK"
-}

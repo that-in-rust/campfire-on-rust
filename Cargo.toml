@@ -11,7 +11,7 @@ license = "MIT"
 axum = { version = "0.6", features = ["ws", "macros"] }
 tokio = { version = "1.0", features = ["full"] }
 tower = { version = "0.4", features = ["full"] }
-tower-http = { version = "0.4", features = ["fs", "cors", "trace"] }
+tower-http = { version = "0.4", features = ["fs", "cors", "trace", "limit", "timeout", "set-header"] }
 
 # Database and migrations
 sqlx = { version = "0.6", features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono"] }
@@ -59,13 +59,22 @@ url = "2.0"
 
 # Rate limiting and security
 governor = "0.6"
-tower-governor = "0.1"
+tower_governor = "0.2"
 validator = { version = "0.16", features = ["derive"] }
+
+# Signal handling and graceful shutdown
+signal-hook = "0.3"
+signal-hook-tokio = { version = "0.3", features = ["futures-v0_3"] }
+
+# Metrics and monitoring
+metrics = "0.21"
+metrics-exporter-prometheus = "0.12"
 
 [dev-dependencies]
 tokio-test = "0.4"
 mockall = "0.12"
 testcontainers = "0.15"
+hyper = { version = "0.14", features = ["full"] }
 
 [lib]
 name = "campfire_on_rust"

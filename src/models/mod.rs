@@ -194,6 +194,19 @@ pub enum RoomType {
     Direct,  // Two-person direct message
 }
 
+impl std::str::FromStr for RoomType {
+    type Err = String;
+    
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "open" => Ok(RoomType::Open),
+            "closed" => Ok(RoomType::Closed),
+            "direct" => Ok(RoomType::Direct),
+            _ => Err(format!("Invalid room type: {}", s)),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     pub id: MessageId,
@@ -281,6 +294,18 @@ pub enum InvolvementLevel {
     Admin,
 }
 
+impl std::str::FromStr for InvolvementLevel {
+    type Err = String;
+    
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "member" => Ok(InvolvementLevel::Member),
+            "admin" => Ok(InvolvementLevel::Admin),
+            _ => Err(format!("Invalid involvement level: {}", s)),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Session {
     pub token: String,
@@ -289,30 +314,11 @@ pub struct Session {
     pub expires_at: DateTime<Utc>,
 }
 
-// Request/Response DTOs
-#[derive(Debug, Deserialize)]
-pub struct LoginRequest {
-    pub email: String,
-    pub password: String,
-}
-
+// Response DTOs
 #[derive(Debug, Serialize)]
 pub struct LoginResponse {
     pub user: User,
     pub session_token: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct CreateMessageRequest {
-    pub content: String,
-    pub client_message_id: Uuid,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct CreateRoomRequest {
-    pub name: String,
-    pub topic: Option<String>,
-    pub room_type: RoomType,
 }
 
 // WebSocket message types
@@ -385,13 +391,7 @@ impl Default for NotificationPreferences {
     }
 }
 
-// Push notification request/response DTOs
-#[derive(Debug, Deserialize)]
-pub struct CreatePushSubscriptionRequest {
-    pub endpoint: String,
-    pub keys: PushSubscriptionKeys,
-}
-
+// Push notification response DTOs
 #[derive(Debug, Deserialize)]
 pub struct PushSubscriptionKeys {
     pub p256dh: String,
@@ -441,11 +441,7 @@ impl Bot {
     }
 }
 
-#[derive(Debug, Deserialize)]
-pub struct CreateBotRequest {
-    pub name: String,
-    pub webhook_url: Option<String>,
-}
+
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateBotRequest {
@@ -453,10 +449,7 @@ pub struct UpdateBotRequest {
     pub webhook_url: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct BotMessageRequest {
-    pub body: String,
-}
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebhookPayload {
