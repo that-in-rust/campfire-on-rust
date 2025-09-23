@@ -57,6 +57,11 @@ web-push = "0.8"
 reqwest = { version = "0.11", features = ["json"] }
 url = "2.0"
 
+# Rate limiting and security
+governor = "0.6"
+tower-governor = "0.1"
+validator = { version = "0.16", features = ["derive"] }
+
 [dev-dependencies]
 tokio-test = "0.4"
 mockall = "0.12"

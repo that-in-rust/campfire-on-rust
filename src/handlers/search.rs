@@ -4,10 +4,12 @@ use axum::{
     response::Json,
 };
 use serde_json::{json, Value};
+use validator::Validate;
 use crate::{
     AppState,
-    services::search::{SearchRequest, SearchResponse, SearchError},
+    services::search::{SearchResponse, SearchError},
     middleware::session::AuthenticatedUser,
+    validation::{SearchRequest, sanitization},
 };
 
 /// GET /api/search?q=query&limit=20&offset=0&room_id=uuid
@@ -18,7 +20,28 @@ pub async fn search_messages(
     auth_user: AuthenticatedUser,
     Query(params): Query<SearchRequest>,
 ) -> Result<Json<SearchResponse>, (StatusCode, Json<Value>)> {
-    match state.search_service.search_messages(auth_user.user.id, params).await {
+    // Validate the search request
+    if let Err(validation_errors) = params.validate() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": "Validation failed",
+                "details": validation_errors
+            }))
+        ));
+    }
+    
+    // Sanitize search query
+    let sanitized_query = sanitization::sanitize_user_input(&params.q);
+    
+    // Create sanitized search request
+    let search_request = crate::services::search::SearchRequest {
+        q: sanitized_query,
+        limit: params.limit,
+        room_id: params.room_id,
+    };
+    
+    match state.search_service.search_messages(auth_user.user.id, search_request).await {
         Ok(response) => Ok(Json(response)),
         Err(err) => {
             let error_message = err.to_string();

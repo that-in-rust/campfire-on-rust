@@ -7,6 +7,7 @@ pub mod middleware;
 pub mod rich_text;
 pub mod sounds;
 pub mod assets;
+pub mod validation;
 
 pub use database::CampfireDatabase;
 pub use services::auth::{AuthService, AuthServiceTrait};

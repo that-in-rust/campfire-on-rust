@@ -191,7 +191,7 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
 
 ### Phase 6: Frontend and Production
 
-- [-] **6.1 Static Asset Serving**
+- [x] **6.1 Static Asset Serving**
   - Add rust-embed crate dependency for asset embedding
   - Embed frontend assets (HTML, CSS, JS) at compile time
   - Serve static files from embedded assets with proper MIME types
@@ -199,7 +199,7 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
   - Create basic HTML templates for the chat interface
   - _Requirements: Requirement 8.7 (embedded assets)_
 
-- [ ] **6.2 Rate Limiting and Security**
+- [-] **6.2 Rate Limiting and Security**
   - Add governor crate dependency and implement rate limiting middleware
   - Enhance CORS middleware configuration for production
   - Implement request size limits and timeout handling

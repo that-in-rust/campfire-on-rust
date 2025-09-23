@@ -8,7 +8,8 @@ use tracing::{error, info, warn};
 
 use crate::errors::AuthError;
 use crate::middleware::session::SessionToken;
-use crate::models::{LoginRequest, LoginResponse};
+use crate::models::LoginResponse;
+use crate::validation::{ValidatedJson, LoginRequest, sanitization};
 use crate::AppState;
 
 /// POST /api/auth/login
@@ -30,29 +31,23 @@ use crate::AppState;
 /// - 500 Internal Server Error: Server error
 pub async fn login(
     State(state): State<AppState>,
-    Json(request): Json<LoginRequest>,
+    ValidatedJson(request): ValidatedJson<LoginRequest>,
 ) -> Response {
-    info!("Login attempt for email: {}", request.email);
+    // Sanitize input
+    let email = sanitization::sanitize_plain_text(&request.email);
+    let password = request.password; // Don't sanitize passwords
     
-    // Validate request
-    if request.email.trim().is_empty() || request.password.is_empty() {
-        warn!("Login attempt with empty email or password");
-        return create_error_response(
-            StatusCode::BAD_REQUEST,
-            "Email and password are required",
-            "MISSING_CREDENTIALS"
-        );
-    }
+    info!("Login attempt for email: {}", email);
     
     // Authenticate user and create session
     let session = match state
         .auth_service
-        .authenticate(request.email.clone(), request.password)
+        .authenticate(email.clone(), password)
         .await
     {
         Ok(session) => session,
         Err(auth_error) => {
-            warn!("Authentication failed for {}: {}", request.email, auth_error);
+            warn!("Authentication failed for {}: {}", email, auth_error);
             return auth_error_to_response(auth_error);
         }
     };

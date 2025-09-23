@@ -8,7 +8,8 @@ use uuid::Uuid;
 
 use crate::errors::RoomError;
 use crate::middleware::session::AuthenticatedUser;
-use crate::models::{CreateRoomRequest, Room, RoomId, InvolvementLevel};
+use crate::models::{Room, RoomId, InvolvementLevel};
+use crate::validation::{ValidatedJson, CreateRoomRequest, AddRoomMemberRequest, sanitization};
 use crate::AppState;
 
 /// GET /api/rooms
@@ -60,15 +61,23 @@ pub async fn get_rooms(
 pub async fn create_room(
     auth_user: AuthenticatedUser,
     State(state): State<AppState>,
-    Json(request): Json<CreateRoomRequest>,
+    ValidatedJson(request): ValidatedJson<CreateRoomRequest>,
 ) -> Result<(StatusCode, Json<Room>), RoomApiError> {
+    // Sanitize input
+    let name = sanitization::sanitize_room_name(&request.name);
+    let topic = request.topic.map(|t| sanitization::sanitize_user_input(&t));
+    
+    // Parse room type
+    let room_type = request.room_type.parse()
+        .map_err(|_| RoomApiError::InvalidRoomType { room_type: request.room_type })?;
+    
     // Create room using the room service
     let room = state
         .room_service
         .create_room(
-            request.name,
-            request.topic,
-            request.room_type,
+            name,
+            topic,
+            room_type,
             auth_user.user.id,
         )
         .await
@@ -157,22 +166,20 @@ pub async fn add_room_member(
     auth_user: AuthenticatedUser,
     State(state): State<AppState>,
     Path(room_id_str): Path<String>,
-    Json(request): Json<AddMemberRequest>,
+    ValidatedJson(request): ValidatedJson<AddRoomMemberRequest>,
 ) -> Result<StatusCode, RoomApiError> {
     // Parse room ID
     let room_id = parse_room_id(&room_id_str)?;
 
-    // Parse user ID
-    let user_id = Uuid::parse_str(&request.user_id)
-        .map_err(|_| RoomApiError::InvalidUserId {
-            user_id: request.user_id.clone(),
-        })?
-        .into();
+    // Parse user ID and involvement level
+    let user_id = request.user_id.into();
+    let involvement_level = request.involvement_level.parse()
+        .map_err(|_| RoomApiError::InvalidInvolvementLevel { level: request.involvement_level })?;
 
     // Add member using room service
     state
         .room_service
-        .add_member(room_id, user_id, auth_user.user.id, request.involvement_level)
+        .add_member(room_id, user_id, auth_user.user.id, involvement_level)
         .await
         .map_err(RoomApiError::from)?;
 
@@ -188,18 +195,15 @@ fn parse_room_id(room_id_str: &str) -> Result<RoomId, RoomApiError> {
         })
 }
 
-/// Request DTO for adding members to a room
-#[derive(serde::Deserialize)]
-pub struct AddMemberRequest {
-    pub user_id: String,
-    pub involvement_level: InvolvementLevel,
-}
+
 
 /// Room API specific errors with proper HTTP status codes
 #[derive(Debug)]
 pub enum RoomApiError {
     InvalidRoomId { room_id: String },
     InvalidUserId { user_id: String },
+    InvalidRoomType { room_type: String },
+    InvalidInvolvementLevel { level: String },
     NotFound { room_id: RoomId },
     AccessDenied { room_id: RoomId },
     Database(sqlx::Error),
@@ -233,6 +237,16 @@ impl IntoResponse for RoomApiError {
                 StatusCode::BAD_REQUEST,
                 format!("Invalid user ID format: {}", user_id),
                 "INVALID_USER_ID",
+            ),
+            RoomApiError::InvalidRoomType { room_type } => (
+                StatusCode::BAD_REQUEST,
+                format!("Invalid room type: {}", room_type),
+                "INVALID_ROOM_TYPE",
+            ),
+            RoomApiError::InvalidInvolvementLevel { level } => (
+                StatusCode::BAD_REQUEST,
+                format!("Invalid involvement level: {}", level),
+                "INVALID_INVOLVEMENT_LEVEL",
             ),
             RoomApiError::NotFound { room_id } => (
                 StatusCode::NOT_FOUND,

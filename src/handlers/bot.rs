@@ -10,6 +10,7 @@ use uuid::Uuid;
 use crate::errors::BotError;
 use crate::middleware::session::AuthenticatedUser;
 use crate::models::*;
+use crate::validation::{ValidatedJson, CreateBotRequest, CreateBotMessageRequest, sanitization};
 use crate::AppState;
 
 /// GET /api/bots
@@ -77,7 +78,7 @@ pub async fn list_bots(
 pub async fn create_bot(
     State(state): State<AppState>,
     auth_user: AuthenticatedUser,
-    Json(request): Json<CreateBotRequest>,
+    ValidatedJson(request): ValidatedJson<CreateBotRequest>,
 ) -> Response {
     // Check admin privileges
     if !auth_user.user.admin {
@@ -89,9 +90,13 @@ pub async fn create_bot(
         );
     }
     
-    info!("Creating bot '{}' for admin {}", request.name, auth_user.user.id);
+    // Sanitize input
+    let name = sanitization::sanitize_user_input(&request.name);
+    let description = request.description.map(|d| sanitization::sanitize_user_input(&d));
     
-    match state.bot_service.create_bot(request.name, request.webhook_url).await {
+    info!("Creating bot '{}' for admin {}", name, auth_user.user.id);
+    
+    match state.bot_service.create_bot(name, description).await {
         Ok(bot) => {
             info!("Created bot: {} ({})", bot.name, bot.id);
             (StatusCode::CREATED, Json(json!({
@@ -339,7 +344,7 @@ pub async fn reset_bot_token(
 pub async fn create_bot_message(
     State(state): State<AppState>,
     Path((room_id, bot_key)): Path<(Uuid, String)>,
-    body: String, // Accept raw body for simplicity
+    ValidatedJson(request): ValidatedJson<CreateBotMessageRequest>,
 ) -> Response {
     let room_id = RoomId(room_id);
     
@@ -366,31 +371,8 @@ pub async fn create_bot_message(
         }
     };
     
-    // Parse message content
-    let content = if body.trim().starts_with('{') {
-        // Try to parse as JSON
-        match serde_json::from_str::<BotMessageRequest>(&body) {
-            Ok(request) => request.body,
-            Err(_) => {
-                return create_error_response(
-                    StatusCode::BAD_REQUEST,
-                    "Invalid JSON format",
-                    "INVALID_JSON"
-                );
-            }
-        }
-    } else {
-        // Use raw body as content
-        body
-    };
-    
-    if content.trim().is_empty() {
-        return create_error_response(
-            StatusCode::BAD_REQUEST,
-            "Message content cannot be empty",
-            "EMPTY_CONTENT"
-        );
-    }
+    // Sanitize message content
+    let content = sanitization::sanitize_message_content(&request.content);
     
     // Create message
     match state.bot_service.create_bot_message(bot_user.id, room_id, content).await {

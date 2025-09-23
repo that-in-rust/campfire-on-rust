@@ -9,7 +9,8 @@ use uuid::Uuid;
 
 use crate::errors::MessageError;
 use crate::middleware::AuthenticatedUser;
-use crate::models::{CreateMessageRequest, Message, MessageId, RoomId};
+use crate::models::{Message, MessageId, RoomId};
+use crate::validation::{ValidatedJson, CreateMessageRequest, sanitization};
 use crate::AppState;
 
 #[derive(Deserialize)]
@@ -60,7 +61,7 @@ pub async fn create_message(
     State(state): State<AppState>,
     Path(room_id_str): Path<String>,
     auth_user: AuthenticatedUser,
-    Json(request): Json<CreateMessageRequest>,
+    ValidatedJson(request): ValidatedJson<CreateMessageRequest>,
 ) -> Result<Response, Response> {
     info!(
         "Creating message in room {} for user {}",
@@ -70,26 +71,14 @@ pub async fn create_message(
     // Parse room_id from path parameter
     let room_id = parse_room_id(&room_id_str)?;
 
-    // Validate request
-    if request.content.trim().is_empty() {
-        return Err(create_error_response(
-            StatusCode::BAD_REQUEST,
-            "Message content cannot be empty",
-        ));
-    }
-
-    if request.content.len() > 10000 {
-        return Err(create_error_response(
-            StatusCode::BAD_REQUEST,
-            &format!("Message content too long: {} chars (max: 10000)", request.content.len()),
-        ));
-    }
+    // Sanitize message content
+    let content = sanitization::sanitize_message_content(&request.content);
 
     // Use message service to create message with deduplication
     match state
         .message_service
         .create_message_with_deduplication(
-            request.content,
+            content,
             room_id,
             auth_user.user.id,
             request.client_message_id,

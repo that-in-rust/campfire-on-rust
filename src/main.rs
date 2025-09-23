@@ -5,11 +5,12 @@ use axum::{
 };
 use std::net::SocketAddr;
 use tower::ServiceBuilder;
-use tower_http::{cors::CorsLayer, trace::TraceLayer};
+use tower_http::trace::TraceLayer;
 use tracing::{info, Level};
 use tracing_subscriber;
 
 use campfire_on_rust::{AppState, CampfireDatabase, AuthService, RoomService, MessageService, ConnectionManagerImpl, SearchService, PushNotificationServiceImpl, VapidConfig, BotServiceImpl};
+use campfire_on_rust::middleware::security;
 use std::sync::Arc;
 
 #[tokio::main]
@@ -122,7 +123,7 @@ async fn main() -> Result<()> {
         .layer(
             ServiceBuilder::new()
                 .layer(TraceLayer::new_for_http())
-                .layer(CorsLayer::permissive())
+                .layer(security::create_security_middleware_stack())
         )
         .with_state(app_state);
 
