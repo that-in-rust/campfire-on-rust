@@ -69,6 +69,26 @@ cargo run
 
 ```mermaid
 graph TD
+    subgraph "Campfire Architecture"
+        direction TB
+        BINARY[Single Rust Binary<br/>Zero Dependencies]
+        LAYERS[Three-Layer Design<br/>Web → Service → Data]
+        PATTERNS[Rails Patterns<br/>Rust Performance]
+        FEATURES[Complete Features<br/>Chat + Real-time + Search]
+    end
+    
+    BINARY --> LAYERS
+    LAYERS --> PATTERNS
+    PATTERNS --> FEATURES
+    
+    classDef arch fill:#e1f5fe,stroke:#01579b,stroke-width:3px
+    class BINARY,LAYERS,PATTERNS,FEATURES arch
+```
+
+### Detailed System Architecture
+
+```mermaid
+graph TD
     subgraph "Single Rust Binary"
         subgraph "Web Layer"
             HTTP[HTTP Server<br/>Axum + Askama]

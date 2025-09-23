@@ -8,6 +8,25 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
 
 The Campfire Rust search system provides fast, accurate full-text search across all messages using SQLite FTS5 (Full-Text Search). This guide explains the implementation, query syntax, performance characteristics, and optimization strategies.
 
+```mermaid
+graph TD
+    subgraph "Search System Journey"
+        QUERY[Search Query<br/>User Input + Validation]
+        FTS5[FTS5 Engine<br/>SQLite Full-Text Search]
+        AUTH[Authorization<br/>Room Access Control]
+        RESULTS[Ranked Results<br/>BM25 + Snippets]
+        OPTIMIZE[Performance<br/>Sub-millisecond Search]
+    end
+    
+    QUERY --> FTS5
+    FTS5 --> AUTH
+    AUTH --> RESULTS
+    RESULTS --> OPTIMIZE
+    
+    classDef journey fill:#fce4ec,stroke:#c2185b,stroke-width:3px
+    class QUERY,FTS5,AUTH,RESULTS,OPTIMIZE journey
+```
+
 **Key Features:**
 - **Sub-millisecond search** across thousands of messages
 - **Authorization-aware results** - only shows accessible content

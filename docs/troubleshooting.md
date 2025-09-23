@@ -8,6 +8,24 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
 
 This comprehensive troubleshooting guide helps diagnose and resolve common issues with Campfire Rust. The guide follows Basecamp's proven error handling patterns adapted for Rust-based systems, providing systematic approaches to identify and fix problems quickly.
 
+```mermaid
+graph TD
+    subgraph "Troubleshooting Journey"
+        direction TB
+        IDENTIFY[Identify Issue<br/>Symptoms + Quick Diagnosis]
+        CATEGORIZE[Categorize Problem<br/>WebSocket + Database + Performance]
+        DIAGNOSE[Deep Diagnosis<br/>Logs + Metrics + Testing]
+        RESOLVE[Apply Solution<br/>Targeted Fix + Verification]
+    end
+    
+    IDENTIFY --> CATEGORIZE
+    CATEGORIZE --> DIAGNOSE
+    DIAGNOSE --> RESOLVE
+    
+    classDef journey fill:#ffebee,stroke:#d32f2f,stroke-width:3px
+    class IDENTIFY,CATEGORIZE,DIAGNOSE,RESOLVE journey
+```
+
 **Troubleshooting Philosophy:**
 - **Systematic Diagnosis**: Follow structured approaches to identify root causes
 - **Observable Systems**: Use built-in logging and metrics for problem identification

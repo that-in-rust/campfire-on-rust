@@ -4,6 +4,24 @@
 
 This guide covers the development workflow, testing strategies, and contribution guidelines for the Campfire Rust rewrite project.
 
+```mermaid
+graph TD
+    subgraph "Development Journey"
+        direction TB
+        SETUP[Environment Setup<br/>Tools + Dependencies]
+        WORKFLOW[Development Workflow<br/>TDD + Code Quality]
+        TESTING[Testing Strategy<br/>Unit + Integration + E2E]
+        CONTRIBUTION[Contribution Process<br/>PR + Review + Merge]
+    end
+    
+    SETUP --> WORKFLOW
+    WORKFLOW --> TESTING
+    TESTING --> CONTRIBUTION
+    
+    classDef journey fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px
+    class SETUP,WORKFLOW,TESTING,CONTRIBUTION journey
+```
+
 ## Development Workflow
 
 ```mermaid

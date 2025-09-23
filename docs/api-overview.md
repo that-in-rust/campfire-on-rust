@@ -8,6 +8,26 @@ The Campfire Rust API provides both REST endpoints and WebSocket connections for
 
 ```mermaid
 graph TD
+    subgraph "API Ecosystem"
+        direction TB
+        CLIENTS[Client Applications<br/>Web + Mobile + Bots]
+        GATEWAY[API Gateway<br/>Axum Router + Middleware]
+        ENDPOINTS[API Endpoints<br/>REST + WebSocket]
+        SERVICES[Service Layer<br/>Business Logic]
+    end
+    
+    CLIENTS --> GATEWAY
+    GATEWAY --> ENDPOINTS
+    ENDPOINTS --> SERVICES
+    
+    classDef ecosystem fill:#e1f5fe,stroke:#01579b,stroke-width:3px
+    class CLIENTS,GATEWAY,ENDPOINTS,SERVICES ecosystem
+```
+
+### Detailed API Architecture
+
+```mermaid
+graph TD
     subgraph "Client Applications"
         direction LR
         WEB[Web Browser<br/>HTML + HTMX]

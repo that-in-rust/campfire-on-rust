@@ -4,6 +4,25 @@
 
 Campfire provides a powerful bot API system inspired by Basecamp's webhook architecture, enabling seamless integration with external services, CI/CD pipelines, monitoring tools, and custom automation. This guide covers everything from basic bot setup to advanced webhook configurations and best practices.
 
+```mermaid
+graph TD
+    subgraph "Bot Integration Journey"
+        CREATE[Create Bot<br/>Admin Setup + Token]
+        SEND[Send Messages<br/>REST API Calls]
+        WEBHOOK[Setup Webhooks<br/>Real-time Events]
+        EXAMPLES[Implementation<br/>Python/Node.js/Go]
+        PRODUCTION[Production Ready<br/>Security + Best Practices]
+    end
+    
+    CREATE --> SEND
+    SEND --> WEBHOOK
+    WEBHOOK --> EXAMPLES
+    EXAMPLES --> PRODUCTION
+    
+    classDef journey fill:#fff3e0,stroke:#ef6c00,stroke-width:3px
+    class CREATE,SEND,WEBHOOK,EXAMPLES,PRODUCTION journey
+```
+
 **Key Features:**
 - Simple REST API for bot messaging
 - Webhook system for real-time event notifications

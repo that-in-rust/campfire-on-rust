@@ -4,6 +4,24 @@
 
 This guide provides comprehensive security documentation for Campfire, covering authentication security, input validation, network security, and deployment best practices. The security model is inspired by Basecamp's security-conscious implementation while leveraging Rust's memory safety guarantees.
 
+```mermaid
+graph TD
+    subgraph "Security Defense Journey"
+        direction TB
+        NETWORK[Network Security<br/>TLS + Firewall + Rate Limiting]
+        APPLICATION[Application Security<br/>Auth + Validation + Encoding]
+        DATA[Data Security<br/>Encryption + Hashing + Audit]
+        INFRASTRUCTURE[Infrastructure Security<br/>Containers + Permissions + Isolation]
+    end
+    
+    NETWORK --> APPLICATION
+    APPLICATION --> DATA
+    DATA --> INFRASTRUCTURE
+    
+    classDef journey fill:#e3f2fd,stroke:#1976d2,stroke-width:3px
+    class NETWORK,APPLICATION,DATA,INFRASTRUCTURE journey
+```
+
 **Security Philosophy:**
 - **Defense in Depth**: Multiple layers of security controls
 - **Secure by Default**: Safe defaults that don't require configuration

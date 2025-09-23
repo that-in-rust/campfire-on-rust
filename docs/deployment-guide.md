@@ -8,6 +8,25 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
 
 This comprehensive guide covers deploying Campfire Rust to production environments, from single-server deployments to scalable cloud architectures. The guide follows Basecamp's proven deployment patterns adapted for modern containerized environments.
 
+```mermaid
+graph TD
+    subgraph "Deployment Journey"
+        START[Start Deployment<br/>5-Minute Quick Start]
+        DOCKER[Docker Setup<br/>Container + Volumes]
+        PROXY[Reverse Proxy<br/>nginx/Caddy + SSL]
+        MONITOR[Monitoring<br/>Health + Metrics]
+        PRODUCTION[Production Ready<br/>Secure + Scalable]
+    end
+    
+    START --> DOCKER
+    DOCKER --> PROXY
+    PROXY --> MONITOR
+    MONITOR --> PRODUCTION
+    
+    classDef journey fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px
+    class START,DOCKER,PROXY,MONITOR,PRODUCTION journey
+```
+
 **Deployment Philosophy:**
 - **Single Binary Simplicity**: Leverage Rust's static compilation for zero-dependency deployments
 - **Container-First**: Docker containers for consistent environments across development and production

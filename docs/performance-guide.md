@@ -4,6 +4,24 @@
 
 This guide provides comprehensive performance optimization strategies for the Campfire Rust implementation, covering database optimization, WebSocket scaling, memory management, and monitoring techniques based on production patterns from the original Campfire.
 
+```mermaid
+graph TD
+    subgraph "Performance Optimization Journey"
+        direction TB
+        BASELINE[Performance Baseline<br/>Measure Current State]
+        DATABASE[Database Optimization<br/>SQLite WAL + Indexing]
+        WEBSOCKET[WebSocket Scaling<br/>Connection Management]
+        MONITORING[Performance Monitoring<br/>Metrics + Alerting]
+    end
+    
+    BASELINE --> DATABASE
+    DATABASE --> WEBSOCKET
+    WEBSOCKET --> MONITORING
+    
+    classDef journey fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px
+    class BASELINE,DATABASE,WEBSOCKET,MONITORING journey
+```
+
 **Performance Philosophy**: Leverage Rust's zero-cost abstractions and memory safety to achieve high performance while maintaining code clarity and correctness.
 
 ## Database Performance Optimization

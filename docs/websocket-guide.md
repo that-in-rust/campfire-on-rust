@@ -10,6 +10,26 @@ Campfire's real-time features are built on WebSocket connections that provide in
 
 ```mermaid
 graph TD
+    subgraph "WebSocket Real-Time System"
+        direction TB
+        CONNECTION[WebSocket Connection<br/>Authentication + Registration]
+        MESSAGING[Real-Time Messaging<br/>Instant Delivery]
+        PRESENCE[Presence Tracking<br/>Online Users]
+        RECONNECTION[Reconnection Logic<br/>Missed Messages]
+    end
+    
+    CONNECTION --> MESSAGING
+    MESSAGING --> PRESENCE
+    PRESENCE --> RECONNECTION
+    
+    classDef realtime fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px
+    class CONNECTION,MESSAGING,PRESENCE,RECONNECTION realtime
+```
+
+### Detailed WebSocket Architecture
+
+```mermaid
+graph TD
     subgraph "Client Side"
         WS_CLIENT[WebSocket Client]
         RECONNECT[Reconnection Logic]
@@ -40,6 +60,14 @@ graph TD
     MISSED_MSG --> DB
     
     CONN_MGR --> MISSED_MSG
+    
+    classDef client fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef server fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef data fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    
+    class WS_CLIENT,RECONNECT,MSG_QUEUE client
+    class WS_HANDLER,CONN_MGR,MSG_BROADCAST,PRESENCE server
+    class DB,MISSED_MSG data
 ```
 
 ## Connection Lifecycle

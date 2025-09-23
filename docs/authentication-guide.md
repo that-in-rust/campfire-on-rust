@@ -15,6 +15,26 @@ Campfire implements a Rails-inspired session-based authentication system using s
 
 ```mermaid
 graph TD
+    subgraph "Authentication System"
+        direction TB
+        LOGIN[User Login<br/>Email + Password]
+        SESSION[Session Management<br/>Secure Tokens]
+        VALIDATION[Token Validation<br/>Request Authentication]
+        BOTS[Bot Authentication<br/>API Keys]
+    end
+    
+    LOGIN --> SESSION
+    SESSION --> VALIDATION
+    VALIDATION --> BOTS
+    
+    classDef auth fill:#e3f2fd,stroke:#1976d2,stroke-width:3px
+    class LOGIN,SESSION,VALIDATION,BOTS auth
+```
+
+### Detailed Authentication Flow
+
+```mermaid
+graph TD
     subgraph "Authentication Flow"
         A[Client Request] --> B{Has Auth Token?}
         B -->|No| C[Return 401 Unauthorized]
@@ -40,6 +60,14 @@ graph TD
         R -->|Valid| S[Load Bot User]
         R -->|Invalid| T[Return 401 Error]
     end
+    
+    classDef flow fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef session fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    classDef bot fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    
+    class A,B,C,D,E,F,G,H flow
+    class I,J,K,L,M,N session
+    class O,P,Q,R,S,T bot
 ```
 
 ## Session Management
