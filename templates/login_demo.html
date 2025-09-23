@@ -281,30 +281,41 @@
             </div>
             
             <div class="demo-notice">
-                <h3>🔥 Offline Demo Mode</h3>
-                <p>This is a fully functional chat app running locally. No internet required!</p>
+                <h3>🔥 Enterprise Chat - Offline Demo</h3>
+                <p>Experience a production-ready team chat application running completely offline on your machine!</p>
             </div>
             
             <div class="quick-login">
-                <h4>Quick Login - Click any demo user:</h4>
+                <h4>🎯 One-Click Demo Login - Choose any user:</h4>
                 <div class="demo-users">
                     <button class="demo-user-btn" onclick="quickLogin('admin@campfire.demo', 'password')">
                         <span class="demo-user-email">admin@campfire.demo</span>
-                        <div class="demo-user-role">System Administrator</div>
+                        <div class="demo-user-role">👑 System Administrator</div>
                     </button>
                     <button class="demo-user-btn" onclick="quickLogin('alice@campfire.demo', 'password')">
                         <span class="demo-user-email">alice@campfire.demo</span>
-                        <div class="demo-user-role">Product Manager</div>
+                        <div class="demo-user-role">📋 Product Manager</div>
                     </button>
                     <button class="demo-user-btn" onclick="quickLogin('bob@campfire.demo', 'password')">
                         <span class="demo-user-email">bob@campfire.demo</span>
-                        <div class="demo-user-role">Senior Developer</div>
+                        <div class="demo-user-role">💻 Senior Developer</div>
                     </button>
                     <button class="demo-user-btn" onclick="quickLogin('carol@campfire.demo', 'password')">
                         <span class="demo-user-email">carol@campfire.demo</span>
-                        <div class="demo-user-role">UX Designer</div>
+                        <div class="demo-user-role">🎨 UX Designer</div>
+                    </button>
+                    <button class="demo-user-btn" onclick="quickLogin('david@campfire.demo', 'password')">
+                        <span class="demo-user-email">david@campfire.demo</span>
+                        <div class="demo-user-role">⚙️ DevOps Engineer</div>
+                    </button>
+                    <button class="demo-user-btn" onclick="quickLogin('eve@campfire.demo', 'password')">
+                        <span class="demo-user-email">eve@campfire.demo</span>
+                        <div class="demo-user-role">📢 Marketing Manager</div>
                     </button>
                 </div>
+                <p style="text-align: center; margin-top: 12px; font-size: 13px; color: var(--color-text-secondary);">
+                    💡 <strong>Multi-user testing:</strong> Open multiple tabs to simulate team conversations!
+                </p>
             </div>
             
             <!-- Error/Success messages will be inserted here -->
@@ -358,6 +369,16 @@
             const form = document.getElementById('login-form');
             const button = document.getElementById('login-button');
             const messageContainer = document.getElementById('message-container');
+            
+            // Check for pre-selected demo user
+            const selectedUser = localStorage.getItem('demo_selected_user');
+            if (selectedUser) {
+                document.getElementById('email').value = selectedUser;
+                document.getElementById('password').value = 'password';
+                localStorage.removeItem('demo_selected_user');
+                // Auto-focus the login button
+                button.focus();
+            }
             
             // Check if already logged in
             checkAuthStatus();

@@ -191,22 +191,23 @@
     <div class="demo-container">
         <div class="demo-header">
             <h1>🔥 Campfire Demo</h1>
-            <p>Experience the full power of team chat, offline and ready to explore</p>
+            <p>Experience enterprise-grade team chat, running completely offline</p>
         </div>
         
         <div class="demo-note">
-            <strong>Offline Demo Mode:</strong> This is a fully functional chat application running locally on your machine. 
-            All data is stored in a local SQLite database - no internet connection required!
+            <strong>🚀 Fully Offline Experience:</strong> This is a production-ready chat application running locally on your machine. 
+            All data is stored in a local SQLite database - no internet connection required! Perfect for testing, development, or private deployments.
         </div>
         
         <div class="quick-start">
             <h3>🚀 Quick Start Guide</h3>
             <ol>
-                <li>Choose any demo user from the credentials below</li>
-                <li>Click "Login to Chat" and enter the email and password</li>
-                <li>Explore different rooms: General, Development, Design, etc.</li>
-                <li>Try features like @mentions, /play sounds, and search</li>
-                <li>Open multiple browser tabs to simulate different users chatting</li>
+                <li><strong>Choose a demo user</strong> from the credentials below (all passwords are "password")</li>
+                <li><strong>Click "Login to Chat"</strong> to access the full chat interface</li>
+                <li><strong>Explore pre-loaded rooms:</strong> General, Development, Design, Product Planning, and more</li>
+                <li><strong>Try interactive features:</strong> @mentions, /play sounds (59 available!), full-text search</li>
+                <li><strong>Multi-user simulation:</strong> Open multiple browser tabs/windows to log in as different users and see real-time chat</li>
+                <li><strong>Test enterprise features:</strong> Room permissions, bot integration, push notifications</li>
             </ol>
         </div>
         
@@ -302,8 +303,15 @@
         </div>
         
         <div class="demo-note">
-            <strong>Multi-User Testing:</strong> Open multiple browser tabs or incognito windows to log in as different users 
-            and see real-time chat in action. Messages appear instantly across all connected sessions!
+            <strong>💡 Pro Tips for Testing:</strong>
+            <ul style="margin: 0.5rem 0 0 1.5rem;">
+                <li>Open multiple browser tabs/windows to simulate team conversations</li>
+                <li>Try logging in as different users to see real-time messaging</li>
+                <li>Test @mentions by typing @alice or @bob in messages</li>
+                <li>Play sounds with /play commands: /play tada, /play yeah, /play nyan</li>
+                <li>Use the search feature to find messages across all rooms</li>
+                <li>Check out different room types: open rooms vs. closed/private rooms</li>
+            </ul>
         </div>
         
         <div class="action-buttons">
@@ -316,7 +324,93 @@
                 Built with ❤️ in Rust • Inspired by Basecamp's Campfire • 
                 <a href="https://github.com/that-in-rust/campfire-on-rust" target="_blank" style="color: var(--color-primary);">Open Source</a>
             </p>
+            <div id="demo-status" style="margin-top: 1rem; font-size: 0.8rem; opacity: 0.7;"></div>
         </div>
     </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Load demo status
+            await loadDemoStatus();
+            
+            // Add click handlers for credential cards
+            document.querySelectorAll('.credential-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const email = card.querySelector('.credential-email').textContent;
+                    // Store selected user for quick login
+                    localStorage.setItem('demo_selected_user', email);
+                    // Navigate to login
+                    window.location.href = '/login';
+                });
+            });
+        });
+        
+        async function loadDemoStatus() {
+            try {
+                const response = await fetch('/api/demo/status');
+                if (response.ok) {
+                    const status = await response.json();
+                    updateDemoStatus(status);
+                } else {
+                    console.warn('Failed to load demo status');
+                }
+            } catch (error) {
+                console.warn('Error loading demo status:', error);
+            }
+        }
+        
+        function updateDemoStatus(status) {
+            const statusElement = document.getElementById('demo-status');
+            if (status.demo_mode) {
+                statusElement.innerHTML = `
+                    ✅ Demo ready: ${status.demo_users} users, ${status.demo_rooms} rooms loaded
+                `;
+                statusElement.style.color = 'var(--color-success, #16a34a)';
+            } else {
+                statusElement.innerHTML = `
+                    ⚠️ Demo data not initialized - <button onclick="initializeDemo()" style="background: none; border: none; color: var(--color-primary); cursor: pointer; text-decoration: underline;">Click to initialize</button>
+                `;
+                statusElement.style.color = 'var(--color-warning, #f59e0b)';
+            }
+        }
+        
+        async function initializeDemo() {
+            const statusElement = document.getElementById('demo-status');
+            statusElement.innerHTML = '⏳ Initializing demo data...';
+            statusElement.style.color = 'var(--color-text-secondary)';
+            
+            try {
+                const response = await fetch('/api/demo/initialize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        statusElement.innerHTML = `✅ Demo initialized: ${result.demo_users} users, ${result.demo_rooms} rooms created`;
+                        statusElement.style.color = 'var(--color-success, #16a34a)';
+                        
+                        // Refresh the page after a short delay to show updated content
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
+                    } else {
+                        statusElement.innerHTML = `❌ Initialization failed: ${result.message}`;
+                        statusElement.style.color = 'var(--color-error, #dc2626)';
+                    }
+                } else {
+                    statusElement.innerHTML = '❌ Failed to initialize demo data';
+                    statusElement.style.color = 'var(--color-error, #dc2626)';
+                }
+            } catch (error) {
+                console.error('Demo initialization error:', error);
+                statusElement.innerHTML = '❌ Network error during initialization';
+                statusElement.style.color = 'var(--color-error, #dc2626)';
+            }
+        }
+    </script>
 </body>
 </html>

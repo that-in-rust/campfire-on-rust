@@ -169,6 +169,10 @@ async fn main() -> Result<()> {
         .route("/demo", get(campfire_on_rust::assets::serve_demo_page))
         .route("/manifest.json", get(campfire_on_rust::assets::serve_manifest))
         
+        // Demo API endpoints
+        .route("/api/demo/status", get(campfire_on_rust::handlers::pages::demo_status))
+        .route("/api/demo/initialize", post(campfire_on_rust::handlers::pages::initialize_demo))
+        
         // Static assets
         .route("/static/*path", get(campfire_on_rust::assets::serve_static_asset))
         

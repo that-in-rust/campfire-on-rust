@@ -1,6 +1,6 @@
 use axum::{
     extract::State,
-    http::StatusCode,
+    http::{header::SET_COOKIE, StatusCode},
     response::{IntoResponse, Json, Response},
 };
 use serde_json::json;
@@ -78,10 +78,19 @@ pub async fn login(
     
     let response = LoginResponse {
         user,
-        session_token: session.token,
+        session_token: session.token.clone(),
     };
 
-    (StatusCode::OK, Json(response)).into_response()
+    // Set session cookie for automatic authentication
+    let cookie = format!(
+        "session_token={}; HttpOnly; SameSite=Lax; Path=/; Max-Age={}",
+        session.token,
+        30 * 24 * 60 * 60 // 30 days in seconds
+    );
+
+    let mut response = (StatusCode::OK, Json(response)).into_response();
+    response.headers_mut().insert(SET_COOKIE, cookie.parse().unwrap());
+    response
 }
 
 /// POST /api/auth/logout
@@ -109,25 +118,39 @@ pub async fn logout(
     {
         Ok(()) => {
             info!("Session revoked successfully");
-            (
+            
+            // Clear session cookie
+            let clear_cookie = "session_token=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0";
+            
+            let mut response = (
                 StatusCode::OK,
                 Json(json!({ 
                     "message": "Logged out successfully",
                     "success": true
                 }))
-            ).into_response()
+            ).into_response();
+            
+            response.headers_mut().insert(SET_COOKIE, clear_cookie.parse().unwrap());
+            response
         }
         Err(auth_error) => {
             error!("Failed to revoke session: {}", auth_error);
             // Even if revocation fails, we should return success to the client
             // The session might already be expired or invalid
-            (
+            
+            // Clear session cookie anyway
+            let clear_cookie = "session_token=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0";
+            
+            let mut response = (
                 StatusCode::OK,
                 Json(json!({ 
                     "message": "Logged out successfully",
                     "success": true
                 }))
-            ).into_response()
+            ).into_response();
+            
+            response.headers_mut().insert(SET_COOKIE, clear_cookie.parse().unwrap());
+            response
         }
     }
 }
