@@ -107,3 +107,49 @@ Note: Cross-reference against ./.kiro/specs/campfire-rust-rewrite.
 Next
 - Enumerate ./.kiro/specs/campfire-rust-rewrite to bind concrete spec items to the above.
 - Continue to Chunk 2 (lines 301–600) and expand mapping with acceptance criteria and tasks.
+
+Chunk 2 (lines 301–600) — Highlights
+Views expansion
+- Accounts area (bots, users, custom_styles) with CRUD templates and partials; autocompletable users JSON (jbuilder).
+- ActionText: _opengraph_embed.html.erb (attachable).
+- Layouts: application, lightbox, mailer; ActionText contents partial.
+- Messages views: _actions, _message, _presentation, _template, _unrenderable; turbo_stream templates for create/destroy; room_not_found.
+- PWA: install/system/browser settings, manifest.json.erb, service_worker.js.
+- Rooms: show; subnamespaces for closed/direct/open with form/user partials; refreshes with turbo_stream; show composer/invitation/nav partials.
+- Searches: index.html.erb; Sessions: new + incompatible browser + transfers.
+- Users: mention partial, avatars (SVG), profiles (membership/transfer), push_subscriptions (partial + index), sidebars (rooms direct/shared).
+- Config directory layout: application.rb, boot.rb, routes.rb, initializers (CSP, assets, session_store, time_formats, vapid, web_push), envs, locales.
+- DB: structure.sql and migrations (sessions table, webhooks, custom styles, ActiveStorage variants).
+- Lib: rails_ext (filters, ActionText OG embeds), restricted_http/private_network_guard, tasks, web_push (notification, pool).
+- Tests: broad coverage across controllers, channels, models, system (sending/boosting/unread), helpers; fixtures for accounts/memberships/messages/rooms/sessions/push.
+
+Implications for our MVP (Rust/Axum)
+- Server-rendered UI coverage:
+  - Rooms: list/show with unread badges; per-room composer/partials; presence indicators.
+  - Messages: item/presentation partials; turbo-like updates (we can mirror via HTMX/turbo-like endpoints or WebSocket broadcasts).
+  - PWA: manifest + service worker; settings partials.
+- Helpers-first approach: formatting/time/mentions/sanitize to keep templates thin.
+- Turbo streams: mirror via minimal fragments/WS or HTTP endpoints that return fragments.
+
+Kiro mapping deltas (to validate in ./.kiro/specs/campfire-rust-rewrite)
+- Views/UX
+  - Requirement: Unread badge dots; room show with composer; turbo-like partial updates.
+  - Design: Askama/Minijinja; helper modules; fragment endpoints for partial updates.
+  - Tasks:
+    - Templates: rooms/show (with composer/nav), messages/_item/_presentation, users/profiles, searches/index.
+    - Helpers: time formatting, mention linking, sanitization.
+    - Turbo-like flows: create/destroy return fragments; WS to insert/remove DOM nodes.
+
+- PWA + Service Worker
+  - Requirement: Manifest and SW; optional install instructions; cache policy.
+  - Design: Static endpoints; SW script versioning; cache routes.
+  - Tasks: templates + static routes; SW scaffold.
+
+- ActionText/Unfurl presentation parity
+  - Requirement: OpenGraph embed partial; safe HTML.
+  - Design: OG renderer with sanitized HTML.
+  - Tasks: unfurl partials + sanitizer.
+
+- Test scaffolding
+  - Requirement: System/UAT for send message, boosts, unread.
+  - Tasks: replicate analogous tests in Rust test harness/UAT suite.
