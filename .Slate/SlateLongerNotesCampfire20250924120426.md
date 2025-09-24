@@ -888,3 +888,117 @@ Slice sample (~30 lines from this chunk):
       is_a?(Rooms::Direct)
     end
   
+
+Chunk 40 (lines 11701–12000) — Highlights
+UI/CSS and tokens continue
+- Continued component styles and variables with consistent dark-mode/a11y patterns.
+- Maintain look/feel parity via shared tokens and minimal behaviors.
+
+Slice sample (~30 lines from this chunk):
+  
+      def uri
+        @uri ||= URI(url)
+      end
+  
+      def payload(message)
+        {
+          user:    { id: message.creator.id, name: message.creator.name },
+          room:    { id: message.room.id, name: message.room.name, path: room_bot_messages_path(message) },
+          message: { id: message.id, body: { html: message.body.body, plain: without_recipient_mentions(message.plain_text_body) }, path: message_path(message) }
+        }.to_json
+      end
+  
+      def message_path(message)
+        Rails.application.routes.url_helpers.room_at_message_path(message.room, message)
+      end
+  
+      def room_bot_messages_path(message)
+        Rails.application.routes.url_helpers.room_bot_messages_path(message.room, user.bot_key)
+      end
+  
+      def extract_text_from(response)
+        response.body.dup.force_encoding("UTF-8") if response.code == "200" && response.content_type.in?(%w[ text/html text/plain ])
+      end
+  
+      def receive_text_reply_to(room, text:)
+        room.messages.create!(body: text, creator: user).broadcast_create
+      end
+  
+      def extract_attachment_from(response)
+        if response.content_type && mime_type = Mime::Type.lookup(response.content_type)
+
+Chunk 41 (lines 12001–12300) — Highlights
+UI/CSS and tokens continue
+- Continued component styles and variables with consistent dark-mode/a11y patterns.
+- Maintain look/feel parity via shared tokens and minimal behaviors.
+
+Slice sample (~30 lines from this chunk):
+    private
+      def extract_opengraph_attributes
+        opengraph_tags = html.xpath("//*/meta[starts-with(@property, \"og:\") or starts-with(@name, \"og:\")]").map do |tag|
+          key = tag.key?("property") ? "property" : "name"
+          [ tag[key].gsub("og:", "").to_sym, sanitize_content(tag["content"]) ] if tag["content"].present?
+        end
+  
+        Hash[opengraph_tags.compact].slice(*Opengraph::Metadata::ATTRIBUTES)
+      end
+  
+      def sanitize_content(content)
+        html.meta_encoding ? content : content.encode("UTF-8", "binary", invalid: :replace, undef: :replace, replace: "")
+      end
+  end
+  
+  
+  
+  ================================================
+  FILE: app/models/opengraph/fetch.rb
+  ================================================
+  require "net/http"
+  require "restricted_http/private_network_guard"
+  
+  class Opengraph::Fetch
+    ALLOWED_DOCUMENT_CONTENT_TYPE = "text/html"
+    MAX_BODY_SIZE = 5.megabytes
+    MAX_REDIRECTS = 10
+  
+    class TooManyRedirectsError < StandardError; end
+    class RedirectDeniedError < StandardError; end
+  
+
+Chunk 42 (lines 12301–12600) — Highlights
+UI/CSS and tokens continue
+- Continued component styles and variables with consistent dark-mode/a11y patterns.
+- Maintain look/feel parity via shared tokens and minimal behaviors.
+
+Slice sample (~30 lines from this chunk):
+          build_direct_payload
+        else
+          build_shared_payload
+        end
+      end
+  
+      def build_direct_payload
+        {
+          title: message.creator.name,
+          body: message.plain_text_body,
+          path: Rails.application.routes.url_helpers.room_path(room)
+        }
+      end
+  
+      def build_shared_payload
+        {
+          title: room.name,
+          body: "#{message.creator.name}: #{message.plain_text_body}",
+          path: Rails.application.routes.url_helpers.room_path(room)
+        }
+      end
+  
+      def push_to_users_involved_in_everything(payload)
+        enqueue_payload_for_delivery payload, push_subscriptions_for_users_involved_in_everything
+      end
+  
+      def push_to_users_involved_in_mentions(payload)
+        enqueue_payload_for_delivery payload, push_subscriptions_for_mentionable_users(message.mentionees)
+      end
+  
+      def push_subscriptions_for_users_involved_in_everything
