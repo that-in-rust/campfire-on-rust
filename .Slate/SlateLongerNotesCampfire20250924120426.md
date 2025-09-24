@@ -205,3 +205,100 @@ Kiro mapping deltas
   - Requirement: feature coverage without Rails-specific gems.
   - Tasks: confirm alternatives in Rust stack; document deltas.
 
+
+Chunk 4 (lines 901–1200) — Highlights
+Operational concerns and packaging (continuation)
+- Public assets and error pages (404/422/500/502) and robots.txt indicate production-friendly defaults.
+- GitHub workflows present for CI and publishing images (implies automated builds/tests).
+- README and deploy guidance emphasize single-machine Docker deployment with SSL and VAPID configuration.
+- Procfile defines processes: web (thrust), redis, workers via resque-pool (jobs). Suggests job queue is first-class.
+
+Implications for our MVP (Rust/Axum)
+- Provide production defaults:
+  - Public error pages and a minimal robots.txt (or route-based equivalents).
+  - CI workflow (optional now), but at least a Docker image publish path.
+- Process model:
+  - Web server + background worker(s). We can run workers inside the same binary via a background task supervisor or separate processes if needed.
+- Redis presence in upstream stack:
+  - We can keep SQLite for app data; Redis optional for cache/pubsub. For MVP, keep it minimal (no Redis) unless required for push/presence scaling.
+
+Kiro mapping deltas (to validate in ./.kiro/specs/campfire-rust-rewrite)
+- Error handling and ops
+  - Requirement: Serve error pages and health endpoints; graceful timeouts.
+  - Design: Axum routes for /health; static error pages or templated error handlers; tower timeouts.
+  - Tasks: Add health/live/ready endpoints (we have them), ensure error pages exist.
+
+- Jobs & workers
+  - Requirement: Dedicated worker execution for push/unfurl/webhooks.
+  - Design: Background task executor (Tokio) with bounded concurrency and retry/backoff.
+  - Tasks: Worker bootstrap on startup; job scheduling APIs; signal handling for graceful shutdown.
+
+- CI/CD
+  - Requirement: Build and optionally publish Docker image; run tests.
+  - Tasks: Add GitHub Actions workflow (optional for now); document local build/publish.
+
+Next
+- Proceed to Chunk 5 (lines 1201–1500): expect more UI and assets. After Chunk 6, I will update the summary to cover chunks 1–6.
+
+Chunk 5 (lines 1201–1500) — Highlights
+CSS and UI foundations (continued)
+- ActionText toolbar/editor CSS shows extensive customization: sticky toolbar, themed colors via CSS variables, input sizing, and icon buttons.
+- Accessibility considerations: prefers-reduced-motion handling, reasonable defaults for inputs/buttons, and focus on smooth scrolling fallbacks.
+- Style system relies on variables (e.g., --color-bg, --color-text) implying a themeable design across panels/messages/composer.
+- Asset strategy includes numerous sound thumbnails (webp), indicating a consistent “sounds” feature presentation in UI.
+
+Implications for our MVP (Rust/Axum)
+- Theming: adopt a small set of CSS custom properties to theme key surfaces (bg/text/accents).
+- Rich text/editor: ensure any composer/editor we use has adequate toolbar behavior and sensible defaults (even if minimal).
+- Accessibility: respect reduced-motion preferences; avoid heavy animations by default.
+- Sounds feature: confirm our sound endpoints and UI affordances match the intended style (list, info, play/preview).
+
+Kiro mapping deltas (to validate in ./.kiro/specs/campfire-rust-rewrite)
+- Theming/Design tokens
+  - Requirement: Core CSS variables for colors/spacing to unify UI.
+  - Tasks: Add base stylesheet with variables; document in design.md.
+
+- Composer/editor presentation
+  - Requirement: Toolbar defaults and link dialogs; safe input sizing.
+  - Tasks: Define minimal composer CSS; progressive enhancement later.
+
+- Accessibility
+  - Requirement: Reduced-motion handling.
+  - Tasks: Global CSS media query; ensure no critical flows depend on animations.
+
+- Sounds UI
+  - Requirement: Present available sounds with clear thumbnails; link to sound info/play.
+  - Tasks: Template for sounds list/detail and consistent asset paths.
+
+Next
+- Continue to Chunk 6 (lines 1501–1800), likely more UI and assets. Then update the summary to include chunks 4–6.
+
+Chunk 6 (lines 1501–1800) — Highlights
+Mentions and autocomplete UI (CSS continues)
+- ActionText integration includes custom content types for mentions and OG embeds, with toolbar groups toggled per content type.
+- .mention component: inline-flex with avatar sizing, strong emphasis, and precise padding/layout rules; z-index layering for toolbar.
+- Autocomplete list styling: max sizes, z-index layering, hover/focus visuals, and avatar alignment inside list buttons.
+- Code/pre/blockquote/cite theming continues with variables; dark-mode and prefers-reduced-motion are respected across elements.
+
+Implications for our MVP
+- Mentions: ensure end-to-end support (detect @mentions in composer, store, render inline with avatar chip, and notify mentioned users with push).
+- Autocomplete: deliver minimal UX for user mentions (lightweight endpoint returning users; simple list with keyboard nav).
+- Rich text: even if minimal, ensure safe render with code/blockquote styling aligned to our variables.
+
+Kiro mapping deltas (to validate in ./.kiro/specs/campfire-rust-rewrite)
+- Mentions
+  - Requirement: Create and render @mentions; link to profiles; push notification on mention.
+  - Design: Parser on compose; store mention relations; renderer wraps with avatar + name.
+  - Tasks: mentions table; parsing on POST; rendering helper; push trigger on mention.
+
+- Autocomplete for mentions
+  - Requirement: Autocomplete @username with keyboard navigation.
+  - Design: GET /api/users?q= prefix; returns id, name, avatar; debounce client side.
+  - Tasks: API route + query; UI list integration.
+
+- Rich text blocks
+  - Requirement: style code/blockquote/cite safely; respect dark-mode and reduced-motion.
+  - Tasks: base CSS tokens + safe render.
+
+Next
+- Summary has been or will be updated to include chunks 4–6 (1–6 roll-up).
