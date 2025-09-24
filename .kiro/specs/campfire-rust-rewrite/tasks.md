@@ -263,6 +263,8 @@
   - Test search performance with large message volumes
   - _Requirements: All performance requirements_
 
+- [ ] 2388. Add a git tag of v0.1 or something - the absolute beginner one as you deem fit for releases to be captured - also choose the most permissive license
+
 ## Summary
 
 **Completed**: 22/37 tasks (59% complete)

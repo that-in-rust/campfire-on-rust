@@ -161,6 +161,18 @@ impl ConnectionManagerImpl {
         manager
     }
     
+    /// Test helper: Add room membership for testing
+    pub async fn add_room_membership(&self, room_id: RoomId, user_ids: Vec<UserId>) {
+        let mut room_members = self.room_members.write().await;
+        room_members.insert(room_id, user_ids);
+    }
+    
+    /// Test helper: Check if connection exists
+    pub async fn connection_exists(&self, connection_id: ConnectionId) -> bool {
+        let connections = self.connections.read().await;
+        connections.contains_key(&connection_id)
+    }
+    
     /// Starts background task to clean up stale presence information
     /// Removes users who haven't been active for 60 seconds (Critical Gap #5)
     fn start_presence_cleanup(&self) {

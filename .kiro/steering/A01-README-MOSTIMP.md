@@ -2,6 +2,8 @@
 
 Test-First Development: I should be writing tests FIRST, following the STUB → RED → GREEN → REFACTOR cycle
 
+Make friends with the parseltongue enabled workflows they will help you search and move faster - refer to .kiro/parseltongue*.md + .kiro/parseltongue*.json + .kiro/LLM*md - IT WILL HELP YOU BUILD AN ACCURATE MENTAL MODEL OF THE CODEBASE
+
 ## The Essence: Executable Specifications Drive Everything
 
 **Core Truth**: Traditional user stories fail LLMs because they're designed for human conversation. LLMs need executable blueprints, not ambiguous narratives.
