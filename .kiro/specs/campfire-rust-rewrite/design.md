@@ -6,6 +6,9 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
 
 ## Overview
 
+> v0.1 note: Avatar uploads and Attachments/Uploads have been moved to .Slate/SlateBacklogIdentified20250924120426.md
+
+
 This design document specifies the architecture for rewriting the Ruby on Rails Campfire chat application in Rust, following the **MVP-First Rigor** pattern with **Rails-Compatible Simplicity**. The design prioritizes proven patterns over architectural innovation, ensuring rapid delivery of a working chat application with Rust's performance benefits.
 
 **Core Design Philosophy:**
