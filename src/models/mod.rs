@@ -441,6 +441,60 @@ impl Bot {
     }
 }
 
+// Setup and Configuration Models (Requirements 11.1-11.4)
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionToken {
+    pub token: String,
+    pub expires_at: DateTime<Utc>,
+    pub user_id: UserId,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeploymentConfig {
+    pub database_url: String,
+    pub vapid_public_key: Option<String>,
+    pub vapid_private_key: Option<String>,
+    pub ssl_domain: Option<String>,
+    pub session_timeout_hours: u32,
+    pub max_message_length: usize,
+    pub enable_user_registration: bool,
+    pub demo_mode: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemHealth {
+    pub database_connected: bool,
+    pub fts_search_available: bool,
+    pub websocket_ready: bool,
+    pub push_notifications_configured: bool,
+    pub static_assets_embedded: bool,
+    pub admin_account_exists: bool,
+}
+
+// Request/Response DTOs for Setup
+
+#[derive(Debug, Deserialize)]
+pub struct CreateAdminRequest {
+    pub email: String,
+    pub password: String,
+    pub name: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SetupStatusResponse {
+    pub is_first_run: bool,
+    pub admin_exists: bool,
+    pub system_health: SystemHealth,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AdminCreationResponse {
+    pub user: User,
+    pub session_token: String,
+    pub deployment_config: DeploymentConfig,
+}
+
 
 
 #[derive(Debug, Deserialize)]

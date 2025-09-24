@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+    
+    <title>First-Run Setup - Campfire Chat</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" href="/static/images/campfire-icon.png" type="image/png">
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="/static/css/campfire.css">
+    
+    <style>
+        .setup-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+        
+        .setup-card {
+            background: var(--color-background);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+        }
+        
+        .setup-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        
+        .setup-logo {
+            width: 80px;
+            height: 68px;
+            margin: 0 auto 16px;
+            display: block;
+        }
+        
+        .setup-title {
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--color-text);
+            margin: 0 0 8px 0;
+        }
+        
+        .setup-subtitle {
+            color: var(--color-text-secondary);
+            font-size: 16px;
+            margin: 0 0 16px 0;
+            line-height: 1.5;
+        }
+        
+        .setup-steps {
+            background: var(--color-background-secondary);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .setup-steps h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-text);
+            margin: 0 0 12px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .setup-steps ol {
+            margin: 0;
+            padding-left: 20px;
+            color: var(--color-text-secondary);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .setup-steps li {
+            margin-bottom: 4px;
+        }
+        
+        .setup-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 0;
+        }
+        
+        .form-label {
+            font-weight: 500;
+            margin-bottom: 8px;
+            display: block;
+            color: var(--color-text);
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 16px;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            background: var(--color-background);
+            color: var(--color-text);
+            box-sizing: border-box;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
+        }
+        
+        .form-help {
+            font-size: 12px;
+            color: var(--color-text-secondary);
+            margin-top: 4px;
+            line-height: 1.4;
+        }
+        
+        .password-requirements {
+            font-size: 12px;
+            color: var(--color-text-secondary);
+            margin-top: 4px;
+        }
+        
+        .password-requirements ul {
+            margin: 4px 0 0 0;
+            padding-left: 16px;
+        }
+        
+        .password-requirements li {
+            margin-bottom: 2px;
+        }
+        
+        .requirement-met {
+            color: var(--color-success, #16a34a);
+        }
+        
+        .setup-button {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 8px;
+            background: var(--color-primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .setup-button:hover:not(:disabled) {
+            background: #1557b0;
+        }
+        
+        .setup-button:disabled {
+            background: var(--color-border);
+            cursor: not-allowed;
+        }
+        
+        .error-message {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        .success-message {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #16a34a;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        .info-message {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1d4ed8;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        .setup-footer {
+            text-align: center;
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid var(--color-border);
+        }
+        
+        .setup-footer p {
+            color: var(--color-text-secondary);
+            font-size: 14px;
+            margin: 0;
+        }
+        
+        .system-status {
+            background: var(--color-background-secondary);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .system-status h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-text);
+            margin: 0 0 12px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            font-size: 14px;
+        }
+        
+        .status-label {
+            color: var(--color-text-secondary);
+        }
+        
+        .status-value {
+            font-weight: 500;
+        }
+        
+        .status-ok {
+            color: var(--color-success, #16a34a);
+        }
+        
+        .status-warning {
+            color: var(--color-warning, #d97706);
+        }
+        
+        .status-error {
+            color: var(--color-error, #dc2626);
+        }
+        
+        /* Dark mode adjustments */
+        @media (prefers-color-scheme: dark) {
+            .setup-container {
+                background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+            }
+            
+            .error-message {
+                background: #2d1b1b;
+                border-color: #5c2626;
+                color: #f87171;
+            }
+            
+            .success-message {
+                background: #1b2d1b;
+                border-color: #265c26;
+                color: #4ade80;
+            }
+            
+            .info-message {
+                background: #1b2d3d;
+                border-color: #26405c;
+                color: #60a5fa;
+            }
+        }
+        
+        /* Loading state */
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-container">
+        <div class="setup-card">
+            <div class="setup-header">
+                <img src="/static/images/campfire-icon.png" alt="Campfire" class="setup-logo">
+                <h1 class="setup-title">Welcome to Campfire</h1>
+                <p class="setup-subtitle">
+                    Let's get you set up with your first admin account.<br>
+                    This will only take a minute.
+                </p>
+            </div>
+            
+            <div class="setup-steps">
+                <h3>Setup Process</h3>
+                <ol>
+                    <li>Create your admin account</li>
+                    <li>Verify system configuration</li>
+                    <li>Start chatting with your team</li>
+                </ol>
+            </div>
+            
+            <!-- System status will be loaded here -->
+            <div id="system-status" class="system-status hidden">
+                <h3>System Status</h3>
+                <div id="status-items"></div>
+            </div>
+            
+            <!-- Error/Success messages will be inserted here -->
+            <div id="message-container"></div>
+            
+            <form class="setup-form" id="setup-form">
+                <div class="form-group">
+                    <label for="name" class="form-label">Your Name</label>
+                    <input 
+                        type="text" 
+                        id="name" 
+                        name="name" 
+                        class="form-input" 
+                        required 
+                        autocomplete="name"
+                        placeholder="Enter your full name"
+                        maxlength="100"
+                    >
+                    <div class="form-help">This will be displayed as the system administrator</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email" class="form-label">Admin Email</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        class="form-input" 
+                        required 
+                        autocomplete="email"
+                        placeholder="admin@yourcompany.com"
+                    >
+                    <div class="form-help">This will be your login email and contact for password resets</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password" class="form-label">Admin Password</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        class="form-input" 
+                        required 
+                        autocomplete="new-password"
+                        placeholder="Create a secure password"
+                        minlength="8"
+                        maxlength="128"
+                    >
+                    <div class="password-requirements">
+                        <div>Password requirements:</div>
+                        <ul id="password-requirements">
+                            <li id="req-length">At least 8 characters</li>
+                            <li id="req-letter">Contains at least one letter</li>
+                            <li id="req-number">Contains at least one number</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="confirm-password" class="form-label">Confirm Password</label>
+                    <input 
+                        type="password" 
+                        id="confirm-password" 
+                        name="confirm-password" 
+                        class="form-input" 
+                        required 
+                        autocomplete="new-password"
+                        placeholder="Confirm your password"
+                    >
+                    <div class="form-help" id="password-match-help">Passwords must match</div>
+                </div>
+                
+                <button type="submit" class="setup-button" id="setup-button" disabled>
+                    Create Admin Account
+                </button>
+            </form>
+            
+            <div class="setup-footer">
+                <p>Campfire Chat - Real-time team communication</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('setup-form');
+            const button = document.getElementById('setup-button');
+            const messageContainer = document.getElementById('message-container');
+            const passwordInput = document.getElementById('password');
+            const confirmPasswordInput = document.getElementById('confirm-password');
+            const nameInput = document.getElementById('name');
+            const emailInput = document.getElementById('email');
+            
+            // Load system status
+            loadSystemStatus();
+            
+            // Password validation
+            passwordInput.addEventListener('input', validatePassword);
+            confirmPasswordInput.addEventListener('input', validatePasswordMatch);
+            nameInput.addEventListener('input', validateForm);
+            emailInput.addEventListener('input', validateForm);
+            
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                if (!validateForm()) {
+                    return;
+                }
+                
+                const formData = {
+                    name: nameInput.value.trim(),
+                    email: emailInput.value.trim(),
+                    password: passwordInput.value
+                };
+                
+                // Show loading state
+                button.disabled = true;
+                button.innerHTML = '<span class="loading-spinner"></span>Creating account...';
+                
+                try {
+                    const response = await fetch('/api/setup/admin', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(formData)
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok && result.success) {
+                        showMessage('Admin account created successfully! Redirecting to chat...', 'success');
+                        
+                        // Show deployment config if available
+                        if (result.deployment_config) {
+                            console.log('Deployment configuration:', result.deployment_config);
+                        }
+                        
+                        setTimeout(() => {
+                            window.location.href = result.redirect_url || '/chat';
+                        }, 2000);
+                    } else {
+                        showMessage(result.message || 'Setup failed', 'error');
+                    }
+                } catch (error) {
+                    console.error('Setup error:', error);
+                    showMessage('Network error. Please check your connection and try again.', 'error');
+                } finally {
+                    // Reset button state
+                    button.disabled = false;
+                    button.innerHTML = 'Create Admin Account';
+                    validateForm(); // Re-validate to set correct button state
+                }
+            });
+            
+            async function loadSystemStatus() {
+                try {
+                    const response = await fetch('/api/setup/status');
+                    if (response.ok) {
+                        const status = await response.json();
+                        displaySystemStatus(status.system_health);
+                    }
+                } catch (error) {
+                    console.error('Failed to load system status:', error);
+                }
+            }
+            
+            function displaySystemStatus(health) {
+                const statusContainer = document.getElementById('system-status');
+                const statusItems = document.getElementById('status-items');
+                
+                const items = [
+                    { label: 'Database', value: health.database_connected, key: 'database_connected' },
+                    { label: 'Search Engine', value: health.fts_search_available, key: 'fts_search_available' },
+                    { label: 'WebSocket', value: health.websocket_ready, key: 'websocket_ready' },
+                    { label: 'Push Notifications', value: health.push_notifications_configured, key: 'push_notifications_configured' },
+                    { label: 'Static Assets', value: health.static_assets_embedded, key: 'static_assets_embedded' }
+                ];
+                
+                statusItems.innerHTML = items.map(item => {
+                    const statusClass = item.value ? 'status-ok' : 'status-warning';
+                    const statusText = item.value ? '✓ Ready' : '⚠ Not configured';
+                    
+                    return `
+                        <div class="status-item">
+                            <span class="status-label">${item.label}</span>
+                            <span class="status-value ${statusClass}">${statusText}</span>
+                        </div>
+                    `;
+                }).join('');
+                
+                statusContainer.classList.remove('hidden');
+            }
+            
+            function validatePassword() {
+                const password = passwordInput.value;
+                const requirements = {
+                    length: password.length >= 8,
+                    letter: /[a-zA-Z]/.test(password),
+                    number: /[0-9]/.test(password)
+                };
+                
+                // Update requirement indicators
+                document.getElementById('req-length').className = requirements.length ? 'requirement-met' : '';
+                document.getElementById('req-letter').className = requirements.letter ? 'requirement-met' : '';
+                document.getElementById('req-number').className = requirements.number ? 'requirement-met' : '';
+                
+                validatePasswordMatch();
+                validateForm();
+                
+                return Object.values(requirements).every(Boolean);
+            }
+            
+            function validatePasswordMatch() {
+                const password = passwordInput.value;
+                const confirmPassword = confirmPasswordInput.value;
+                const helpText = document.getElementById('password-match-help');
+                
+                if (confirmPassword === '') {
+                    helpText.textContent = 'Passwords must match';
+                    helpText.style.color = '';
+                    return false;
+                } else if (password === confirmPassword) {
+                    helpText.textContent = '✓ Passwords match';
+                    helpText.style.color = 'var(--color-success, #16a34a)';
+                    return true;
+                } else {
+                    helpText.textContent = '✗ Passwords do not match';
+                    helpText.style.color = 'var(--color-error, #dc2626)';
+                    return false;
+                }
+            }
+            
+            function validateForm() {
+                const name = nameInput.value.trim();
+                const email = emailInput.value.trim();
+                const password = passwordInput.value;
+                const confirmPassword = confirmPasswordInput.value;
+                
+                const isValid = name.length > 0 &&
+                               email.includes('@') && email.includes('.') &&
+                               validatePassword() &&
+                               password === confirmPassword;
+                
+                button.disabled = !isValid;
+                return isValid;
+            }
+            
+            function showMessage(text, type) {
+                const className = type === 'error' ? 'error-message' : 
+                                type === 'success' ? 'success-message' : 'info-message';
+                messageContainer.innerHTML = `<div class="${className}">${text}</div>`;
+                
+                // Auto-hide success messages
+                if (type === 'success') {
+                    setTimeout(() => {
+                        messageContainer.innerHTML = '';
+                    }, 5000);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

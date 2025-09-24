@@ -335,6 +335,37 @@ impl From<PushNotificationError> for axum::http::StatusCode {
     }
 }
 
+// Setup Error Types (Requirements 11.1-11.4)
+#[derive(Error, Debug)]
+pub enum SetupError {
+    #[error("Not a first-run scenario: users already exist")]
+    NotFirstRun,
+    
+    #[error("Invalid email format: {email}")]
+    InvalidEmail { email: String },
+    
+    #[error("Password too weak: {reason}")]
+    WeakPassword { reason: String },
+    
+    #[error("Admin account creation failed: {0}")]
+    AdminCreationFailed(String),
+    
+    #[error("Environment configuration invalid: {field}")]
+    InvalidConfiguration { field: String },
+    
+    #[error("System health check failed: {component}")]
+    HealthCheckFailed { component: String },
+    
+    #[error("Database operation failed: {0}")]
+    Database(#[from] DatabaseError),
+    
+    #[error("Session creation failed: {0}")]
+    SessionCreation(#[from] AuthError),
+    
+    #[error("Password hashing failed: {0}")]
+    PasswordHash(#[from] bcrypt::BcryptError),
+}
+
 impl From<BotError> for axum::http::StatusCode {
     fn from(err: BotError) -> Self {
         match err {
@@ -349,6 +380,22 @@ impl From<BotError> for axum::http::StatusCode {
             | BotError::Database(_)
             | BotError::HttpRequest(_)
             | BotError::JsonSerialization(_) => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+}
+
+impl From<SetupError> for axum::http::StatusCode {
+    fn from(err: SetupError) -> Self {
+        match err {
+            SetupError::NotFirstRun => axum::http::StatusCode::CONFLICT,
+            SetupError::InvalidEmail { .. } 
+            | SetupError::WeakPassword { .. }
+            | SetupError::InvalidConfiguration { .. } => axum::http::StatusCode::BAD_REQUEST,
+            SetupError::AdminCreationFailed(_)
+            | SetupError::HealthCheckFailed { .. }
+            | SetupError::Database(_)
+            | SetupError::SessionCreation(_)
+            | SetupError::PasswordHash(_) => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }

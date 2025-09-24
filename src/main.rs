@@ -11,7 +11,7 @@ use tracing::{error, info, warn};
 use campfire_on_rust::{
     AppState, CampfireDatabase, AuthService, RoomService, MessageService, 
     ConnectionManagerImpl, SearchService, PushNotificationServiceImpl, 
-    VapidConfig, BotServiceImpl, health, metrics, shutdown, config, logging, demo
+    VapidConfig, BotServiceImpl, SetupServiceImpl, health, metrics, shutdown, config, logging, demo
 };
 use campfire_on_rust::middleware::security;
 
@@ -130,6 +130,9 @@ async fn main() -> Result<()> {
         message_service.clone(),
     ));
     
+    // Initialize setup service
+    let setup_service = Arc::new(SetupServiceImpl::new(db.clone()));
+    
     let app_state = AppState { 
         db,
         auth_service,
@@ -138,6 +141,7 @@ async fn main() -> Result<()> {
         search_service,
         push_service,
         bot_service,
+        setup_service,
     };
 
     // Setup resource manager for cleanup
@@ -172,6 +176,12 @@ async fn main() -> Result<()> {
         // Demo API endpoints
         .route("/api/demo/status", get(campfire_on_rust::handlers::pages::demo_status))
         .route("/api/demo/initialize", post(campfire_on_rust::handlers::pages::initialize_demo))
+        
+        // First-run setup endpoints
+        .route("/setup", get(campfire_on_rust::handlers::setup::serve_setup_page))
+        .route("/api/setup/status", get(campfire_on_rust::handlers::setup::get_setup_status))
+        .route("/api/setup/admin", post(campfire_on_rust::handlers::setup::create_admin_account))
+        .route("/api/setup/environment", get(campfire_on_rust::handlers::setup::validate_environment))
         
         // Static assets
         .route("/static/*path", get(campfire_on_rust::assets::serve_static_asset))

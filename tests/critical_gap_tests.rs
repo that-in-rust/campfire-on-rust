@@ -61,11 +61,16 @@ impl TestEnvironment {
     
     /// Creates a test room and adds the user as a member
     async fn create_test_room(&self, user_id: UserId, room_name: &str) -> Room {
+        self.create_test_room_with_type(user_id, room_name, RoomType::Open).await
+    }
+    
+    /// Creates a test room with specific type and adds the user as a member
+    async fn create_test_room_with_type(&self, user_id: UserId, room_name: &str, room_type: RoomType) -> Room {
         let room = Room {
             id: RoomId::new(),
             name: room_name.to_string(),
             topic: None,
-            room_type: RoomType::Open,
+            room_type,
             created_at: chrono::Utc::now(),
             last_message_at: None,
         };
@@ -400,8 +405,8 @@ async fn test_critical_gap_3_message_authorization_boundaries() {
     let (user1, _session1) = env.create_test_user("User 1", "user1@example.com").await;
     let (user2, _session2) = env.create_test_user("User 2", "user2@example.com").await;
     
-    // Create room and only add user1 as member
-    let room = env.create_test_room(user1.id, "Private Room").await;
+    // Create closed room and only add user1 as member
+    let room = env.create_test_room_with_type(user1.id, "Private Room", RoomType::Closed).await;
     
     // User1 should be able to create messages (has access)
     let result = env.message_service.create_message_with_deduplication(
@@ -449,7 +454,7 @@ async fn test_critical_gap_3_room_authorization_boundaries() {
     let (user1, _session1) = env.create_test_user("User 1", "user1@example.com").await;
     let (user2, _session2) = env.create_test_user("User 2", "user2@example.com").await;
     
-    let room = env.create_test_room(user1.id, "Test Room").await;
+    let room = env.create_test_room_with_type(user1.id, "Test Room", RoomType::Closed).await;
     
     // User1 should have access (is member)
     let result = env.room_service.check_room_access(room.id, user1.id).await;
@@ -468,9 +473,9 @@ async fn test_critical_gap_3_cross_user_data_isolation() {
     let (user1, _session1) = env.create_test_user("User 1", "user1@example.com").await;
     let (user2, _session2) = env.create_test_user("User 2", "user2@example.com").await;
     
-    // Create separate rooms for each user
-    let room1 = env.create_test_room(user1.id, "User1 Room").await;
-    let room2 = env.create_test_room(user2.id, "User2 Room").await;
+    // Create separate closed rooms for each user
+    let room1 = env.create_test_room_with_type(user1.id, "User1 Room", RoomType::Closed).await;
+    let room2 = env.create_test_room_with_type(user2.id, "User2 Room", RoomType::Closed).await;
     
     // Create messages in each room
     let message1 = env.message_service.create_message_with_deduplication(
@@ -915,15 +920,16 @@ async fn test_all_critical_gaps_integration() {
     let received_missed = timeout(Duration::from_millis(100), new_receiver1.recv()).await;
     assert!(received_missed.is_ok(), "Should receive missed message on reconnection");
     
-    // Critical Gap #3: Authorization still enforced
+    // Critical Gap #3: Authorization still enforced - test with a closed room
     let (unauthorized_user, _) = env.create_test_user("Unauthorized", "unauthorized@example.com").await;
+    let closed_room = env.create_test_room_with_type(user1.id, "Closed Room", RoomType::Closed).await;
     
     let unauthorized_result = env.message_service.create_message_with_deduplication(
         "Unauthorized message".to_string(),
-        room.id,
+        closed_room.id,
         unauthorized_user.id,
         Uuid::new_v4(),
     ).await;
     
-    assert!(unauthorized_result.is_err(), "Unauthorized user should not be able to send messages");
+    assert!(unauthorized_result.is_err(), "Unauthorized user should not be able to send messages to closed room");
 }

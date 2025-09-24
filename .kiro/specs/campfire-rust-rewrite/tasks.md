@@ -147,7 +147,7 @@
   - Create test utilities and mock implementations
   - _Requirements: All testing requirements_
 
-- [-] 23. Complete test coverage for all critical gaps
+- [x] 23. Complete test coverage for all critical gaps
   - Add comprehensive tests for message deduplication (Critical Gap #1)
   - Implement WebSocket reconnection and missed message tests (Critical Gap #2)
   - Create authorization boundary tests (Critical Gap #3)
@@ -157,14 +157,14 @@
 
 ## First-Run Setup System (Missing ❌)
 
-- [ ] 24. Implement first-run detection and setup service
+- [x] 24. Implement first-run detection and setup service
   - Create SetupService trait and implementation
   - Add is_first_run() method to detect empty database
   - Implement create_admin_account() with validation
   - Add deployment configuration management
   - _Requirements: 11.1, 11.2, 11.3, 11.4_
 
-- [ ] 25. Create first-run setup UI and handlers
+- [-] 25. Create first-run setup UI and handlers
   - Implement setup page template for admin account creation
   - Add setup API handlers for account creation
   - Create setup status detection and routing logic
@@ -263,7 +263,7 @@
   - Test search performance with large message volumes
   - _Requirements: All performance requirements_
 
-- [ ] 2388. Add a git tag of v0.1 or something - the absolute beginner one as you deem fit for releases to be captured - also choose the most permissive license
+- [ ] 38. Add a git tag of v0.1 or something - the absolute beginner one as you deem fit for releases to be captured - also choose the most permissive license
 
 ## Summary
 

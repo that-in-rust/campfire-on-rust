@@ -12,7 +12,7 @@ set -e  # Exit on any error
 
 # Script configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PARSELTONGUE_BIN="$SCRIPT_DIR/target/release/parseltongue"
+PARSELTONGUE_BIN="$SCRIPT_DIR/target/release/parseltongue*"
 
 # Colors for output
 RED='\033[0;31m'
