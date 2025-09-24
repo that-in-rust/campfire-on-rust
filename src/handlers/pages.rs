@@ -6,8 +6,30 @@ use axum::{
 
 use crate::AppState;
 
-/// Serve login page with demo mode awareness
+/// Serve login page with setup status and demo mode awareness
 pub async fn serve_login_page(State(state): State<AppState>) -> impl IntoResponse {
+    use axum::http::StatusCode;
+    
+    // First check if this is a first-run scenario
+    match state.setup_service.is_first_run().await {
+        Ok(true) => {
+            // First run - redirect to setup page
+            let mut headers = HeaderMap::new();
+            headers.insert(
+                header::LOCATION,
+                HeaderValue::from_static("/setup"),
+            );
+            return (StatusCode::FOUND, headers, Html("")).into_response();
+        }
+        Ok(false) => {
+            // Not first run - continue with normal logic
+        }
+        Err(e) => {
+            // Error checking first-run status - log and continue
+            tracing::warn!("Failed to check first-run status: {}", e);
+        }
+    }
+    
     // Check if demo mode is enabled by looking for demo users
     let demo_mode = state.db.get_user_by_email("admin@campfire.demo").await
         .unwrap_or(None)
@@ -25,11 +47,33 @@ pub async fn serve_login_page(State(state): State<AppState>) -> impl IntoRespons
         HeaderValue::from_static("text/html; charset=utf-8"),
     );
     
-    (headers, Html(html))
+    (headers, Html(html)).into_response()
 }
 
-/// Serve root page based on demo mode
+/// Serve root page based on setup status and demo mode
 pub async fn serve_root_page(State(state): State<AppState>) -> impl IntoResponse {
+    use axum::http::StatusCode;
+    
+    // First check if this is a first-run scenario
+    match state.setup_service.is_first_run().await {
+        Ok(true) => {
+            // First run - redirect to setup page
+            let mut headers = HeaderMap::new();
+            headers.insert(
+                header::LOCATION,
+                HeaderValue::from_static("/setup"),
+            );
+            return (StatusCode::FOUND, headers, Html("")).into_response();
+        }
+        Ok(false) => {
+            // Not first run - continue with normal logic
+        }
+        Err(e) => {
+            // Error checking first-run status - log and continue
+            tracing::warn!("Failed to check first-run status: {}", e);
+        }
+    }
+    
     // Check if demo mode is enabled by looking for demo users
     let demo_mode = state.db.get_user_by_email("admin@campfire.demo").await
         .unwrap_or(None)

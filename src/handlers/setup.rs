@@ -7,8 +7,7 @@ use serde_json::json;
 
 use crate::{
     AppState,
-    models::{CreateAdminRequest, SetupStatusResponse, AdminCreationResponse},
-    services::setup::SetupService,
+    models::CreateAdminRequest,
 };
 
 /// Serve first-run setup page

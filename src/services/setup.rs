@@ -5,7 +5,7 @@ use rand::Rng;
 use sqlx::Row;
 use std::env;
 
-use crate::database::Database;
+use crate::database::CampfireDatabase;
 use crate::errors::{SetupError, DatabaseError};
 use crate::models::{
     User, UserId, Session, DeploymentConfig, SystemHealth,
@@ -59,11 +59,11 @@ pub trait SetupService: Send + Sync {
 
 /// Implementation of SetupService following Rails-style patterns
 pub struct SetupServiceImpl {
-    database: Database,
+    database: CampfireDatabase,
 }
 
 impl SetupServiceImpl {
-    pub fn new(database: Database) -> Self {
+    pub fn new(database: CampfireDatabase) -> Self {
         Self { database }
     }
     
@@ -373,7 +373,7 @@ mod tests {
     
     async fn create_test_setup_service() -> SetupServiceImpl {
         // Use in-memory SQLite database for tests
-        let database = Database::new("sqlite::memory:").await.unwrap();
+        let database = CampfireDatabase::new("sqlite::memory:").await.unwrap();
         SetupServiceImpl::new(database)
     }
     

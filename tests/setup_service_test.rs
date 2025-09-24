@@ -1,4 +1,4 @@
-use campfire_on_rust::database::Database;
+use campfire_on_rust::CampfireDatabase;
 use campfire_on_rust::errors::SetupError;
 use campfire_on_rust::models::CreateAdminRequest;
 use campfire_on_rust::services::{SetupService, SetupServiceImpl};
@@ -8,7 +8,7 @@ use std::env;
 /// Validates Requirements 11.1, 11.2, 11.3, 11.4
 
 async fn create_test_setup_service() -> SetupServiceImpl {
-    let database = Database::new("sqlite::memory:").await.unwrap();
+    let database = CampfireDatabase::new("sqlite::memory:").await.unwrap();
     SetupServiceImpl::new(database)
 }
 
