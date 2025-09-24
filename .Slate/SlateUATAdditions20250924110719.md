@@ -1,3 +1,5 @@
+Navigation: [Index](./Slate-Index-20250924002704.md) | [Summary 20250924110719](./SlateSummary20250924110719.md) | [Routes 20250924110719](./SlateRoutes20250924110719.md) | [UAT Additions 20250924110719](./SlateUATAdditions20250924110719.md) | [PR Impact Gate 20250924110719](./SlatePrImpactGate20250924110719.md)
+
 Title: UAT Additions — WS Reconnect/Presence + Message Dedup (SlateUATAdditions20250924110719)
 
 Scope
