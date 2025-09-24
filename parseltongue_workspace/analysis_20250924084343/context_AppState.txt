@@ -1,0 +1,49 @@
+✓ Loaded snapshot: 551 nodes, 1082 edges (1ms)
+Entity: AppState (Struct)
+Signature: struct AppState
+File: src/lib.rs:0
+
+Dependencies (0):
+
+
+Callers (39):
+  - check_services_readiness (src/health.rs): fn check_services_readiness
+  - check_database_readiness (src/health.rs): fn check_database_readiness
+  - check_database_health (src/health.rs): fn check_database_health
+  - readiness_check (src/health.rs): fn readiness_check
+  - health_check (src/health.rs): fn health_check
+  - create_test_state (src/handlers/websocket.rs): fn tests::create_test_state
+  - handle_incoming_message (src/handlers/websocket.rs): fn handle_incoming_message
+  - handle_websocket (src/handlers/websocket.rs): fn handle_websocket
+  - websocket_handler (src/handlers/websocket.rs): fn websocket_handler
+  - get_sound_info (src/sounds.rs): fn get_sound_info
+  - get_sound (src/handlers/sounds.rs): fn get_sound
+  - list_sounds (src/handlers/sounds.rs): fn list_sounds
+  - search_messages (src/services/search.rs): fn search_messages
+  - add_room_member (src/handlers/rooms.rs): fn add_room_member
+  - get_room (src/handlers/rooms.rs): fn get_room
+  - create_room (src/services/room.rs): fn create_room
+  - get_rooms (src/handlers/rooms.rs): fn get_rooms
+  - initialize_demo (src/handlers/pages.rs): fn initialize_demo
+  - demo_status (src/handlers/pages.rs): fn demo_status
+  - serve_root_page (src/handlers/pages.rs): fn serve_root_page
+  - serve_login_page (src/handlers/pages.rs): fn serve_login_page
+  - get_messages (src/handlers/messages.rs): fn get_messages
+  - create_message (src/handlers/messages.rs): fn create_message
+  - create_bot_message (src/services/bot.rs): fn create_bot_message
+  - reset_bot_token (src/services/bot.rs): fn reset_bot_token
+  - delete_bot (src/services/bot.rs): fn delete_bot
+  - update_bot (src/services/bot.rs): fn update_bot
+  - get_bot (src/services/bot.rs): fn get_bot
+  - create_bot (src/services/bot.rs): fn create_bot
+  - list_bots (src/services/bot.rs): fn list_bots
+  - logout (src/handlers/auth.rs): fn logout
+  - login (src/handlers/auth.rs): fn login
+  - create_full_test_app (tests/user_journey_tests.rs): fn create_full_test_app
+  - setup_test_app (tests/search_handlers_test.rs): fn setup_test_app
+  - create_test_app (tests/room_handlers_test.rs): fn create_test_app
+  - from_request_parts (src/middleware/session.rs): fn from_request_parts
+  - collect_metrics_summary (src/metrics.rs): fn collect_metrics_summary
+  - metrics_summary (src/metrics.rs): fn metrics_summary
+  - main (src/main.rs): fn main
+Context generated in 4μs

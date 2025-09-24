@@ -12,6 +12,8 @@
 #   context <Entity> [--json] [--out]                   Generate human (and optional JSON) context for Entity
 #   impact [--entities "A,B"] [--functions "f,g"]      Print uses/calls counts and simple risk flags
 #   routes [--format table|plain]                       Extract route inventory from src/main.rs (best-effort)
+#   diff-impact [--base <ref>] [--head <ref>]          Diff-based blast-radius for changed symbols
+#   pr [--base <ref>] [--head <ref>] [--top N]         CI-friendly summary (counts + top contexts)
 #
 # All outputs are scoped to ./parseltongue_workspace. Existing analysis outside this folder is preserved.
 
@@ -57,7 +59,6 @@ sub_ingest() {
   local OUTDIR="$WS/analysis_${TS}"
   mkdir -p "$OUTDIR"
 
-  # Build FILE:-header dump (src + tests if present)
   {
     shopt -s nullglob
     for f in $(find "$REPO_ROOT/src" -type f -name '*.rs' | sort); do
@@ -76,16 +77,12 @@ sub_ingest() {
     fi
   } > "$DUMP"
 
-  # Ingest
   (cd "$REPO_ROOT" && "$PT_BIN" ingest "$DUMP")
-
-  # Graph + viz
   (cd "$REPO_ROOT" && "$PT_BIN" debug --graph > "$OUTDIR/all_entities.txt" || true)
   (cd "$REPO_ROOT" && "$PT_BIN" visualize --output "$OUTDIR/architecture.html" || true)
 
-  # Core contexts (plus any extras)
   local core=(AppState AuthService RoomService MessageService SearchService PushNotificationServiceImpl BotServiceImpl ConnectionManagerImpl)
-  IFS=',' read -r -a extras <<< "$extra_entities" || true
+  IFS=',' read -r -a extras <<< "${extra_entities:-}" || true
   local targets=("${core[@]}")
   for e in "${extras[@]}"; do
     e_trim="$(echo "$e" | sed 's/^ *//;s/ *$//')"
@@ -108,7 +105,6 @@ latest_dir() {
   if [[ -L "$WS/latest" ]]; then
     echo "$WS/$(readlink "$WS/latest")"
   else
-    # Fallback: pick most recent analysis_*
     local cand
     cand="$(ls -1dt "$WS"/analysis_* 2>/dev/null | head -n1 || true)"
     if [[ -n "${cand:-}" ]]; then
@@ -195,7 +191,7 @@ sub_context() {
     esac
   done
   local d; d="$(latest_dir)"
-  if [[ "$as_json" == "yes" ]]; then
+  if [[ "$as_json" == "yes" ]] ; then
     if [[ "$write_out" == "yes" ]]; then
       (cd "$REPO_ROOT" && "$PT_BIN" generate-context "$ent" --format json > "$d/context_${ent}.json") || true
       echo "$d/context_${ent}.json"
@@ -250,7 +246,6 @@ sub_routes() {
   done
   local main="$REPO_ROOT/src/main.rs"
   [[ -f "$main" ]] || { echo "not found: $main" >&2; exit 1; }
-  # Extract lines with .route(...) and identify method (get|post|delete|put)
   awk -v fmt="$format" '
     /[.]route\(/ {
       rec=$0
@@ -270,8 +265,112 @@ sub_routes() {
   ' "$main"
 }
 
+sub_diff_impact() {
+  detect_pt
+  local base=""; local head=""; local top=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --base) base="${2:-}"; shift 2;;
+      --head) head="${2:-}"; shift 2;;
+      --top) top="${2:-0}"; shift 2;;
+      *) echo "unknown arg: $1" >&2; exit 2;;
+    esac
+  done
+  if ! command -v git >/dev/null 2>&1; then
+    echo "error: git not found" >&2; exit 1
+  fi
+  if [[ -z "$base" ]]; then
+    base="$(git rev-parse HEAD~1 2>/dev/null || true)"
+  fi
+  if [[ -z "$head" ]]; then
+    head="$(git rev-parse HEAD 2>/dev/null || true)"
+  fi
+  if [[ -z "$base" || -z "$head" ]]; then
+    echo "error: unable to resolve base/head commits; specify --base/--head" >&2
+    exit 1
+  fi
+
+  mapfile -t changed < <(git diff --name-only "$base" "$head" | grep -E '\.rs$' || true)
+  if [[ "${#changed[@]}" -eq 0 ]]; then
+    echo "No changed Rust files between $base and $head"
+    exit 0
+  fi
+  echo "Changed files ($base..$head):"
+  for f in "${changed[@]}"; do echo " - $f"; done
+  echo
+
+  # Extract candidate symbols (functions/types) from changed files
+  declare -A seen
+  candidates=()
+  for f in "${changed[@]}"; do
+    [[ -f "$REPO_ROOT/$f" ]] || continue
+    while IFS= read -r name; do
+      [[ -z "$name" ]] && continue
+      if [[ -z "${seen[$name]:-}" ]]; then
+        candidates+=("$name"); seen["$name"]=1
+      fi
+    done < <(awk '
+      match($0, /^[[:space:]]*pub[[:space:]]+(async[[:space:]]+)?fn[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)/, m) { print m[2] }
+      match($0, /^[[:space:]]*pub[[:space:]]+(struct|enum|trait)[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)/, m) { print m[2] }
+    ' "$REPO_ROOT/$f")
+  done
+
+  if [[ "${#candidates[@]}" -eq 0 ]]; then
+    echo "No public symbols detected in changed files."
+    exit 0
+  fi
+
+  printf "%-34s %-10s %-10s\n" "SYMBOL" "USES" "CALLERS"
+  results=()
+  for s in "${candidates[@]}"; do
+    u=$((cd "$REPO_ROOT" && "$PT_BIN" query uses "$s" | wc -l) 2>/dev/null || echo 0)
+    c=$((cd "$REPO_ROOT" && "$PT_BIN" query calls "$s" | wc -l) 2>/dev/null || echo 0)
+    printf "%-34s %-10s %-10s\n" "$s" "$u" "$c"
+    results+=("$u+$c $s")
+  done
+
+  if [[ "$top" -gt 0 ]]; then
+    printf "\nTop %s by (uses+calls):\n" "$top"
+    printf "%s\n" "${results[@]}" | sed 's/^ *//' | sort -nr -k1,1 | head -n "$top"
+  fi
+}
+
+sub_pr() {
+  detect_pt
+  local base=""; local head=""; local top="5"
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --base) base="${2:-}"; shift 2;;
+      --head) head="${2:-}"; shift 2;;
+      --top) top="${2:-5}"; shift 2;;
+      *) echo "unknown arg: $1" >&2; exit 2;;
+    esac
+  done
+
+  # Show diff impact and capture candidates
+  tmp="$(mktemp)"
+  scripts/pt diff-impact ${base:+--base "$base"} ${head:+--head "$head"} --top "$top" | tee "$tmp" || true
+
+  echo
+  echo "=== PR Contexts (top ${top}) ==="
+  # Extract top symbols from the diff-impact output
+  # Expect lines like: "<count> <symbol>" from the "Top" section
+  mapfile -t topsyms < <(grep -E '^[0-9]+\+[0-9]+ ' "$tmp" | sort -nr -k1,1 | head -n "$top" | awk '{print $2}')
+  rm -f "$tmp"
+
+  local d; d="$(latest_dir)"
+  for s in "${topsyms[@]}"; do
+    [[ -z "$s" ]] && continue
+    echo "-- Context: $s --"
+    (cd "$REPO_ROOT" && "$PT_BIN" generate-context "$s" --format human | sed -n '1,40p') || true
+    echo
+  done
+
+  echo "Attach the counts and contexts above to your PR description for a token-efficient, high-signal summary."
+}
+
 usage() {
-  sed -n '1,60p' "$0" | sed -n '1,60p'
+  sed -n '1,80p' "$0" | sed -n '1,80p'
   exit 1
 }
 
@@ -285,6 +384,8 @@ case "$cmd" in
   context) sub_context "$@";;
   impact) sub_impact "$@";;
   routes) sub_routes "$@";;
+  diff-impact) sub_diff_impact "$@";;
+  pr) sub_pr "$@";;
   ""|help|-h|--help) usage;;
   *) echo "unknown subcommand: $cmd" >&2; usage;;
 esac
