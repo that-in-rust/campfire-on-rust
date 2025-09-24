@@ -13,3 +13,12 @@ Immediate tasks
 - Ensure color/code tokens are loaded.
 - Keep composer text-first; leave hooks for minimal rich-text toggle.
 - Track OG embeds and uploads in .Slate/SlateBacklogIdentified20250924120426.md.
+
+Roll-up: Chunks 25–27 (TS 20250924120426)
+- Ongoing UI/CSS tokens and components; dark-mode and accessibility invariants.
+- v0.1 scope unchanged: defer attachments/media uploads, avatar uploads, OpenGraph/unfurls, and advanced PWA/offline caching (tracked in backlog).
+- Continue preserving look/feel parity via tokens and minimal composer behavior.
+
+Immediate tasks
+- Verify tokens/styles load across pages and templates.
+- Keep composer text-first (no uploads); mentions and minimal rich text OK.

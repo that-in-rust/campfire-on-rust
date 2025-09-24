@@ -546,3 +546,117 @@ Slice sample:
   
     background-color: var(--color-bg);
     border-radius: 0.8em;
+
+Chunk 25 (lines 7201–7500) — Highlights
+UI/CSS and tokens continue
+- Continued component styles and variables with consistent dark-mode/a11y patterns.
+- Maintain look/feel parity via shared tokens and minimal behaviors.
+
+Slice sample (~30 lines from this chunk):
+      event.preventDefault()
+      this.reset()
+  
+      try {
+        await navigator.clipboard.writeText(this.contentValue)
+        this.element.classList.add(this.successClass)
+      } catch {}
+    }
+  
+    reset() {
+      this.element.classList.remove(this.successClass)
+      this.#forceReflow()
+    }
+  
+    #forceReflow() {
+      this.element.offsetWidth
+    }
+  }
+  
+  
+  
+  ================================================
+  FILE: app/javascript/controllers/drop_target_controller.js
+  ================================================
+  import { Controller } from "@hotwired/stimulus"
+  
+  export default class extends Controller {
+    dragenter(event) {
+      event.preventDefault()
+    }
+  
+
+Chunk 26 (lines 7501–7800) — Highlights
+UI/CSS and tokens continue
+- Continued component styles and variables with consistent dark-mode/a11y patterns.
+- Maintain look/feel parity via shared tokens and minimal behaviors.
+
+Slice sample (~30 lines from this chunk):
+  
+      this.#paginator.monitor()
+    }
+  
+    disconnect() {
+      this.#paginator.disconnect()
+    }
+  
+    messageTargetConnected(target) {
+      this.#formatter.format(target, ThreadStyle.thread)
+    }
+  
+    bodyTargetConnected(target) {
+      this.#formatter.formatBody(target)
+    }
+  
+    // Actions
+  
+    async beforeStreamRender(event) {
+      const target = event.detail.newStream.getAttribute("target")
+  
+      if (target === this.messagesTarget.id) {
+        const render = event.detail.render
+        const upToDate = this.#paginator.upToDate
+  
+        if (upToDate) {
+          event.detail.render = async (streamElement) => {
+            const didScroll = await this.#scrollManager.autoscroll(false, async () => {
+              await render(streamElement)
+              await nextEventLoopTick()
+  
+
+Chunk 27 (lines 7801–8100) — Highlights
+UI/CSS and tokens continue
+- Continued component styles and variables with consistent dark-mode/a11y patterns.
+- Maintain look/feel parity via shared tokens and minimal behaviors.
+
+Slice sample (~30 lines from this chunk):
+    #urlBase64ToUint8Array(base64String) {
+      const padding = "=".repeat((4 - base64String.length % 4) % 4)
+      const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/")
+  
+      const rawData = window.atob(base64)
+      const outputArray = new Uint8Array(rawData.length)
+  
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i)
+      }
+  
+      return outputArray
+    }
+  
+    #isHidden(item) {
+      return (item.offsetParent === null)
+    }
+  
+    get #isPWA() {
+      return window.matchMedia("(display-mode: standalone)").matches
+    }
+  }
+  
+  
+  
+  ================================================
+  FILE: app/javascript/controllers/popup_controller.js
+  ================================================
+  import { Controller } from "@hotwired/stimulus"
+  
+  const BOTTOM_THRESHOLD = 90
