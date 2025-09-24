@@ -453,3 +453,96 @@ Slice sample (first ~30 lines):
 
 Kiro mapping deltas
 - Confirm variables in base stylesheet; keep composer minimal; move OG embeds to backlog.
+
+Chunk 14 (lines 3901–4200) — Highlights
+CSS tokens and components (continued)
+- Continued button variants and state handling; dark-mode treatment for icons.
+- Code highlighting styles (hljs classes) with named color tokens; deletion/insertion styling.
+- Colorize helpers for black/white inversion with dark-mode support.
+
+Implications for v0.1
+- Keep tokens and code highlighting; ensure dark-mode parity.
+- Colorize helpers can be preserved or simplified if assets are minimal.
+
+Slice sample:
+  
+    #sidebar:where(:not(.open):has(.unread)) & {
+      &::after {
+        --size: 1em;
+  
+        aspect-ratio: 1;
+        background-color: var(--color-negative);
+        block-size: var(--size);
+        border-radius: calc(var(--size) * 2);
+        content: "";
+        flex-shrink: 0;
+        inline-size: var(--size);
+        inset-block-start: calc(var(--size) / -4);
+        inset-inline-end: calc(var(--size) / -4);
+        position: absolute;
+      }
+    }
+  
+    @media (min-width: 100ch) {
+      display: none;
+      inset-block-start: var(--block-space);
+    }
+  
+    .open & {
+      inset-block-start: var(--block-space);
+  
+      @media (max-width: 100ch) {
+        inset-inline-start: var(--sidebar-inline-space);
+  
+        & img {
+          filter: invert(0);
+        }
+  
+        @media (prefers-color-scheme: dark) {
+          & img {
+
+Chunk 15 (lines 4201–4500) — Highlights
+Composer and embed styling (continued)
+- Composer: attachment thumbnail styles, caption/remove affordances, rich-text toggle gating, typing indicator positioning.
+- Embeds: OpenGraph card structure (content, title, description) with responsive flex behavior.
+
+Implications for v0.1
+- Composer: keep text-first + minimal rich-text; hide upload affordances for now.
+- Embeds (OG): deferred to backlog.
+
+Slice sample:
+      display: none;
+      visibility: hidden;
+    }
+  }
+  
+  
+  
+  ================================================
+  FILE: app/assets/stylesheets/signup.css
+  ================================================
+  .nametag {
+    --fieldset-border-color: var(--color-border-darker);
+    --nametag-padding: var(--block-space-double);
+    --nametag-border-size: 1px;
+  
+    background-color: var(--color-message-bg);
+    border-radius: var(--fieldset-border-radius, 1em);
+    border: var(--nametag-border-size) solid var(--fieldset-border-color);
+    box-shadow: 0 0 1em oklch(var(--lch-black) / 0.2);
+    margin-block-end: var(--block-space);
+    margin-block-start: 18ex;
+    overflow: unset;
+    padding: var(--nametag-padding);
+  
+    @media (max-width: 100ch) {
+      --nametag-padding: calc(var(--block-space) * 1.5);
+    }
+  }
+  
+  .nametag__inner {
+    --avatar-size: 4ch;
+    --nametag-inner-padding: var(--block-space);
+  
+    background-color: var(--color-bg);
+    border-radius: 0.8em;
