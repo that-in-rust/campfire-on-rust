@@ -774,3 +774,117 @@ Slice sample (~30 lines from this chunk):
   FILE: app/javascript/models/client_message.js
   ================================================
   const EMOJI_MATCHER = /^(\p{Emoji_Presentation}|\p{Extended_Pictographic}|\uFE0F)+$/gu
+
+Chunk 37 (lines 10801–11100) — Highlights
+UI/CSS and tokens continue
+- Continued component styles and variables with consistent dark-mode/a11y patterns.
+- Maintain look/feel parity via shared tokens and minimal behaviors.
+
+Slice sample (~30 lines from this chunk):
+  
+      this.#mutationObserver.observe(container, { childList: true })
+    }
+  
+    connect() {
+      this.#childrenChanged()
+    }
+  
+    disconnect() {
+      this.#intersectionObserver.disconnect()
+    }
+  
+    #childrenChanged() {
+      this.disconnect()
+  
+      if (this.#container.firstElementChild) {
+        this.#firstChildWasHidden = false
+  
+        this.#intersectionObserver.observe(this.#container.firstElementChild)
+        this.#intersectionObserver.observe(this.#container.lastElementChild)
+      }
+    }
+  
+    #handleIntersection(entries) {
+      for (const entry of entries) {
+        // Don't callback when the first child is shown, unless it had previously
+        // been hidden. This avoids the issue that adding new pages will always
+        // fire the callback for the first item before the scroll position is
+        // adjusted.
+        //
+        // We don't do this with the last item, because it's possible that
+
+Chunk 38 (lines 11101–11400) — Highlights
+UI/CSS and tokens continue
+- Continued component styles and variables with consistent dark-mode/a11y patterns.
+- Maintain look/feel parity via shared tokens and minimal behaviors.
+
+Slice sample (~30 lines from this chunk):
+  ================================================
+  class Bot::WebhookJob < ApplicationJob
+    def perform(bot, message)
+      bot.deliver_webhook(message)
+    end
+  end
+  
+  
+  
+  ================================================
+  FILE: app/jobs/room/push_message_job.rb
+  ================================================
+  class Room::PushMessageJob < ApplicationJob
+    def perform(room, message)
+      Room::MessagePusher.new(room:, message:).push
+    end
+  end
+  
+  
+  
+  ================================================
+  FILE: app/models/account.rb
+  ================================================
+  class Account < ApplicationRecord
+    include Joinable
+  
+    has_one_attached :logo
+  end
+  
+  
+  
+
+Chunk 39 (lines 11401–11700) — Highlights
+UI/CSS and tokens continue
+- Continued component styles and variables with consistent dark-mode/a11y patterns.
+- Maintain look/feel parity via shared tokens and minimal behaviors.
+
+Slice sample (~30 lines from this chunk):
+    class << self
+      def create_for(attributes, users:)
+        transaction do
+          create!(attributes).tap do |room|
+            room.memberships.grant_to users
+          end
+        end
+      end
+  
+      def original
+        order(:created_at).first
+      end
+    end
+  
+    def receive(message)
+      unread_memberships(message)
+      push_later(message)
+    end
+  
+    def open?
+      is_a?(Rooms::Open)
+    end
+  
+    def closed?
+      is_a?(Rooms::Closed)
+    end
+  
+    def direct?
+      is_a?(Rooms::Direct)
+    end
+  
