@@ -479,8 +479,8 @@ mod tests {
         assert!(admin.unwrap().admin);
     }
     
-    #[test]
-    fn test_rich_text_processing() {
+    #[tokio::test]
+    async fn test_rich_text_processing() {
         let db = Arc::new(CampfireDatabase::new(":memory:").await.unwrap());
         let initializer = DemoDataInitializer::new(db);
         
@@ -491,8 +491,8 @@ mod tests {
         assert!(html.contains(r#"<span class="sound-command">/play tada</span>"#));
     }
     
-    #[test]
-    fn test_mention_extraction() {
+    #[tokio::test]
+    async fn test_mention_extraction() {
         let db = Arc::new(CampfireDatabase::new(":memory:").await.unwrap());
         let initializer = DemoDataInitializer::new(db);
         
@@ -502,8 +502,8 @@ mod tests {
         assert_eq!(mentions, vec!["@alice", "@bob"]);
     }
     
-    #[test]
-    fn test_sound_command_extraction() {
+    #[tokio::test]
+    async fn test_sound_command_extraction() {
         let db = Arc::new(CampfireDatabase::new(":memory:").await.unwrap());
         let initializer = DemoDataInitializer::new(db);
         
