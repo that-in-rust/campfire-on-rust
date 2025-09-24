@@ -153,3 +153,55 @@ Kiro mapping deltas (to validate in ./.kiro/specs/campfire-rust-rewrite)
 - Test scaffolding
   - Requirement: System/UAT for send message, boosts, unread.
   - Tasks: replicate analogous tests in Rust test harness/UAT suite.
+
+Chunk 3 (lines 601–900) — Highlights
+README
+- Single-tenant app; features: multi-room, DMs, attachments (previews), search, Web Push, @mentions, bot API.
+- Docker deploy: single-machine includes web, jobs, caching, file serving, SSL; env vars: SSL_DOMAIN, DISABLE_SSL, VAPID keys, SENTRY_DSN.
+
+config.ru
+- Rack entrypoint with Rack::Deflater; Rails app load and load_server.
+
+Dockerfile
+- Multi-stage build; jemalloc; installs sqlite3, redis, ffmpeg, libvips; precompiles assets; non-root user; timeouts; exposes 80/443; boot via bin/boot.
+
+Gemfile (key dependencies)
+- rails (main), sqlite3, redis
+- resque + resque-pool (jobs)
+- propshaft + importmap-rails (assets), turbo-rails + stimulus-rails (Hotwire)
+- image_processing, web-push, rqrcode, rails_autolink
+- geared_pagination (pagination)
+- jbuilder (JSON views)
+- net-http-persistent (HTTP client for OG fetch, webhooks)
+- kredis, platform_agent, thruster
+- sentry (observability)
+- dev/test: debug, rubocop, faker, brakeman; test: capybara, mocha, selenium-webdriver, webmock
+
+Procfile
+- web: thrust bin/start-app; redis server; workers via resque-pool.
+
+Rakefile + .dockerignore
+- Rails load_tasks; dockerignore covers logs/tmp/.env, etc.
+
+Implications for our MVP (Rust/Axum)
+- Jobs: resque/resque-pool → need a job runner (e.g., Tokio background tasks or lightweight queue) for push/unfurl/webhook.
+- Hotwire stack: Turbo/Stimulus → consider HTMX/Turbo-compatible fragments; we already have WebSocket for pushes.
+- Pagination: align on geared_pagination-like cursors (we have message pagination endpoints; ensure UI parity).
+- Observability: wire Sentry equivalent (optional but useful).
+- Docker: Provide a single-image deployment with SSL option (Caddy/Traefik or built-in reverse proxy). Provide envs for VAPID keys.
+- HTTP persistent client: ensure pooling for OG fetch and webhooks.
+
+Kiro mapping deltas
+- Background jobs
+  - Requirement: async message push, OG fetch, webhook invocation.
+  - Design: Task queue with retry/backoff; bounded concurrency.
+  - Tasks: job trait + executor; jobs for push_message, unfurl_fetch, webhook_call.
+
+- Deployment
+  - Requirement: dockerized single-node with SSL, redis-like cache analog (optional).
+  - Tasks: Dockerfile; compose; env toggles; VAPID keys script equivalent.
+
+- Libraries parity
+  - Requirement: feature coverage without Rails-specific gems.
+  - Tasks: confirm alternatives in Rust stack; document deltas.
+
