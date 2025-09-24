@@ -362,3 +362,94 @@ Kiro mapping deltas (to validate in ./.kiro/specs/campfire-rust-rewrite)
 
 Next
 - After Chunk 9, produce the 7–9 roll-up into the summary to maintain the 3-chunk cadence.
+
+Chunk 11 (lines 3001–3300) — Highlights
+CSS/UX continues (code highlighting, colors)
+- Code highlighting tokens (keyword/entity/string/comment/etc.) with light/dark variants using OKLCH.
+- Consistent background/typography for code/pre blocks.
+- Accessibility: theming respects prefers-color-scheme.
+
+Implications for v0.1
+- Keep code.css styles or equivalent to maintain visual parity for snippets.
+- Ensure base colors are centralized in tokens.
+
+Slice sample (first ~30 lines):
+      @media (min-width: 100ch) {
+        --sidebar-width: 26vw;
+      }
+    }
+  }
+  
+  #app-logo {
+    display: none;
+  
+    @media (min-width: 100ch) {
+      block-size: var(--footer-height);
+      display: grid;
+      filter: saturate(0);
+      inline-size: 5vw;
+      inset: auto auto 0 0;
+      opacity: 0.5;
+      padding-inline: 1vw;
+      place-items: center;
+      position: absolute;
+      transition: opacity 500ms ease-in-out, filter 500ms ease-in-out;
+  
+      & img {
+        block-size: auto;
+        inline-size: 100%;
+        max-inline-size: 2.75em;
+      }
+  
+      &:hover {
+        filter: none;
+        opacity: 1;
+
+Kiro mapping deltas
+- Add color/code tokens to base stylesheet and document in design.md.
+
+Chunk 12 (lines 3301–3600) — Highlights
+Colors, composer, embeds (continued)
+- Colors.css: OKLCH tokens for bg/text/borders/links/selected/alert; dark-mode redefinitions.
+- Composer.css: attachment thumbnails/buttons; minimal rich-text toggle under viewport/hover gating; typing indicator placement.
+- Embeds.css: OG-embed card layout (title/description responsive styles).
+
+Implications for v0.1
+- Colors: adopt OKLCH tokens for light/dark parity.
+- Composer: text-only + minimal rich-text toggle; hide upload controls for v0.1.
+- Embeds/unfurls: defer (tracked in backlog).
+
+Slice sample (first ~30 lines):
+  }
+  
+  .message__day-separator {
+    align-items: center;
+    display: none;
+    font-size: 0.8rem;
+    font-weight: 600;
+    grid-area: sep;
+    grid-template-columns: 1fr auto 1fr;
+    inline-size: 100%;
+    margin-block: var(--message-space);
+    text-align: center;
+    text-transform: uppercase;
+    visibility: hidden;
+  
+    time,
+    span {
+      padding: 0.66em 2.33ch;
+      background-color: var(--color-message-bg);
+      border-radius: 3em;
+    }
+  
+    &::after,
+    &::before {
+      border-top: 2px solid var(--color-message-bg);
+      content: "";
+    }
+  
+    .message--first-of-day & {
+      display: grid;
+
+Kiro mapping deltas
+- Confirm variables in base stylesheet; keep composer minimal; move OG embeds to backlog.
