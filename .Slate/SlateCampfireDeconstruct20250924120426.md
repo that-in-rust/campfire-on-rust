@@ -22,3 +22,11 @@ Roll-up: Chunks 25–27 (TS 20250924120426)
 Immediate tasks
 - Verify tokens/styles load across pages and templates.
 - Keep composer text-first (no uploads); mentions and minimal rich text OK.
+
+Roll-up: Chunks 34–36 (TS 20250924120426)
+- Continued UI/CSS tokens/components; dark-mode and accessibility invariants remain consistent.
+- v0.1 scope unchanged: attachments/media uploads, avatar uploads, OG/unfurls, boosts/reactions, bots/webhooks, and advanced PWA/offline caching remain in backlog.
+
+Immediate tasks
+- Ensure tokens/styles load across all views.
+- Keep composer text-first (no uploads); mentions + minimal rich text ok.

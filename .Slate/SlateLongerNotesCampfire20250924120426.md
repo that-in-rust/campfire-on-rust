@@ -660,3 +660,117 @@ Slice sample (~30 lines from this chunk):
   import { Controller } from "@hotwired/stimulus"
   
   const BOTTOM_THRESHOLD = 90
+
+Chunk 34 (lines 9901–10200) — Highlights
+UI/CSS and tokens continue
+- Continued component styles and variables with consistent dark-mode/a11y patterns.
+- Maintain look/feel parity via shared tokens and minimal behaviors.
+
+Slice sample (~30 lines from this chunk):
+    #didPressKeyWithValue(value) {
+      if (this.#active && (value != null) && !this.hidden) {
+        const result = this.matchQueryAndTerminatorForWord(value)
+        if (result?.query === "") {
+          this.#cancelSuggestion()
+          return false
+        }
+      }
+    }
+  
+    // Scroll and resize events
+  
+    didResizeWindow() {
+      if (this.#active) {
+        return this.hideResults()
+      }
+    }
+  
+    didScrollWindow(event) {
+      if (this.#active && (event.target === document)) {
+        return this.hideResults()
+      }
+    }
+  
+    // Private
+  
+    #installKeyboardListener() {
+      window.addEventListener("keydown", this.didPressKey, true)
+    }
+  
+    #uninstallKeyboardListener() {
+
+Chunk 35 (lines 10201–10500) — Highlights
+UI/CSS and tokens continue
+- Continued component styles and variables with consistent dark-mode/a11y patterns.
+- Maintain look/feel parity via shared tokens and minimal behaviors.
+
+Slice sample (~30 lines from this chunk):
+    return normalize(query.toString()).split("").map(regexpEscape).join("(.*\\s)?").replace(/\(\.\*\\s\)\? /g, "[^ ]* ")
+  }
+  
+  
+  export function uniqueValues(array) {
+    const set = new Set()
+    Array.from(array).forEach(value => set.add(value))
+    return Array.from(set)
+  }
+  
+  export function regexpEscape(string) {
+    return  string.toString().replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&")
+  }
+  
+  
+  
+  ================================================
+  FILE: app/javascript/lib/autocomplete/custom_elements/suggestion_option.js
+  ================================================
+  import { generateUUID, synchronize } from "lib/autocomplete/helpers"
+  
+  export default class extends HTMLElement {
+    constructor() {
+      super(...arguments)
+      this.flash = synchronize(this.flash)
+    }
+  
+    connectedCallback() {
+      this.id ||= `option-${generateUUID()}`
+    }
+  
+
+Chunk 36 (lines 10501–10800) — Highlights
+UI/CSS and tokens continue
+- Continued component styles and variables with consistent dark-mode/a11y patterns.
+- Maintain look/feel parity via shared tokens and minimal behaviors.
+
+Slice sample (~30 lines from this chunk):
+      a.href = this.string
+      return a.pathname
+    }
+  
+    isLinked() {
+      const {href} = this.getCommonAttributes()
+      return (href != null) && (href !== this.string)
+    }
+  
+    getCommonAttributes() {
+      return this.document.getCommonAttributesAtRange(this.range)
+    }
+  
+    getSignificantPaste() {
+      return new this.constructor(this.getSignificantRange(), this.editor, this.document)
+    }
+  
+    getSignificantRange() {
+      const significantString = this.string.trim()
+      const startOffset = this.range[0] + this.string.indexOf(significantString)
+      const endOffset = startOffset + significantString.length
+      return [startOffset, endOffset]
+    }
+  }
+  
+  
+  
+  ================================================
+  FILE: app/javascript/models/client_message.js
+  ================================================
+  const EMOJI_MATCHER = /^(\p{Emoji_Presentation}|\p{Extended_Pictographic}|\uFE0F)+$/gu
