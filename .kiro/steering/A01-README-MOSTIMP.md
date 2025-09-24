@@ -43,4 +43,4 @@ These principles are derived from the Parseltongue AIM Daemon design process and
 
 ## IMPORTANT FOR VISUALS AND DIAGRAMS
 
-ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP THAT
+ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP THAT - Use .kiro/refMermaid/Bullet-Proof Mermaid Prompts_ Square-Perfect Diagrams from Any LLM.md for guiding yourself on that
