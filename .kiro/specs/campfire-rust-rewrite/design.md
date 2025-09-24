@@ -8,8 +8,12 @@ ALL DIAGRAMS WILL BE IN MERMAID ONLY TO ENSURE EASE WITH GITHUB - DO NOT SKIP TH
 
 > v0.1 note: Avatar uploads and Attachments/Uploads have been moved to .Slate/SlateBacklogIdentified20250924120426.md
 
-
 This design document specifies the architecture for rewriting the Ruby on Rails Campfire chat application in Rust, following the **MVP-First Rigor** pattern with **Rails-Compatible Simplicity**. The design prioritizes proven patterns over architectural innovation, ensuring rapid delivery of a working chat application with Rust's performance benefits.
+
+**Key Design Updates for Requirements 10 & 11:**
+- **Demo Experience Architecture**: Basecamp-inspired demo mode with realistic data initialization and multi-user simulation capabilities
+- **First-Run Setup System**: Simple admin account creation with environment-based configuration following DHH's radical simplicity philosophy
+- **Deployment Strategy**: Single binary with automatic setup detection and Docker-first approach
 
 **Core Design Philosophy:**
 - **Rails Parity Rule**: If Rails doesn't do it, we don't do it - replicate Rails patterns exactly using idiomatic Rust
@@ -28,7 +32,8 @@ graph TB
             HTTP[HTTP Server<br/>Axum]
             WS[WebSocket Handler<br/>tokio-tungstenite]
             STATIC[Static Assets<br/>include_bytes!]
-            DEMO[Demo Pages<br/>Askama Templates]
+            LANDING[Landing Page<br/>Demo Mode Detection]
+            SETUP_UI[First-Run Setup<br/>Admin Creation]
         end
         
         subgraph "Service Layer"
@@ -38,19 +43,20 @@ graph TB
             USER[User<br/>Service]
             SEARCH[Search<br/>Service]
             PUSH[Push Notification<br/>Service]
+            DEMO[Demo Data<br/>Service]
             SETUP[First Run Setup<br/>Service]
         end
         
         subgraph "Data Layer"
             DB[(SQLite Database<br/>rusqlite)]
             FTS[(FTS5 Search<br/>Virtual Table)]
-            DEMO_DATA[Demo Data<br/>Initializer]
+            DEMO_STORE[Demo Data<br/>Templates & Users]
         end
         
         subgraph "Background Tasks"
             WEBHOOK[Webhook<br/>Delivery]
             CLEANUP[Connection<br/>Cleanup]
-            DEMO_INIT[Demo Data<br/>Initialization]
+            DEMO_INIT[Demo Initialization<br/>Async Task]
         end
     end
     
@@ -60,7 +66,8 @@ graph TB
     HTTP --> USER
     HTTP --> SEARCH
     HTTP --> SETUP
-    HTTP --> DEMO
+    HTTP --> LANDING
+    HTTP --> SETUP_UI
     
     WS --> MSG
     WS --> ROOM
@@ -73,61 +80,86 @@ graph TB
     USER --> DB
     SEARCH --> FTS
     SETUP --> DB
+    DEMO --> DB
     
     MSG --> WEBHOOK
     WS --> CLEANUP
-    DEMO_INIT --> DEMO_DATA
-    DEMO_DATA --> DB
+    DEMO_INIT --> DEMO_STORE
+    DEMO_STORE --> DB
     
     PUSH --> USER
+    
+    LANDING --> DEMO
+    SETUP_UI --> SETUP
 ```
 
-### Demo and Deployment Architecture
+### Demo Experience and First-Run Setup Architecture
 
 ```mermaid
 graph TB
-    subgraph "Demo Experience Flow"
-        VISIT[User Visits Root URL]
-        DETECT[Detect Demo Mode]
+    subgraph "Application Startup Flow"
+        START[Application Start]
+        ENV_CHECK[Check Environment Variables]
+        DB_CHECK[Check Database State]
+        
+        START --> ENV_CHECK
+        ENV_CHECK --> DB_CHECK
+    end
+    
+    subgraph "Demo Mode Flow (CAMPFIRE_DEMO_MODE=true)"
+        DEMO_DETECT[Demo Mode Detected]
+        DEMO_INIT[Initialize Demo Data]
         LANDING[Professional Landing Page]
         PREVIEW[Live Chat Preview]
-        LOGIN[One-Click Demo Login]
+        DEMO_LOGIN[One-Click Demo Login]
+        MULTI_USER[Multi-User Simulation]
         TOUR[Guided Feature Tour]
-        MULTI[Multi-User Simulation]
         
-        VISIT --> DETECT
-        DETECT --> LANDING
+        DB_CHECK -->|Demo Mode| DEMO_DETECT
+        DEMO_DETECT --> DEMO_INIT
+        DEMO_INIT --> LANDING
         LANDING --> PREVIEW
-        LANDING --> LOGIN
-        LOGIN --> TOUR
-        TOUR --> MULTI
+        LANDING --> DEMO_LOGIN
+        DEMO_LOGIN --> TOUR
+        TOUR --> MULTI_USER
     end
     
-    subgraph "First Run Setup Flow"
-        START[Application Start]
-        CHECK[Check Database Empty]
-        SETUP_PAGE[First Run Setup Page]
+    subgraph "First-Run Setup Flow (Production)"
+        EMPTY_DB[Empty Database Detected]
+        SETUP_PAGE[Admin Setup Page]
         ADMIN_CREATE[Create Admin Account]
-        REDIRECT[Redirect to Chat]
+        SESSION_CREATE[Create Initial Session]
+        REDIRECT_CHAT[Redirect to Chat]
         
-        START --> CHECK
-        CHECK -->|Empty DB| SETUP_PAGE
-        CHECK -->|Has Users| LOGIN
+        DB_CHECK -->|Empty DB & Production| EMPTY_DB
+        EMPTY_DB --> SETUP_PAGE
         SETUP_PAGE --> ADMIN_CREATE
-        ADMIN_CREATE --> REDIRECT
+        ADMIN_CREATE --> SESSION_CREATE
+        SESSION_CREATE --> REDIRECT_CHAT
     end
     
-    subgraph "Deployment Options"
-        DOCKER[Docker Container]
-        BINARY[Single Binary]
-        ENV[Environment Config]
-        SSL[Auto SSL/Let's Encrypt]
-        VOLUME[Persistent Storage]
+    subgraph "Normal Operation Flow"
+        EXISTING_DB[Database Has Users]
+        LOGIN_PAGE[Standard Login Page]
+        AUTH_FLOW[Authentication Flow]
+        CHAT_APP[Chat Application]
         
-        DOCKER --> ENV
-        DOCKER --> SSL
-        DOCKER --> VOLUME
-        BINARY --> ENV
+        DB_CHECK -->|Has Users| EXISTING_DB
+        EXISTING_DB --> LOGIN_PAGE
+        LOGIN_PAGE --> AUTH_FLOW
+        AUTH_FLOW --> CHAT_APP
+    end
+    
+    subgraph "Demo Data Components"
+        DEMO_USERS[8 Realistic Demo Users<br/>Admin, PM, Devs, Designers]
+        DEMO_ROOMS[7 Diverse Rooms<br/>General, Dev, Design, etc.]
+        DEMO_CONVOS[Sample Conversations<br/>@mentions, /play, bots]
+        DEMO_BOTS[Bot Integration Examples]
+        
+        DEMO_INIT --> DEMO_USERS
+        DEMO_INIT --> DEMO_ROOMS
+        DEMO_INIT --> DEMO_CONVOS
+        DEMO_INIT --> DEMO_BOTS
     end
 ```
 
@@ -235,6 +267,55 @@ pub struct Membership {
 pub enum InvolvementLevel {
     Member,
     Admin,
+}
+
+// Demo and Setup Data Models (Requirements 10 & 11)
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DemoUser {
+    pub id: UserId,
+    pub name: String,
+    pub email: String,
+    pub role_description: String,
+    pub permissions_summary: String,
+    pub demo_context: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DemoInitStatus {
+    pub users_created: u32,
+    pub rooms_created: u32,
+    pub messages_created: u32,
+    pub bots_configured: u32,
+    pub initialization_time_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionToken {
+    pub token: String,
+    pub expires_at: DateTime<Utc>,
+    pub user_id: UserId,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeploymentConfig {
+    pub database_url: String,
+    pub vapid_public_key: Option<String>,
+    pub vapid_private_key: Option<String>,
+    pub ssl_domain: Option<String>,
+    pub session_timeout_hours: u32,
+    pub max_message_length: usize,
+    pub enable_user_registration: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemHealth {
+    pub database_connected: bool,
+    pub fts_search_available: bool,
+    pub websocket_ready: bool,
+    pub push_notifications_configured: bool,
+    pub static_assets_embedded: bool,
+    pub admin_account_exists: bool,
 }
 ```
 
@@ -389,6 +470,82 @@ pub trait ConnectionManager: Send + Sync {
         last_seen_message_id: Option<MessageId>,
     ) -> Result<(), ConnectionError>;
 }
+
+// Demo Data Service - Basecamp-inspired demo experience (Requirement 10)
+#[async_trait]
+pub trait DemoService: Send + Sync {
+    /// Detects if demo mode should be enabled
+    /// 
+    /// # Preconditions
+    /// - Environment variables checked (CAMPFIRE_DEMO_MODE)
+    /// - Database state assessed
+    /// 
+    /// # Postconditions
+    /// - Returns true if demo mode should be active
+    /// - Considers environment settings and database state
+    async fn should_enable_demo_mode(&self) -> Result<bool, DemoError>;
+    
+    /// Initializes complete demo data set
+    /// 
+    /// # Preconditions
+    /// - Demo mode is enabled
+    /// - Database is accessible
+    /// 
+    /// # Postconditions
+    /// - Creates 8 realistic demo users with varied roles
+    /// - Creates 7 diverse rooms (General, Development, Design, etc.)
+    /// - Generates sample conversations with @mentions and /play commands
+    /// - Includes bot integration examples
+    /// - Returns initialization status
+    async fn initialize_demo_data(&self) -> Result<DemoInitStatus, DemoError>;
+    
+    /// Gets demo user credentials for one-click login
+    async fn get_demo_users(&self) -> Result<Vec<DemoUser>, DemoError>;
+    
+    /// Checks if demo data exists and is complete
+    async fn verify_demo_data_integrity(&self) -> Result<bool, DemoError>;
+}
+
+// First-Run Setup Service - Basecamp-style admin setup (Requirement 11)
+#[async_trait]
+pub trait SetupService: Send + Sync {
+    /// Detects if this is a first-run scenario
+    /// 
+    /// # Preconditions
+    /// - Database is accessible
+    /// - Not in demo mode
+    /// 
+    /// # Postconditions
+    /// - Returns true if no users exist in database
+    /// - Indicates first-run setup is needed
+    async fn is_first_run(&self) -> Result<bool, SetupError>;
+    
+    /// Creates initial admin account
+    /// 
+    /// # Preconditions
+    /// - First-run condition verified
+    /// - Valid email and password provided
+    /// - Email format validated
+    /// - Password strength requirements met
+    /// 
+    /// # Postconditions
+    /// - Creates admin user with full permissions
+    /// - Marks user as primary administrator
+    /// - Returns created user and session token
+    /// - Enables subsequent normal login flow
+    async fn create_admin_account(
+        &self,
+        email: String,
+        password: String,
+        name: String,
+    ) -> Result<(User, SessionToken), SetupError>;
+    
+    /// Gets environment-based configuration
+    async fn get_deployment_config(&self) -> Result<DeploymentConfig, SetupError>;
+    
+    /// Validates system readiness for production
+    async fn validate_system_health(&self) -> Result<SystemHealth, SetupError>;
+}
 ```
 
 ### Database Schema
@@ -443,6 +600,29 @@ CREATE TABLE sessions (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     expires_at DATETIME NOT NULL
 );
+
+-- Demo and setup tracking tables (Requirements 10 & 11)
+CREATE TABLE system_config (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Track demo initialization status
+CREATE TABLE demo_status (
+    component TEXT PRIMARY KEY,
+    initialized BOOLEAN NOT NULL DEFAULT FALSE,
+    initialization_time DATETIME,
+    metadata TEXT -- JSON for additional info
+);
+
+-- Enhanced users table with demo and admin flags
+-- (Note: This extends the existing users table structure)
+-- ALTER TABLE users ADD COLUMN is_demo_user BOOLEAN NOT NULL DEFAULT FALSE;
+-- ALTER TABLE users ADD COLUMN is_primary_admin BOOLEAN NOT NULL DEFAULT FALSE;
+-- ALTER TABLE users ADD COLUMN role_description TEXT;
+-- ALTER TABLE users ADD COLUMN demo_context TEXT;
 
 -- FTS5 virtual table for message search
 CREATE VIRTUAL TABLE messages_fts USING fts5(
@@ -628,6 +808,56 @@ pub enum BroadcastError {
     #[error("WebSocket send failed to {connection_count} connections")]
     PartialFailure { connection_count: usize },
 }
+
+// Demo and Setup Error Types (Requirements 10 & 11)
+
+#[derive(Error, Debug)]
+pub enum DemoError {
+    #[error("Demo mode not enabled in environment")]
+    DemoModeDisabled,
+    
+    #[error("Demo data initialization failed: {reason}")]
+    InitializationFailed { reason: String },
+    
+    #[error("Demo data integrity check failed: missing {component}")]
+    IntegrityCheckFailed { component: String },
+    
+    #[error("Demo user creation failed: {0}")]
+    UserCreationFailed(String),
+    
+    #[error("Demo conversation generation failed: {0}")]
+    ConversationGenerationFailed(String),
+    
+    #[error("Database operation failed: {0}")]
+    Database(#[from] rusqlite::Error),
+}
+
+#[derive(Error, Debug)]
+pub enum SetupError {
+    #[error("Not a first-run scenario: users already exist")]
+    NotFirstRun,
+    
+    #[error("Invalid email format: {email}")]
+    InvalidEmail { email: String },
+    
+    #[error("Password too weak: {reason}")]
+    WeakPassword { reason: String },
+    
+    #[error("Admin account creation failed: {0}")]
+    AdminCreationFailed(String),
+    
+    #[error("Environment configuration invalid: {field}")]
+    InvalidConfiguration { field: String },
+    
+    #[error("System health check failed: {component}")]
+    HealthCheckFailed { component: String },
+    
+    #[error("Database operation failed: {0}")]
+    Database(#[from] rusqlite::Error),
+    
+    #[error("Session creation failed: {0}")]
+    SessionCreation(#[from] AuthError),
+}
 ```
 
 ## Testing Strategy
@@ -714,6 +944,104 @@ mod tests {
 ### Critical Gap Testing
 
 Each of the 5 critical gaps identified in requirements must have specific tests:
+
+### Demo Experience and First-Run Setup Testing (Requirements 10 & 11)
+
+```rust
+#[tokio::test]
+async fn test_demo_mode_detection_and_initialization() {
+    // Test Requirement 10.1: Demo mode detection and landing page
+    std::env::set_var("CAMPFIRE_DEMO_MODE", "true");
+    let demo_service = create_test_demo_service().await;
+    
+    assert!(demo_service.should_enable_demo_mode().await.unwrap());
+    
+    // Test demo data initialization
+    let init_status = demo_service.initialize_demo_data().await.unwrap();
+    assert_eq!(init_status.users_created, 8); // 8 realistic demo users
+    assert_eq!(init_status.rooms_created, 7); // 7 diverse rooms
+    assert!(init_status.messages_created > 0); // Sample conversations
+    assert!(init_status.bots_configured > 0); // Bot integration examples
+}
+
+#[tokio::test]
+async fn test_multi_user_demo_simulation() {
+    // Test Requirement 10.5: Multi-user simulation capability
+    let demo_service = create_test_demo_service().await;
+    demo_service.initialize_demo_data().await.unwrap();
+    
+    let demo_users = demo_service.get_demo_users().await.unwrap();
+    assert_eq!(demo_users.len(), 8);
+    
+    // Verify different user roles and contexts
+    let admin_user = demo_users.iter().find(|u| u.role_description.contains("Admin")).unwrap();
+    let pm_user = demo_users.iter().find(|u| u.role_description.contains("Product Manager")).unwrap();
+    
+    assert!(admin_user.permissions_summary.contains("Full Permissions"));
+    assert!(pm_user.demo_context.contains("Planning Focus"));
+}
+
+#[tokio::test]
+async fn test_first_run_setup_detection() {
+    // Test Requirement 11.1: First-run detection
+    let setup_service = create_test_setup_service().await;
+    let empty_db = create_empty_test_database().await;
+    
+    assert!(setup_service.is_first_run().await.unwrap());
+    
+    // Test admin account creation
+    let (admin_user, session_token) = setup_service.create_admin_account(
+        "admin@example.com".to_string(),
+        "SecurePassword123!".to_string(),
+        "System Administrator".to_string(),
+    ).await.unwrap();
+    
+    assert!(admin_user.admin);
+    assert!(!session_token.token.is_empty());
+    assert!(session_token.expires_at > Utc::now());
+}
+
+#[tokio::test]
+async fn test_environment_based_configuration() {
+    // Test Requirement 11.5-11.6: Environment variable configuration
+    std::env::set_var("VAPID_PUBLIC_KEY", "test_public_key");
+    std::env::set_var("VAPID_PRIVATE_KEY", "test_private_key");
+    std::env::set_var("SSL_DOMAIN", "campfire.example.com");
+    std::env::set_var("SESSION_TIMEOUT_HOURS", "48");
+    
+    let config = AppConfig::from_env().unwrap();
+    
+    assert_eq!(config.vapid_public_key, Some("test_public_key".to_string()));
+    assert_eq!(config.vapid_private_key, Some("test_private_key".to_string()));
+    assert_eq!(config.ssl_domain, Some("campfire.example.com".to_string()));
+    assert_eq!(config.session_timeout_hours, 48);
+}
+
+#[tokio::test]
+async fn test_system_health_validation() {
+    // Test Requirement 11.10: System health monitoring
+    let setup_service = create_test_setup_service().await;
+    let health = setup_service.validate_system_health().await.unwrap();
+    
+    assert!(health.database_connected);
+    assert!(health.fts_search_available);
+    assert!(health.websocket_ready);
+    assert!(health.static_assets_embedded);
+}
+
+#[tokio::test]
+async fn test_demo_data_integrity_verification() {
+    // Test Requirement 10.6: Demo data integrity checking
+    let demo_service = create_test_demo_service().await;
+    
+    // Initially no demo data
+    assert!(!demo_service.verify_demo_data_integrity().await.unwrap());
+    
+    // After initialization, integrity should pass
+    demo_service.initialize_demo_data().await.unwrap();
+    assert!(demo_service.verify_demo_data_integrity().await.unwrap());
+}
+```
 
 ```rust
 #[tokio::test]
@@ -912,14 +1240,48 @@ async fn test_critical_gap_5_presence_tracking() {
 - Provides upgrade path messaging
 - Reduces MVP complexity while preserving user experience
 
+### 11. Demo Experience Over Complex Onboarding (Requirement 10)
+
+**Decision**: Implement Basecamp-inspired demo mode with realistic data and multi-user simulation
+**Rationale**:
+- Follows DHH's philosophy: "the best demo is the real product working well"
+- Eliminates complex demo/trial mode transitions
+- Provides immediate value assessment without setup complexity
+- Enables realistic team collaboration simulation
+- Reduces evaluation friction for potential users
+- Maintains Rails-equivalent simplicity in implementation
+
+### 12. First-Run Setup Over Complex Configuration (Requirement 11)
+
+**Decision**: Simple admin account creation with environment-based configuration
+**Rationale**:
+- Follows Basecamp's radical simplicity approach
+- Eliminates complex setup wizards and configuration screens
+- Gets users into real usage immediately
+- Uses convention over configuration principles
+- Supports Docker-first deployment patterns
+- Maintains single binary deployment benefits
+
+### 13. Environment Detection Over Runtime Configuration
+
+**Decision**: Use environment variables for demo mode and deployment configuration
+**Rationale**:
+- Follows 12-factor app principles
+- Enables Docker and container deployment patterns
+- Eliminates runtime configuration complexity
+- Supports different deployment scenarios (demo, production, development)
+- Maintains Rails-equivalent environment-based configuration
+- Reduces coordination complexity in deployment
+
 ## Implementation Priority
 
 ### Phase 1: Core Infrastructure (Week 1)
-1. Database schema and migrations
+1. Database schema and migrations (including demo/setup tables)
 2. Basic HTTP server with Axum
 3. Authentication service with session management
 4. User and room services
 5. Basic HTML templates with Askama
+6. **First-run setup service and admin account creation (Requirement 11)**
 
 ### Phase 2: Real-Time Features (Week 2)
 1. WebSocket connection management
@@ -927,6 +1289,7 @@ async fn test_critical_gap_5_presence_tracking() {
 3. Real-time message broadcasting
 4. Presence tracking (Critical Gap #5)
 5. Missed message delivery (Critical Gap #2)
+6. **Demo data service and initialization system (Requirement 10)**
 
 ### Phase 3: Advanced Features (Week 3)
 1. Full-text search with FTS5
@@ -934,6 +1297,7 @@ async fn test_critical_gap_5_presence_tracking() {
 3. Sound system with embedded MP3 files
 4. Rich text formatting and @mentions
 5. Bot API integration
+6. **Demo experience UI: landing page, one-click login, guided tour (Requirement 10)**
 
 ### Phase 4: Polish and Testing (Week 4)
 1. Comprehensive test suite
@@ -941,5 +1305,158 @@ async fn test_critical_gap_5_presence_tracking() {
 3. Security hardening
 4. Documentation completion
 5. Deployment preparation
+6. **Environment-based configuration and Docker deployment (Requirement 11)**
+7. **Multi-user demo simulation and realistic conversation generation (Requirement 10)**
 
-This design provides a solid foundation for implementing the Campfire Rust rewrite while adhering to the anti-coordination constraints and Rails parity requirements specified in the requirements document.
+## Demo Experience and First-Run Setup Design
+
+### Demo Mode Architecture (Requirement 10)
+
+Following DHH's philosophy of "the best demo is the real product working well," the demo system provides immediate value assessment without complex setup:
+
+```mermaid
+graph TB
+    subgraph "Demo Data Generation"
+        PERSONAS[8 Realistic User Personas]
+        ROOMS[7 Diverse Room Types]
+        CONVOS[Authentic Conversations]
+        BOTS[Bot Integration Examples]
+        
+        PERSONAS --> ADMIN[Admin User<br/>Full Permissions]
+        PERSONAS --> PM[Product Manager<br/>Planning Focus]
+        PERSONAS --> DEV1[Senior Developer<br/>Technical Lead]
+        PERSONAS --> DEV2[Junior Developer<br/>Learning Mode]
+        PERSONAS --> DESIGN1[UX Designer<br/>User Focus]
+        PERSONAS --> DESIGN2[Visual Designer<br/>Brand Focus]
+        PERSONAS --> SUPPORT[Support Rep<br/>Customer Focus]
+        PERSONAS --> MARKETING[Marketing Lead<br/>Growth Focus]
+        
+        ROOMS --> GENERAL[General Discussion]
+        ROOMS --> DEVELOPMENT[Development Team]
+        ROOMS --> DESIGN[Design Team]
+        ROOMS --> PRODUCT[Product Planning]
+        ROOMS --> RANDOM[Random Chat]
+        ROOMS --> SUPPORT_ROOM[Customer Support]
+        ROOMS --> MARKETING_ROOM[Marketing Team]
+        
+        CONVOS --> MENTIONS[@mention Examples]
+        CONVOS --> SOUNDS[/play Sound Commands]
+        CONVOS --> TECHNICAL[Technical Discussions]
+        CONVOS --> PLANNING[Product Planning]
+        CONVOS --> CASUAL[Casual Team Chat]
+        
+        BOTS --> WEBHOOK_BOT[Webhook Integration]
+        BOTS --> STATUS_BOT[Status Updates]
+        BOTS --> DEPLOY_BOT[Deployment Notifications]
+    end
+    
+    subgraph "Demo Experience Flow"
+        LANDING[Professional Landing Page]
+        PREVIEW[Live Chat Preview]
+        LOGIN_DEMO[One-Click Demo Login]
+        TOUR[Guided Feature Tour]
+        MULTI[Multi-User Simulation]
+        
+        LANDING --> PREVIEW
+        LANDING --> LOGIN_DEMO
+        LOGIN_DEMO --> TOUR
+        TOUR --> MULTI
+    end
+```
+
+### First-Run Setup Architecture (Requirement 11)
+
+Implements Basecamp's radical simplicity approach with immediate real usage:
+
+```mermaid
+graph TB
+    subgraph "Environment Detection"
+        ENV_VARS[Environment Variables]
+        DEMO_MODE[CAMPFIRE_DEMO_MODE]
+        SSL_DOMAIN[SSL_DOMAIN]
+        VAPID_KEYS[VAPID_PUBLIC_KEY<br/>VAPID_PRIVATE_KEY]
+        DB_URL[DATABASE_URL]
+        
+        ENV_VARS --> DEMO_MODE
+        ENV_VARS --> SSL_DOMAIN
+        ENV_VARS --> VAPID_KEYS
+        ENV_VARS --> DB_URL
+    end
+    
+    subgraph "Setup Decision Tree"
+        START[Application Start]
+        CHECK_ENV[Check Environment]
+        CHECK_DB[Check Database State]
+        
+        DEMO_PATH[Demo Mode Path]
+        SETUP_PATH[First-Run Setup Path]
+        NORMAL_PATH[Normal Operation Path]
+        
+        START --> CHECK_ENV
+        CHECK_ENV --> CHECK_DB
+        CHECK_DB -->|Demo Mode + Empty DB| DEMO_PATH
+        CHECK_DB -->|Production + Empty DB| SETUP_PATH
+        CHECK_DB -->|Has Users| NORMAL_PATH
+    end
+    
+    subgraph "Admin Account Creation"
+        SETUP_FORM[Admin Setup Form]
+        VALIDATE[Validate Credentials]
+        CREATE_ADMIN[Create Admin User]
+        CREATE_SESSION[Create Session]
+        REDIRECT[Redirect to Chat]
+        
+        SETUP_PATH --> SETUP_FORM
+        SETUP_FORM --> VALIDATE
+        VALIDATE --> CREATE_ADMIN
+        CREATE_ADMIN --> CREATE_SESSION
+        CREATE_SESSION --> REDIRECT
+    end
+```
+
+### Configuration Management Pattern
+
+```rust
+// Environment-based configuration following 12-factor principles
+#[derive(Debug, Clone)]
+pub struct AppConfig {
+    pub demo_mode: bool,
+    pub database_url: String,
+    pub vapid_public_key: Option<String>,
+    pub vapid_private_key: Option<String>,
+    pub ssl_domain: Option<String>,
+    pub session_timeout_hours: u32,
+    pub max_message_length: usize,
+    pub enable_user_registration: bool,
+}
+
+impl AppConfig {
+    pub fn from_env() -> Result<Self, ConfigError> {
+        Ok(Self {
+            demo_mode: env::var("CAMPFIRE_DEMO_MODE")
+                .unwrap_or_default()
+                .parse()
+                .unwrap_or(false),
+            database_url: env::var("DATABASE_URL")
+                .unwrap_or_else(|_| "sqlite:campfire.db".to_string()),
+            vapid_public_key: env::var("VAPID_PUBLIC_KEY").ok(),
+            vapid_private_key: env::var("VAPID_PRIVATE_KEY").ok(),
+            ssl_domain: env::var("SSL_DOMAIN").ok(),
+            session_timeout_hours: env::var("SESSION_TIMEOUT_HOURS")
+                .unwrap_or_else(|_| "24".to_string())
+                .parse()
+                .unwrap_or(24),
+            max_message_length: env::var("MAX_MESSAGE_LENGTH")
+                .unwrap_or_else(|_| "10000".to_string())
+                .parse()
+                .unwrap_or(10000),
+            enable_user_registration: env::var("ENABLE_USER_REGISTRATION")
+                .unwrap_or_default()
+                .parse()
+                .unwrap_or(false),
+        })
+    }
+}
+```
+
+This design provides a solid foundation for implementing the Campfire Rust rewrite while adhering to the anti-coordination constraints and Rails parity requirements specified in the requirements document. The new demo experience and first-run setup components follow DHH's radical simplicity philosophy while providing immediate value to users evaluating or deploying the system.
