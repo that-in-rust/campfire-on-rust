@@ -302,3 +302,63 @@ Kiro mapping deltas (to validate in ./.kiro/specs/campfire-rust-rewrite)
 
 Next
 - Summary has been or will be updated to include chunks 4–6 (1–6 roll-up).
+Chunk 8 (lines 2101–2400) — Highlights
+Buttons, boosts, dialogs, and notification/PWA UX (CSS)
+- Buttons: variables for size, padding, borders; icon handling; hover/focus-visible/disabled states unified via tokens; variants like boost actions.
+- Boosts: compact chip-like UI with animated expand/collapse and quick-boost grid; delete visibility toggled by expanded state.
+- Dialogs: tokenized width with responsive max-inline-size; gradient backdrops; dedicated close control positioning.
+- PWA install affordances: conditional show/hide based on display-mode and install-allowed state.
+- Notification settings: collapsible help with disclosure icon rotation; image invert in dark mode; inline code/emphasis tokens.
+
+Implications for our MVP
+- Buttons: adopt unified .btn token system for consistent feel; ensure icon images are non-selectable and respect hover/focus tokens.
+- Boosts: MVP can ship without boosts UI, but leave room for chip-like reactions; keep animation optional for reduced-motion.
+- Dialogs: add baseline dialog tokens and close button placement for settings flows.
+- PWA/Notifications: provide install hints (optional) and a notifications help section aligned with Web Push preferences UI.
+
+Kiro mapping deltas (to validate in ./.kiro/specs/campfire-rust-rewrite)
+- Button system
+  - Requirement: Consistent tokens (size, radius, colors, padding) and icon treatment.
+  - Tasks: base buttons.css with tokens; document usage.
+
+- Notifications UX
+  - Requirement: Settings page with collapsible help; clear instruction for enabling push/permissions.
+  - Tasks: template + controller action; asset inversion for dark mode.
+
+- Dialog scaffolding
+  - Requirement: Settings dialogs with consistent width/backdrop and accessible close affordance.
+  - Tasks: dialog partial + CSS tokens; focus management plan.
+
+- PWA hints
+  - Requirement: Conditional installer affordances.
+  - Tasks: minimal JS to toggle .pwa--can-install; template partial.
+
+Next
+- Continue to Chunk 9 (lines 2401–2700) to capture more foundational UI tokens and components.
+Chunk 9 (lines 2401–2700) — Highlights
+Avatar/base/layout foundations (CSS continues)
+- Avatars: base avatar component, icon variant, grouped avatars with responsive sizing and grid composition; account-logo sizing in nav contexts.
+- Base.css: global font stack; common interactive element behavior (outline-size/offset, hover filters, disabled); fieldset/legend layout for settings.
+- Turbo integration: turbo-frame and cable stream sources styled as contents to avoid layout shifts.
+- Menus, code/pre and version-badge treatments establish cohesive typography and border tokens.
+
+Implications for our MVP
+- Avatar system: implement avatar/icon/group patterns with tokens; ensure nav placement support for account logo.
+- Settings forms: fieldset/legend patterns and border variants for consistent admin UX.
+- Turbo-friendly markup: avoid layout breaks on fragment updates.
+
+Kiro mapping deltas (to validate in ./.kiro/specs/campfire-rust-rewrite)
+- Avatar tokens
+  - Requirement: Avatar sizes, icon variant, grouping behavior; account logo in nav.
+  - Tasks: avatars.css with variables; helpers to render avatar/group.
+
+- Settings UI
+  - Requirement: Fieldset/legend style and border variants.
+  - Tasks: base.css additions; template helpers.
+
+- Fragment safety
+  - Requirement: Layout-safe fragment updates (WS/HTTP).
+  - Tasks: guidance in templates; test with live updates.
+
+Next
+- After Chunk 9, produce the 7–9 roll-up into the summary to maintain the 3-chunk cadence.

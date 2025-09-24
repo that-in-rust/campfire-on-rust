@@ -54,3 +54,23 @@ References
   Rails_Legacy.md
   requirements.md
   tasks.md
+
+Roll-up: Chunks 7–9 (TS 20250924120426)
+- Base UI tokens/components: avatars (single/icon/group), dialogs with backdrops/close positioning, buttons with unified tokens.
+- Accessibility/keyboard nav: consistent focus-visible/disabled/hover via tokens; any-hover media use; reduced-motion respected.
+- Turbo-friendly DOM: fragments set as display: contents to avoid layout disruptions.
+- PWA and Notifications UX: conditional installer UI; collapsible notification help; dark-mode image inversion.
+- Boosts UI: chip-like reactions and quick-boost grid (optional for MVP; design tokens in place).
+
+Gaps to reflect into Kiro specs (requirements.md/design.md/tasks.md)
+- Button and avatar token definitions; helpers and usage guidance.
+- Notifications settings page (requirements + acceptance criteria, including dark-mode treatment).
+- Dialog scaffolding and focus management strategy.
+- PWA installer hint logic and testing notes.
+- Fragment layout safety and template guidance.
+
+Immediate tasks extracted
+- Add base buttons.css and avatars.css with tokens + docs in design.md.
+- Implement notifications settings/help partial; wire to push preferences endpoints.
+- Provide dialog partial and close control; verify a11y focus behavior.
+- Minimal PWA installer toggle; manifest/service worker already tracked.
