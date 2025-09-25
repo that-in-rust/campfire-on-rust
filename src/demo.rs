@@ -226,21 +226,28 @@ impl DemoDataInitializer {
         Ok(rooms)
     }
     
-    /// Create sample conversations that demonstrate features
+    /// Create comprehensive sample conversations that demonstrate all features
     async fn create_sample_conversations(&self, users: &[User], rooms: &[Room]) -> Result<()> {
         // Find key users and rooms
         let admin = users.iter().find(|u| u.admin).unwrap();
         let alice = users.iter().find(|u| u.name == "Alice Johnson").unwrap();
         let bob = users.iter().find(|u| u.name == "Bob Smith").unwrap();
         let carol = users.iter().find(|u| u.name == "Carol Davis").unwrap();
+        let david = users.iter().find(|u| u.name == "David Wilson").unwrap();
+        let eve = users.iter().find(|u| u.name == "Eve Brown").unwrap();
+        let frank = users.iter().find(|u| u.name == "Frank Miller").unwrap();
+        let grace = users.iter().find(|u| u.name == "Grace Lee").unwrap();
         let bot = users.iter().find(|u| u.name == "Demo Bot").unwrap();
         
         let general_room = rooms.iter().find(|r| r.name == "General").unwrap();
         let dev_room = rooms.iter().find(|r| r.name == "Development").unwrap();
         let design_room = rooms.iter().find(|r| r.name == "Design").unwrap();
+        let product_room = rooms.iter().find(|r| r.name == "Product Planning").unwrap();
         let random_room = rooms.iter().find(|r| r.name == "Random").unwrap();
+        let support_room = rooms.iter().find(|r| r.name == "Support").unwrap();
+        let marketing_room = rooms.iter().find(|r| r.name == "Marketing").unwrap();
         
-        // Welcome messages in General
+        // === GENERAL ROOM: Welcome and Onboarding ===
         self.create_message(
             admin,
             general_room,
@@ -256,14 +263,26 @@ impl DemoDataInitializer {
         self.create_message(
             alice,
             general_room,
-            "Thanks for setting this up! Looking forward to better team communication.",
+            "Thanks for setting this up! Looking forward to better team communication. /play tada",
         ).await?;
         
-        // Development discussion
+        self.create_message(
+            bob,
+            general_room,
+            "The performance is incredible! Sub-millisecond message delivery. Rust really shines here. 🚀",
+        ).await?;
+        
+        self.create_message(
+            carol,
+            general_room,
+            "Love the clean interface! The UX feels so much smoother than our old chat system.",
+        ).await?;
+        
+        // === DEVELOPMENT ROOM: Technical Discussions ===
         self.create_message(
             bob,
             dev_room,
-            "Just pushed the new authentication system. Ready for code review!",
+            "🚀 Just pushed the new authentication system to feature/auth-v2. Ready for code review!",
         ).await?;
         
         self.create_message(
@@ -275,60 +294,231 @@ impl DemoDataInitializer {
         self.create_message(
             bob,
             dev_room,
-            "@alice Performance is solid - response times under 100ms for login. Added comprehensive tests too.",
+            "@alice Performance is solid - response times under 100ms for login. Added comprehensive tests with 95% coverage.",
+        ).await?;
+        
+        self.create_message(
+            grace,
+            dev_room,
+            "@bob I ran the security tests - all green! The bcrypt implementation looks rock solid. /play greatjob",
+        ).await?;
+        
+        self.create_message(
+            david,
+            dev_room,
+            "Infrastructure is ready for the auth rollout. Load balancer configured, Redis sessions scaled up.",
         ).await?;
         
         self.create_message(
             admin,
             dev_room,
-            "Excellent! Security review passed as well. Let's deploy to staging. /play tada",
+            "Excellent teamwork! Security review passed. Let's deploy to staging tomorrow. /play makeitso",
         ).await?;
         
-        // Design collaboration
+        self.create_message(
+            bob,
+            dev_room,
+            "Quick question: should we implement rate limiting at the API gateway or application level?",
+        ).await?;
+        
+        self.create_message(
+            david,
+            dev_room,
+            "@bob I'd recommend application level for fine-grained control. We can use tower-governor middleware.",
+        ).await?;
+        
+        self.create_message(
+            grace,
+            dev_room,
+            "Agreed with @david. Application-level gives us better observability and custom logic per endpoint.",
+        ).await?;
+        
+        // === DESIGN ROOM: Creative Collaboration ===
         self.create_message(
             carol,
             design_room,
-            "New mockups for the dashboard are ready! The user flow is much cleaner now.",
+            "🎨 New mockups for the dashboard are ready! The user flow is much cleaner now.",
         ).await?;
         
         self.create_message(
             alice,
             design_room,
-            "@carol Love the new layout! The navigation feels much more intuitive.",
+            "@carol Love the new layout! The navigation feels much more intuitive. The card-based design is perfect.",
         ).await?;
         
         self.create_message(
             carol,
             design_room,
-            "Thanks! I focused on reducing cognitive load. Users can now find what they need in 2 clicks max.",
+            "Thanks @alice! I focused on reducing cognitive load. Users can now find what they need in 2 clicks max.",
         ).await?;
         
-        // Fun conversation in Random
+        self.create_message(
+            eve,
+            design_room,
+            "@carol The color palette works great with our brand guidelines. Very cohesive! /play flawless",
+        ).await?;
+        
+        self.create_message(
+            carol,
+            design_room,
+            "I'm thinking we should A/B test the new search interface. The current one vs. the floating search bar.",
+        ).await?;
+        
+        self.create_message(
+            alice,
+            design_room,
+            "@carol Great idea! Let's set up the experiment. @grace can you help with the testing framework?",
+        ).await?;
+        
+        self.create_message(
+            grace,
+            design_room,
+            "@alice @carol Absolutely! I'll set up feature flags for the A/B test. We can track conversion metrics.",
+        ).await?;
+        
+        // === PRODUCT PLANNING ROOM: Strategic Discussions ===
+        self.create_message(
+            alice,
+            product_room,
+            "📋 Q4 roadmap planning session tomorrow at 2 PM. Please review the feature priorities doc.",
+        ).await?;
+        
+        self.create_message(
+            bob,
+            product_room,
+            "@alice The real-time collaboration features are technically feasible. WebSocket architecture is solid.",
+        ).await?;
+        
+        self.create_message(
+            carol,
+            product_room,
+            "User research shows 78% want better file sharing. Should we prioritize that over video calls?",
+        ).await?;
+        
+        self.create_message(
+            alice,
+            product_room,
+            "@carol Good point. File sharing has clearer ROI and lower technical complexity. Let's discuss trade-offs.",
+        ).await?;
+        
+        self.create_message(
+            frank,
+            product_room,
+            "From sales perspective: enterprise clients are asking for SSO integration. That could unlock 3 major deals.",
+        ).await?;
+        
+        self.create_message(
+            alice,
+            product_room,
+            "@frank SSO is definitely high value. @bob what's the implementation effort for SAML/OAuth?",
+        ).await?;
+        
+        self.create_message(
+            bob,
+            product_room,
+            "@alice @frank SAML is about 3 weeks, OAuth 2 weeks. We could start with OAuth for quicker wins.",
+        ).await?;
+        
+        // === MARKETING ROOM: Growth and Campaigns ===
+        self.create_message(
+            eve,
+            marketing_room,
+            "🚀 Launch campaign metrics are looking great! 40% increase in signups this week.",
+        ).await?;
+        
+        self.create_message(
+            frank,
+            marketing_room,
+            "@eve The developer community response has been amazing. HackerNews post got 500+ upvotes!",
+        ).await?;
+        
+        self.create_message(
+            eve,
+            marketing_room,
+            "@frank The 'Built with Rust' angle really resonates. Performance benchmarks are our secret weapon. /play yeah",
+        ).await?;
+        
+        self.create_message(
+            alice,
+            marketing_room,
+            "Should we create case studies from our beta users? The performance improvements are impressive.",
+        ).await?;
+        
+        self.create_message(
+            eve,
+            marketing_room,
+            "@alice Absolutely! I'll reach out to TechCorp - they saw 60% faster message delivery vs their old system.",
+        ).await?;
+        
+        // === SUPPORT ROOM: Customer Success ===
+        self.create_message(
+            frank,
+            support_room,
+            "📞 Enterprise client feedback: they love the search speed but want better admin controls.",
+        ).await?;
+        
+        self.create_message(
+            alice,
+            support_room,
+            "@frank What specific admin features are they requesting? User management? Room permissions?",
+        ).await?;
+        
+        self.create_message(
+            frank,
+            support_room,
+            "@alice Bulk user operations, audit logs, and custom role permissions. Standard enterprise stuff.",
+        ).await?;
+        
+        self.create_message(
+            admin,
+            support_room,
+            "I can implement audit logging next sprint. It's crucial for compliance requirements. /play makeitso",
+        ).await?;
+        
+        // === RANDOM ROOM: Team Culture and Fun ===
         self.create_message(
             bob,
             random_room,
-            "Anyone else excited about the new Rust features in 1.75? /play yeah",
+            "Anyone else excited about the new Rust features in 1.75? Async closures are game-changing! /play yeah",
         ).await?;
         
         self.create_message(
             carol,
             random_room,
-            "The async improvements look amazing! Our WebSocket performance should get even better.",
+            "The async improvements look amazing! Our WebSocket performance should get even better. 🚀",
         ).await?;
         
         self.create_message(
             alice,
             random_room,
-            "Speaking of performance, our chat app is blazing fast compared to Slack! 🚀",
+            "Speaking of performance, our chat app is blazing fast compared to Slack! Users notice the difference.",
         ).await?;
         
         self.create_message(
             admin,
             random_room,
-            "That's the power of Rust! Memory safety AND performance. /play greatjob",
+            "That's the power of Rust! Memory safety AND performance. Zero-cost abstractions FTW! /play greatjob",
         ).await?;
         
-        // Bot demonstration
+        self.create_message(
+            david,
+            random_room,
+            "Fun fact: our server uses 80% less memory than the old Node.js version. Rust's ownership model rocks! 🦀",
+        ).await?;
+        
+        self.create_message(
+            grace,
+            random_room,
+            "Coffee break in 10 minutes? Need to discuss the new testing strategy. /play horn",
+        ).await?;
+        
+        self.create_message(
+            carol,
+            random_room,
+            "@grace Count me in! I have some UX testing ideas to share. /play tada",
+        ).await?;
+        
+        // === BOT INTEGRATION DEMONSTRATIONS ===
         self.create_message(
             bot,
             general_room,
@@ -347,36 +537,147 @@ impl DemoDataInitializer {
             "@alice I can send notifications, run automated reports, and integrate with external services. This is just a demo, but imagine the possibilities!",
         ).await?;
         
-        // Sound system demonstration
+        self.create_message(
+            bob,
+            dev_room,
+            "@bot Can you integrate with our CI/CD pipeline?",
+        ).await?;
+        
+        self.create_message(
+            bot,
+            dev_room,
+            "@bob Absolutely! I can notify about build status, deployment results, and test failures. Just configure webhooks!",
+        ).await?;
+        
+        self.create_message(
+            david,
+            dev_room,
+            "@bot That would save us so much time. No more checking Jenkins manually! /play greatjob",
+        ).await?;
+        
+        // === SOUND SYSTEM COMPREHENSIVE DEMONSTRATION ===
         self.create_message(
             bob,
             random_room,
-            "Let's test the sound system! /play horn",
+            "Let's test the sound system! We have 59 different sounds. /play horn",
         ).await?;
         
         self.create_message(
             carol,
             random_room,
-            "Haha, that's fun! /play rimshot",
+            "Haha, that's fun! /play rimshot Perfect for code review reactions.",
         ).await?;
         
         self.create_message(
             alice,
             random_room,
-            "We have 59 different sounds! Try /play nyan for some nostalgia 😸",
+            "Try /play nyan for some nostalgia 😸 Or /play drama for those critical bugs!",
         ).await?;
         
-        // Search demonstration
+        self.create_message(
+            grace,
+            random_room,
+            "When tests pass: /play tada When they fail: /play trombone 😅",
+        ).await?;
+        
+        self.create_message(
+            david,
+            random_room,
+            "Deployment success: /play yeah Rollback needed: /play noooo",
+        ).await?;
+        
+        self.create_message(
+            eve,
+            random_room,
+            "Marketing wins: /play flawless Sales calls: /play dangerzone /play loggins",
+        ).await?;
+        
+        // === SEARCH AND DISCOVERY DEMONSTRATIONS ===
         self.create_message(
             admin,
             general_room,
-            "Pro tip: Use the search feature to find old conversations. Try searching for 'authentication' or 'performance'!",
+            "💡 Pro tip: Use the search feature to find old conversations. Try searching for 'authentication' or 'performance'!",
         ).await?;
         
         self.create_message(
             bob,
             dev_room,
-            "The full-text search is powered by SQLite FTS5 - super fast and accurate!",
+            "The full-text search is powered by SQLite FTS5 - super fast and accurate! Indexes everything automatically.",
+        ).await?;
+        
+        self.create_message(
+            alice,
+            general_room,
+            "Search supports advanced queries too: 'performance AND rust' or 'author:bob deployment'",
+        ).await?;
+        
+        self.create_message(
+            carol,
+            general_room,
+            "You can search across all rooms you have access to. Perfect for finding that design decision from last month!",
+        ).await?;
+        
+        // === CROSS-TEAM COLLABORATION EXAMPLES ===
+        self.create_message(
+            alice,
+            general_room,
+            "🎯 Sprint planning update: @bob @carol @david let's sync on the new feature timeline.",
+        ).await?;
+        
+        self.create_message(
+            bob,
+            general_room,
+            "@alice Backend APIs are ready. @carol when will the UI mockups be finalized?",
+        ).await?;
+        
+        self.create_message(
+            carol,
+            general_room,
+            "@bob @alice Mockups ready by Friday. @david will infrastructure be ready for load testing?",
+        ).await?;
+        
+        self.create_message(
+            david,
+            general_room,
+            "@carol @alice @bob Infrastructure is scaled and ready. Let's coordinate the deployment window.",
+        ).await?;
+        
+        // === TECHNICAL DEEP DIVES ===
+        self.create_message(
+            bob,
+            dev_room,
+            "🔧 Implemented connection pooling with r2d2. Database performance improved 3x under load!",
+        ).await?;
+        
+        self.create_message(
+            grace,
+            dev_room,
+            "@bob Excellent! The connection timeout issues are resolved. Load tests show consistent sub-10ms queries.",
+        ).await?;
+        
+        self.create_message(
+            david,
+            dev_room,
+            "Memory usage is incredibly stable too. Rust's ownership model prevents those nasty memory leaks we had before.",
+        ).await?;
+        
+        // === PRODUCT STRATEGY DISCUSSIONS ===
+        self.create_message(
+            alice,
+            product_room,
+            "🎯 User feedback analysis: 92% satisfaction with speed, 85% with UI. Main request: better mobile experience.",
+        ).await?;
+        
+        self.create_message(
+            carol,
+            product_room,
+            "@alice Mobile-first redesign is in progress. Progressive Web App features will bridge the gap nicely.",
+        ).await?;
+        
+        self.create_message(
+            frank,
+            product_room,
+            "Enterprise prospects are impressed by our security model. Zero-trust architecture is a major selling point.",
         ).await?;
         
         Ok(())

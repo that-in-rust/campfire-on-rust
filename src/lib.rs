@@ -24,6 +24,7 @@ pub use services::search::{SearchService, SearchServiceTrait};
 pub use services::push::{PushNotificationService, PushNotificationServiceImpl, VapidConfig};
 pub use services::bot::{BotService, BotServiceImpl};
 pub use services::setup::{SetupService, SetupServiceImpl};
+pub use services::demo::{DemoServiceTrait, DemoServiceImpl};
 
 use std::sync::Arc;
 
@@ -37,4 +38,5 @@ pub struct AppState {
     pub push_service: Arc<dyn PushNotificationService>,
     pub bot_service: Arc<dyn BotService>,
     pub setup_service: Arc<dyn SetupService>,
+    pub demo_service: Arc<dyn DemoServiceTrait>,
 }

@@ -460,6 +460,7 @@ mod tests {
         ));
         
         let setup_service = Arc::new(crate::services::setup::SetupServiceImpl::new(db.clone()));
+        let demo_service = Arc::new(crate::services::demo::DemoServiceImpl::new(db_arc.clone()));
         
         AppState {
             db,
@@ -470,6 +471,7 @@ mod tests {
             push_service,
             bot_service,
             setup_service,
+            demo_service,
         }
     }
 
