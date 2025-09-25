@@ -1,688 +1,736 @@
-# Deployment Guide
+# Campfire Rust - Production Deployment Guide
 
-## Deployment Overview
+This comprehensive guide covers deploying Campfire Rust to production using Docker and Docker Compose, including monitoring, backup strategies, and performance optimization.
 
-This guide covers deployment strategies for the Campfire Rust rewrite, from local development to production environments.
+## Table of Contents
 
-## Deployment Options
+1. [Quick Start](#quick-start)
+2. [Configuration](#configuration)
+3. [Deployment Methods](#deployment-methods)
+4. [Database Management](#database-management)
+5. [Monitoring and Alerting](#monitoring-and-alerting)
+6. [Security](#security)
+7. [Performance Tuning](#performance-tuning)
+8. [Scaling](#scaling)
+9. [Backup Strategy](#backup-strategy)
+10. [Troubleshooting](#troubleshooting)
+11. [Maintenance](#maintenance)
 
-```mermaid
-graph TD
-    subgraph "Deployment Strategies"
-        direction TB
-        LOCAL[Local Development<br/>cargo run]
-        DOCKER[Docker Container<br/>Single Binary]
-        CLOUD[Cloud Deployment<br/>AWS/GCP/Azure]
-        BARE[Bare Metal<br/>systemd Service]
-    end
-    
-    subgraph "Environment Configurations"
-        direction TB
-        DEV[Development<br/>SQLite + Debug Logs]
-        STAGING[Staging<br/>Production Config + Test Data]
-        PROD[Production<br/>Optimized + Monitoring]
-    end
-    
-    LOCAL --> DEV
-    DOCKER --> DEV
-    DOCKER --> STAGING
-    DOCKER --> PROD
-    CLOUD --> STAGING
-    CLOUD --> PROD
-    BARE --> PROD
-    
-    classDef deployment fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    classDef environment fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-    
-    class LOCAL,DOCKER,CLOUD,BARE deployment
-    class DEV,STAGING,PROD environment
+## Quick Start
+
+1. **Clone and configure**:
+   ```bash
+   git clone <repository-url>
+   cd campfire-on-rust
+   cp .env.example .env.production
+   # Edit .env.production with your settings
+   ```
+
+2. **Deploy with Docker Compose**:
+   ```bash
+   ./scripts/deploy.sh deploy
+   ```
+
+3. **Access the application**:
+   - Web interface: http://localhost:3000
+   - Health check: http://localhost:3000/health
+   - Metrics: http://localhost:3000/metrics
+
+## Configuration
+
+### Environment Variables
+
+Copy `.env.example` to `.env.production` and customize:
+
+#### Required Settings
+```bash
+# Server
+CAMPFIRE_HOST=0.0.0.0
+CAMPFIRE_PORT=3000
+
+# Database
+CAMPFIRE_DATABASE_URL=/app/data/campfire.db
+
+# Security (generate secure values)
+CAMPFIRE_SESSION_TOKEN_LENGTH=32
+CAMPFIRE_CORS_ORIGINS=https://your-domain.com
 ```
 
-## Local Development Setup
+#### Push Notifications
+Generate VAPID keys for push notifications:
+```bash
+# Generate private key
+openssl ecparam -genkey -name prime256v1 -noout -out vapid_private.pem
 
-### Quick Start
+# Extract public key
+openssl ec -in vapid_private.pem -pubout -outform DER | tail -c 65 | base64 | tr -d '=' | tr '/+' '_-'
+
+# Extract private key
+openssl ec -in vapid_private.pem -outform DER | tail -c +8 | head -c 32 | base64 | tr -d '=' | tr '/+' '_-'
+```
+
+Set in `.env.production`:
+```bash
+CAMPFIRE_PUSH_ENABLED=true
+CAMPFIRE_VAPID_PRIVATE_KEY=<private_key_base64>
+CAMPFIRE_VAPID_PUBLIC_KEY=<public_key_base64>
+CAMPFIRE_VAPID_SUBJECT=mailto:admin@your-domain.com
+```
+
+## Deployment Methods
+
+### Method 1: Docker Compose (Recommended)
+
+1. **Basic deployment**:
+   ```bash
+   # Start with default configuration
+   docker-compose up -d
+   
+   # Check status
+   docker-compose ps
+   
+   # View logs
+   docker-compose logs -f campfire
+   ```
+
+2. **With monitoring stack**:
+   ```bash
+   # Start with Prometheus and Grafana
+   docker-compose --profile monitoring up -d
+   
+   # Access monitoring
+   # - Prometheus: http://localhost:9090
+   # - Grafana: http://localhost:3001 (admin/admin)
+   ```
+
+3. **With reverse proxy and SSL**:
+   ```bash
+   # Start with Traefik reverse proxy
+   docker-compose --profile proxy up -d
+   
+   # Access via proxy
+   # - Application: http://campfire.localhost
+   # - Traefik Dashboard: http://traefik.localhost:8080
+   ```
+
+4. **Full production stack**:
+   ```bash
+   # Start everything (app + monitoring + proxy)
+   docker-compose --profile monitoring --profile proxy up -d
+   
+   # Verify all services are running
+   docker-compose ps
+   ```
+
+### Method 2: Deployment Script
+
+The deployment script provides additional automation:
 
 ```bash
-# Clone repository
-git clone https://github.com/that-in-rust/campfire-on-rust.git
-cd campfire-on-rust
+# Build and deploy
+./scripts/deploy.sh deploy
 
-# Build and run
-cargo build
-cargo run
+# Deploy with fresh build (no cache)
+./scripts/deploy.sh deploy --no-cache
 
-# Access application
-open http://localhost:3000
-```
-
-### Development Workflow
-
-```mermaid
-graph TD
-    subgraph "Development Cycle"
-        direction TB
-        EDIT[Edit Code<br/>src/ or templates/]
-        BUILD[Cargo Build<br/>Compile Check]
-        TEST[Run Tests<br/>cargo test]
-        RUN[Local Server<br/>cargo run]
-        VERIFY[Manual Testing<br/>Browser + API]
-    end
-    
-    subgraph "Hot Reload Setup"
-        direction TB
-        WATCH[cargo-watch<br/>Auto-rebuild]
-        RELOAD[Browser Refresh<br/>Manual or Auto]
-    end
-    
-    EDIT --> BUILD
-    BUILD --> TEST
-    TEST --> RUN
-    RUN --> VERIFY
-    VERIFY --> EDIT
-    
-    EDIT --> WATCH
-    WATCH --> RELOAD
-    
-    classDef dev fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    classDef tools fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-    
-    class EDIT,BUILD,TEST,RUN,VERIFY dev
-    class WATCH,RELOAD tools
-```
-
-### Development Dependencies
-
-```bash
-# Install development tools
-cargo install cargo-watch
-cargo install cargo-audit
-cargo install cargo-outdated
-
-# Run with hot reload
-cargo watch -x run
-
-# Security audit
-cargo audit
-
-# Check for outdated dependencies
-cargo outdated
-```
-
-## Docker Deployment
-
-### Single Container Deployment
-
-```mermaid
-graph TD
-    subgraph "Docker Build Process"
-        direction TB
-        DOCKERFILE[Dockerfile<br/>Multi-stage Build]
-        BUILD_STAGE[Build Stage<br/>Rust + Dependencies]
-        RUNTIME_STAGE[Runtime Stage<br/>Alpine Linux]
-        FINAL_IMAGE[Final Image<br/>~20MB]
-    end
-    
-    subgraph "Container Runtime"
-        direction TB
-        CONTAINER[Docker Container<br/>Single Process]
-        VOLUMES[Mounted Volumes<br/>Database + Logs]
-        NETWORK[Network Ports<br/>3000:3000]
-        ENV[Environment Variables<br/>Configuration]
-    end
-    
-    DOCKERFILE --> BUILD_STAGE
-    BUILD_STAGE --> RUNTIME_STAGE
-    RUNTIME_STAGE --> FINAL_IMAGE
-    
-    FINAL_IMAGE --> CONTAINER
-    CONTAINER --> VOLUMES
-    CONTAINER --> NETWORK
-    CONTAINER --> ENV
-    
-    classDef build fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    classDef runtime fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-    
-    class DOCKERFILE,BUILD_STAGE,RUNTIME_STAGE,FINAL_IMAGE build
-    class CONTAINER,VOLUMES,NETWORK,ENV runtime
-```
-
-### Docker Commands
-
-```bash
-# Build image
-docker build -t campfire-rust .
-
-# Run container
-docker run -d \
-  --name campfire \
-  -p 3000:3000 \
-  -v $(pwd)/data:/app/data \
-  -e RUST_LOG=info \
-  campfire-rust
+# Check status
+./scripts/deploy.sh status
 
 # View logs
-docker logs -f campfire
+./scripts/deploy.sh logs
 
-# Stop container
-docker stop campfire
+# Create backup
+./scripts/deploy.sh backup
 ```
 
-### Docker Compose Setup
+### Method 3: Manual Docker
 
-```yaml
-# docker-compose.yml
-version: '3.8'
+1. **Build image**:
+   ```bash
+   docker build -t campfire-on-rust:latest .
+   ```
 
-services:
-  campfire:
-    build: .
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
-    environment:
-      - RUST_LOG=info
-      - DATABASE_URL=sqlite:/app/data/campfire.db
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+2. **Create directories**:
+   ```bash
+   mkdir -p data logs backups
+   ```
 
-  # Optional: Reverse proxy
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-      - ./ssl:/etc/nginx/ssl
-    depends_on:
-      - campfire
-    restart: unless-stopped
-```
-
-## Production Deployment
-
-### Cloud Deployment Architecture
-
-```mermaid
-graph TD
-    subgraph "Load Balancer"
-        direction TB
-        LB[Load Balancer<br/>SSL Termination]
-        HEALTH_CHECK[Health Checks<br/>/health endpoint]
-    end
-    
-    subgraph "Application Tier"
-        direction TB
-        APP1[Campfire Instance 1<br/>Docker Container]
-        APP2[Campfire Instance 2<br/>Docker Container]
-        APP3[Campfire Instance N<br/>Docker Container]
-    end
-    
-    subgraph "Data Tier"
-        direction TB
-        DB[SQLite Database<br/>Shared Volume]
-        BACKUP[Backup Storage<br/>S3/GCS/Azure Blob]
-        LOGS[Log Aggregation<br/>CloudWatch/Stackdriver]
-    end
-    
-    subgraph "Monitoring"
-        direction TB
-        METRICS[Metrics Collection<br/>Prometheus/CloudWatch]
-        ALERTS[Alerting<br/>PagerDuty/Slack]
-        DASHBOARD[Dashboards<br/>Grafana/Cloud Console]
-    end
-    
-    LB --> HEALTH_CHECK
-    LB --> APP1
-    LB --> APP2
-    LB --> APP3
-    
-    APP1 --> DB
-    APP2 --> DB
-    APP3 --> DB
-    
-    DB --> BACKUP
-    APP1 --> LOGS
-    APP2 --> LOGS
-    APP3 --> LOGS
-    
-    APP1 --> METRICS
-    APP2 --> METRICS
-    APP3 --> METRICS
-    METRICS --> ALERTS
-    METRICS --> DASHBOARD
-    
-    classDef lb fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
-    classDef app fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    classDef data fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-    classDef monitoring fill:#fce4ec,stroke:#c2185b,stroke-width:2px
-    
-    class LB,HEALTH_CHECK lb
-    class APP1,APP2,APP3 app
-    class DB,BACKUP,LOGS data
-    class METRICS,ALERTS,DASHBOARD monitoring
-```
-
-### Environment Configuration
-
-```bash
-# Production environment variables
-export RUST_LOG=info
-export DATABASE_URL=sqlite:/app/data/campfire.db
-export BIND_ADDRESS=0.0.0.0:3000
-export SESSION_SECRET=<secure-random-key>
-export VAPID_PRIVATE_KEY=<vapid-private-key>
-export VAPID_PUBLIC_KEY=<vapid-public-key>
-export WEBHOOK_SECRET=<webhook-secret>
-export MAX_CONNECTIONS=1000
-export RATE_LIMIT_REQUESTS=100
-export RATE_LIMIT_WINDOW=60
-```
-
-### Systemd Service (Bare Metal)
-
-```ini
-# /etc/systemd/system/campfire.service
-[Unit]
-Description=Campfire Rust Chat Application
-After=network.target
-
-[Service]
-Type=simple
-User=campfire
-Group=campfire
-WorkingDirectory=/opt/campfire
-ExecStart=/opt/campfire/campfire-rust
-Restart=always
-RestartSec=5
-Environment=RUST_LOG=info
-Environment=DATABASE_URL=sqlite:/opt/campfire/data/campfire.db
-Environment=BIND_ADDRESS=127.0.0.1:3000
-
-# Security settings
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/opt/campfire/data /opt/campfire/logs
-
-[Install]
-WantedBy=multi-user.target
-```
-
-### Deployment Process
-
-```mermaid
-graph TD
-    subgraph "CI/CD Pipeline"
-        direction TB
-        COMMIT[Git Commit<br/>Push to Main]
-        BUILD[Build Binary<br/>cargo build --release]
-        TEST[Run Tests<br/>cargo test]
-        PACKAGE[Package Image<br/>Docker Build]
-        DEPLOY[Deploy to Production<br/>Rolling Update]
-    end
-    
-    subgraph "Health Checks"
-        direction TB
-        PRE_DEPLOY[Pre-deployment<br/>Health Check]
-        DEPLOY_CHECK[Deployment<br/>Readiness Check]
-        POST_DEPLOY[Post-deployment<br/>Smoke Tests]
-        ROLLBACK{Rollback?}
-    end
-    
-    COMMIT --> BUILD
-    BUILD --> TEST
-    TEST --> PACKAGE
-    PACKAGE --> DEPLOY
-    
-    DEPLOY --> PRE_DEPLOY
-    PRE_DEPLOY --> DEPLOY_CHECK
-    DEPLOY_CHECK --> POST_DEPLOY
-    POST_DEPLOY --> ROLLBACK
-    
-    classDef pipeline fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    classDef health fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-    classDef decision fill:#fce4ec,stroke:#c2185b,stroke-width:2px
-    
-    class COMMIT,BUILD,TEST,PACKAGE,DEPLOY pipeline
-    class PRE_DEPLOY,DEPLOY_CHECK,POST_DEPLOY health
-    class ROLLBACK decision
-```
+3. **Run container**:
+   ```bash
+   docker run -d \
+     --name campfire \
+     --restart unless-stopped \
+     -p 3000:3000 \
+     -v $(pwd)/data:/app/data \
+     -v $(pwd)/logs:/app/logs \
+     -v $(pwd)/backups:/app/backups \
+     --env-file .env.production \
+     campfire-on-rust:latest
+   ```
 
 ## Database Management
 
-### SQLite in Production
+### Backups
 
-```mermaid
-graph TD
-    subgraph "Database Setup"
-        direction TB
-        INIT[Initialize Database<br/>Run Migrations]
-        WAL[Enable WAL Mode<br/>Concurrent Reads]
-        BACKUP_CONFIG[Configure Backups<br/>Automated Schedule]
-        MONITOR[Monitor Size<br/>Growth Tracking]
-    end
-    
-    subgraph "Backup Strategy"
-        direction TB
-        CONTINUOUS[Continuous Backup<br/>WAL File Copying]
-        SNAPSHOT[Periodic Snapshots<br/>Full Database Copy]
-        RETENTION[Retention Policy<br/>30 days + Archives]
-        RESTORE[Restore Procedures<br/>Point-in-time Recovery]
-    end
-    
-    subgraph "Maintenance"
-        direction TB
-        VACUUM[VACUUM Operations<br/>Reclaim Space]
-        ANALYZE[ANALYZE Statistics<br/>Query Optimization]
-        INTEGRITY[Integrity Checks<br/>PRAGMA integrity_check]
-        REINDEX[Reindex FTS<br/>Search Performance]
-    end
-    
-    INIT --> WAL
-    WAL --> BACKUP_CONFIG
-    BACKUP_CONFIG --> MONITOR
-    
-    CONTINUOUS --> SNAPSHOT
-    SNAPSHOT --> RETENTION
-    RETENTION --> RESTORE
-    
-    VACUUM --> ANALYZE
-    ANALYZE --> INTEGRITY
-    INTEGRITY --> REINDEX
-    
-    classDef setup fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    classDef backup fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-    classDef maintenance fill:#fce4ec,stroke:#c2185b,stroke-width:2px
-    
-    class INIT,WAL,BACKUP_CONFIG,MONITOR setup
-    class CONTINUOUS,SNAPSHOT,RETENTION,RESTORE backup
-    class VACUUM,ANALYZE,INTEGRITY,REINDEX maintenance
+**Automatic backups** (recommended):
+```bash
+# Add to crontab for daily backups at 2 AM
+0 2 * * * /path/to/campfire/scripts/backup.sh
 ```
 
-### Migration Management
+**Manual backup**:
+```bash
+./scripts/backup.sh
+```
+
+**Backup via Docker**:
+```bash
+docker exec campfire /app/scripts/backup.sh
+```
+
+### Restore
+
+**From backup file**:
+```bash
+./scripts/restore.sh backups/campfire_backup_20240101_120000.db.gz
+```
+
+**Interactive restore**:
+```bash
+./scripts/restore.sh
+```
+
+### Migrations
+
+**Check migration status**:
+```bash
+./scripts/migrate.sh status
+```
+
+**Run migrations**:
+```bash
+./scripts/migrate.sh migrate
+```
+
+**Create new migration**:
+```bash
+./scripts/migrate.sh create add_new_feature
+```
+
+## Monitoring and Alerting
+
+### Health Checks
+
+The application provides comprehensive health check endpoints:
+
+- **Basic health**: `GET /health` - Simple alive check
+- **Readiness**: `GET /health/ready` - Ready to serve traffic
+- **Liveness**: `GET /health/live` - Application is functioning
+- **Detailed**: `GET /health/detailed` - Component-level status
 
 ```bash
-# Run database migrations
-cargo run --bin migrate
+# Check application health
+curl -f http://localhost:3000/health
 
-# Create new migration
-cargo run --bin migrate -- create add_user_preferences
-
-# Check migration status
-cargo run --bin migrate -- status
-
-# Rollback migration (if supported)
-cargo run --bin migrate -- rollback
+# Get detailed health information
+curl http://localhost:3000/health/detailed | jq
 ```
 
-## Monitoring and Observability
+### Metrics Collection
 
-### Monitoring Stack
+Prometheus metrics are available at `/metrics` endpoint:
 
-```mermaid
-graph TD
-    subgraph "Application Metrics"
-        direction TB
-        APP_METRICS[Application Metrics<br/>/metrics endpoint]
-        CUSTOM[Custom Metrics<br/>Business Logic]
-        HEALTH[Health Checks<br/>/health + /ready]
-    end
-    
-    subgraph "Infrastructure Metrics"
-        direction TB
-        SYSTEM[System Metrics<br/>CPU, Memory, Disk]
-        NETWORK[Network Metrics<br/>Connections, Bandwidth]
-        CONTAINER[Container Metrics<br/>Docker Stats]
-    end
-    
-    subgraph "Log Aggregation"
-        direction TB
-        STRUCTURED[Structured Logs<br/>JSON Format]
-        COLLECTION[Log Collection<br/>Fluentd/Filebeat]
-        STORAGE[Log Storage<br/>Elasticsearch/CloudWatch]
-        SEARCH[Log Search<br/>Kibana/Cloud Console]
-    end
-    
-    subgraph "Alerting"
-        direction TB
-        RULES[Alert Rules<br/>Thresholds + Conditions]
-        CHANNELS[Notification Channels<br/>Email, Slack, PagerDuty]
-        ESCALATION[Escalation Policies<br/>On-call Rotation]
-    end
-    
-    APP_METRICS --> RULES
-    CUSTOM --> RULES
-    HEALTH --> RULES
-    
-    SYSTEM --> RULES
-    NETWORK --> RULES
-    CONTAINER --> RULES
-    
-    STRUCTURED --> COLLECTION
-    COLLECTION --> STORAGE
-    STORAGE --> SEARCH
-    
-    RULES --> CHANNELS
-    CHANNELS --> ESCALATION
-    
-    classDef app fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    classDef infra fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-    classDef logs fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
-    classDef alerts fill:#fce4ec,stroke:#c2185b,stroke-width:2px
-    
-    class APP_METRICS,CUSTOM,HEALTH app
-    class SYSTEM,NETWORK,CONTAINER infra
-    class STRUCTURED,COLLECTION,STORAGE,SEARCH logs
-    class RULES,CHANNELS,ESCALATION alerts
-```
+#### Application Metrics
+- `campfire_http_requests_total` - HTTP request counter
+- `campfire_http_request_duration_seconds` - Request duration histogram
+- `campfire_websocket_connections_active` - Active WebSocket connections
+- `campfire_messages_sent_total` - Total messages sent
+- `campfire_database_operations_total` - Database operation counter
+- `campfire_database_operation_duration_seconds` - Database operation duration
 
-### Key Metrics to Monitor
+#### System Metrics
+- `campfire_memory_usage_bytes` - Memory usage
+- `campfire_cpu_usage_percent` - CPU usage percentage
+- `campfire_disk_usage_bytes` - Disk usage
+- `campfire_uptime_seconds` - Application uptime
+
+### Monitoring Stack Setup
+
+Deploy the complete monitoring stack:
 
 ```bash
-# Application metrics
-campfire_http_requests_total
-campfire_websocket_connections_active
-campfire_messages_sent_total
-campfire_database_query_duration_seconds
-campfire_memory_usage_bytes
+# Start with monitoring
+docker-compose --profile monitoring up -d
 
-# System metrics
-cpu_usage_percent
-memory_usage_percent
-disk_usage_percent
-network_connections_active
-
-# Business metrics
-active_users_count
-messages_per_minute
-rooms_active_count
-search_queries_per_minute
+# Or add monitoring to existing deployment
+docker-compose up -d prometheus grafana
 ```
 
-## Security Considerations
+#### Prometheus Configuration
 
-### Production Security Checklist
+The Prometheus configuration includes:
+- Application metrics scraping every 10 seconds
+- System metrics collection
+- 30-day retention policy
+- Alerting rules for critical conditions
 
-```mermaid
-graph TD
-    subgraph "Network Security"
-        direction TB
-        TLS[TLS/SSL Encryption<br/>HTTPS + WSS]
-        FIREWALL[Firewall Rules<br/>Port Restrictions]
-        VPN[VPN Access<br/>Admin Interfaces]
-    end
-    
-    subgraph "Application Security"
-        direction TB
-        AUTH[Strong Authentication<br/>Session Management]
-        AUTHZ[Authorization<br/>Role-based Access]
-        INPUT[Input Validation<br/>XSS Prevention]
-        RATE[Rate Limiting<br/>DDoS Protection]
-    end
-    
-    subgraph "Data Security"
-        direction TB
-        ENCRYPT[Data Encryption<br/>At Rest + Transit]
-        BACKUP_SEC[Secure Backups<br/>Encrypted Storage]
-        AUDIT[Audit Logging<br/>Access Tracking]
-    end
-    
-    subgraph "Infrastructure Security"
-        direction TB
-        UPDATES[Security Updates<br/>OS + Dependencies]
-        MONITORING[Security Monitoring<br/>Intrusion Detection]
-        SECRETS[Secret Management<br/>Environment Variables]
-    end
-    
-    TLS --> AUTH
-    FIREWALL --> AUTHZ
-    VPN --> INPUT
-    
-    AUTH --> ENCRYPT
-    AUTHZ --> BACKUP_SEC
-    INPUT --> AUDIT
-    RATE --> AUDIT
-    
-    ENCRYPT --> UPDATES
-    BACKUP_SEC --> MONITORING
-    AUDIT --> SECRETS
-    
-    classDef network fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
-    classDef app fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    classDef data fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-    classDef infra fill:#fce4ec,stroke:#c2185b,stroke-width:2px
-    
-    class TLS,FIREWALL,VPN network
-    class AUTH,AUTHZ,INPUT,RATE app
-    class ENCRYPT,BACKUP_SEC,AUDIT data
-    class UPDATES,MONITORING,SECRETS infra
+#### Grafana Dashboards
+
+Access Grafana at http://localhost:3001:
+- **Username**: admin
+- **Password**: admin (change on first login)
+
+Pre-configured dashboards:
+1. **Campfire Overview** - High-level application metrics
+2. **Performance Dashboard** - Response times and throughput
+3. **System Resources** - CPU, memory, disk usage
+4. **WebSocket Monitoring** - Real-time connection metrics
+5. **Database Performance** - Query performance and connection pool
+
+### Alerting Rules
+
+Create alerting rules in `monitoring/rules/campfire.yml`:
+
+```yaml
+groups:
+  - name: campfire.rules
+    rules:
+      # High error rate
+      - alert: HighErrorRate
+        expr: rate(campfire_http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} errors per second"
+
+      # High response time
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(campfire_http_request_duration_seconds_bucket[5m])) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is {{ $value }}s"
+
+      # Database connection issues
+      - alert: DatabaseConnectionFailure
+        expr: campfire_database_operations_total{status="error"} > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection failures"
+          description: "Database operations are failing"
+
+      # Memory usage
+      - alert: HighMemoryUsage
+        expr: campfire_memory_usage_bytes / (1024*1024*1024) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value }}GB"
+
+      # WebSocket connection issues
+      - alert: WebSocketConnectionDrop
+        expr: decrease(campfire_websocket_connections_active[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "WebSocket connections dropping"
+          description: "{{ $value }} WebSocket connections dropped in 5 minutes"
 ```
 
-## Scaling Considerations
+### External Monitoring Integration
 
-### Horizontal Scaling Strategy
+#### Datadog Integration
+```bash
+# Add Datadog agent to docker-compose.yml
+datadog:
+  image: datadog/agent:latest
+  environment:
+    - DD_API_KEY=${DD_API_KEY}
+    - DD_SITE=datadoghq.com
+    - DD_LOGS_ENABLED=true
+    - DD_PROCESS_AGENT_ENABLED=true
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    - /proc/:/host/proc/:ro
+    - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+```
 
-```mermaid
-graph TD
-    subgraph "Current Architecture (Single Instance)"
-        direction TB
-        SINGLE[Single Binary<br/>All Components]
-        SQLITE[SQLite Database<br/>Local File]
-        MEMORY[In-Memory Cache<br/>Sessions + Presence]
-    end
-    
-    subgraph "Scaled Architecture (Multiple Instances)"
-        direction TB
-        LB_SCALE[Load Balancer<br/>Session Affinity]
-        APP_SCALE1[App Instance 1<br/>Stateless]
-        APP_SCALE2[App Instance 2<br/>Stateless]
-        SHARED_DB[Shared Database<br/>PostgreSQL/MySQL]
-        REDIS[Redis Cache<br/>Shared Sessions]
-    end
-    
-    subgraph "WebSocket Scaling"
-        direction TB
-        WS_LB[WebSocket Load Balancer<br/>Sticky Sessions]
-        PUBSUB[Redis Pub/Sub<br/>Cross-instance Messaging]
-        PRESENCE_SYNC[Presence Synchronization<br/>Distributed State]
-    end
-    
-    SINGLE --> LB_SCALE
-    SQLITE --> SHARED_DB
-    MEMORY --> REDIS
-    
-    LB_SCALE --> APP_SCALE1
-    LB_SCALE --> APP_SCALE2
-    APP_SCALE1 --> SHARED_DB
-    APP_SCALE2 --> SHARED_DB
-    APP_SCALE1 --> REDIS
-    APP_SCALE2 --> REDIS
-    
-    WS_LB --> PUBSUB
-    PUBSUB --> PRESENCE_SYNC
-    
-    classDef current fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    classDef scaled fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-    classDef websocket fill:#fce4ec,stroke:#c2185b,stroke-width:2px
-    
-    class SINGLE,SQLITE,MEMORY current
-    class LB_SCALE,APP_SCALE1,APP_SCALE2,SHARED_DB,REDIS scaled
-    class WS_LB,PUBSUB,PRESENCE_SYNC websocket
+#### New Relic Integration
+```bash
+# Environment variables for New Relic
+CAMPFIRE_NEWRELIC_LICENSE_KEY=your_license_key
+CAMPFIRE_NEWRELIC_APP_NAME=campfire-production
+```
+
+### Log Aggregation
+
+#### ELK Stack Integration
+```yaml
+# Add to docker-compose.yml
+elasticsearch:
+  image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+  environment:
+    - discovery.type=single-node
+    - xpack.security.enabled=false
+  ports:
+    - "9200:9200"
+
+logstash:
+  image: docker.elastic.co/logstash/logstash:8.11.0
+  volumes:
+    - ./monitoring/logstash/pipeline:/usr/share/logstash/pipeline:ro
+  depends_on:
+    - elasticsearch
+
+kibana:
+  image: docker.elastic.co/kibana/kibana:8.11.0
+  ports:
+    - "5601:5601"
+  environment:
+    - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+  depends_on:
+    - elasticsearch
+```
+
+#### Structured Logging Configuration
+```bash
+# Enable structured logging
+CAMPFIRE_LOG_FORMAT=json
+CAMPFIRE_LOG_STRUCTURED=true
+CAMPFIRE_LOG_LEVEL=info
+
+# Log sampling for high-traffic environments
+CAMPFIRE_LOG_SAMPLE_RATE=0.1  # Log 10% of requests
+```
+
+### Log Management
+
+**View logs**:
+```bash
+# Container logs
+docker logs campfire
+
+# Application logs (if file logging enabled)
+tail -f logs/campfire.log
+
+# Via deployment script
+./scripts/deploy.sh logs
+```
+
+**Log rotation**:
+Logs are automatically rotated by Docker. For file-based logging, implement log rotation:
+
+```bash
+# Add to logrotate
+cat > /etc/logrotate.d/campfire << EOF
+/path/to/campfire/logs/*.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 644 1001 1001
+    postrotate
+        docker kill -s USR1 campfire 2>/dev/null || true
+    endscript
+}
+EOF
+```
+
+## Security
+
+### HTTPS Setup
+
+1. **With Traefik** (included in docker-compose):
+   ```bash
+   docker-compose --profile proxy up -d
+   ```
+
+2. **With external reverse proxy**:
+   Configure your reverse proxy (nginx, Apache, etc.) to:
+   - Terminate SSL
+   - Proxy to `http://localhost:3000`
+   - Set `CAMPFIRE_TRUST_PROXY=true`
+
+3. **Direct HTTPS** (not recommended):
+   - Set `CAMPFIRE_FORCE_HTTPS=true`
+   - Configure SSL certificates in the container
+
+### Security Headers
+
+The application automatically sets security headers:
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `X-XSS-Protection: 1; mode=block`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Strict-Transport-Security` (when HTTPS is enabled)
+
+### Rate Limiting
+
+Configure rate limiting:
+```bash
+CAMPFIRE_RATE_LIMIT_RPM=60  # Requests per minute per IP
+```
+
+## Performance Tuning
+
+### Resource Limits
+
+In `docker-compose.yml`:
+```yaml
+deploy:
+  resources:
+    limits:
+      memory: 512M
+      cpus: '1.0'
+    reservations:
+      memory: 256M
+      cpus: '0.5'
+```
+
+### Database Optimization
+
+```bash
+# Enable WAL mode for better concurrency
+CAMPFIRE_DB_WAL_MODE=true
+
+# Adjust connection pool
+CAMPFIRE_DB_MAX_CONNECTIONS=20
+```
+
+### Worker Threads
+
+```bash
+# Set worker threads (0 = auto-detect)
+CAMPFIRE_WORKER_THREADS=4
 ```
 
 ## Troubleshooting
 
-### Common Issues and Solutions
+### Common Issues
 
-```mermaid
-graph TD
-    subgraph "Performance Issues"
-        direction TB
-        SLOW[Slow Response Times<br/>Check Database Queries]
-        MEMORY[High Memory Usage<br/>Check Connection Leaks]
-        CPU[High CPU Usage<br/>Check Background Tasks]
-    end
-    
-    subgraph "Connectivity Issues"
-        direction TB
-        WS_FAIL[WebSocket Failures<br/>Check Authentication]
-        DB_CONN[Database Connection<br/>Check File Permissions]
-        NETWORK[Network Issues<br/>Check Firewall Rules]
-    end
-    
-    subgraph "Application Issues"
-        direction TB
-        CRASH[Application Crashes<br/>Check Error Logs]
-        STARTUP[Startup Failures<br/>Check Configuration]
-        MIGRATION[Migration Issues<br/>Check Database State]
-    end
-    
-    SLOW --> MEMORY
-    MEMORY --> CPU
-    
-    WS_FAIL --> DB_CONN
-    DB_CONN --> NETWORK
-    
-    CRASH --> STARTUP
-    STARTUP --> MIGRATION
-    
-    classDef performance fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-    classDef connectivity fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    classDef application fill:#fce4ec,stroke:#c2185b,stroke-width:2px
-    
-    class SLOW,MEMORY,CPU performance
-    class WS_FAIL,DB_CONN,NETWORK connectivity
-    class CRASH,STARTUP,MIGRATION application
+1. **Container won't start**:
+   ```bash
+   # Check logs
+   docker logs campfire
+   
+   # Check configuration
+   docker exec campfire env | grep CAMPFIRE
+   ```
+
+2. **Database connection errors**:
+   ```bash
+   # Check database file permissions
+   ls -la data/
+   
+   # Check database integrity
+   sqlite3 data/campfire.db "PRAGMA integrity_check;"
+   ```
+
+3. **Push notifications not working**:
+   ```bash
+   # Verify VAPID keys are set
+   docker exec campfire env | grep VAPID
+   
+   # Check push service logs
+   docker logs campfire | grep -i push
+   ```
+
+### Debug Mode
+
+Enable debug logging:
+```bash
+CAMPFIRE_LOG_LEVEL=debug
+RUST_LOG=campfire_on_rust=debug,tower_http=debug
 ```
 
-### Diagnostic Commands
+### Health Check Failures
 
 ```bash
-# Check application health
-curl http://localhost:3000/health
+# Manual health check
+curl -f http://localhost:3000/health
 
-# View application logs
-docker logs -f campfire
-
-# Check database integrity
-sqlite3 campfire.db "PRAGMA integrity_check;"
-
-# Monitor resource usage
-docker stats campfire
-
-# Check WebSocket connections
-ss -tuln | grep 3000
-
-# View system metrics
-curl http://localhost:3000/metrics
+# Check container health
+docker inspect campfire | grep -A 10 Health
 ```
 
-This deployment guide provides comprehensive coverage of deployment strategies, from local development to production environments, with proper monitoring and security considerations.
+## Scaling
+
+### Performance Monitoring
+
+Monitor application performance with the built-in monitoring script:
+
+```bash
+# Monitor for 10 minutes with 5-second intervals
+./scripts/performance-monitor.sh -d 600 -i 5
+
+# Continuous monitoring
+./scripts/performance-monitor.sh --continuous
+
+# Generate report from existing data
+./scripts/performance-monitor.sh --report-only
+```
+
+### Horizontal Scaling
+
+For multiple instances, follow the comprehensive scaling guide:
+
+1. **Database Migration**: Migrate from SQLite to PostgreSQL
+   ```bash
+   # PostgreSQL configuration
+   CAMPFIRE_DATABASE_URL=postgresql://user:pass@postgres:5432/campfire
+   CAMPFIRE_DB_MAX_CONNECTIONS=100
+   ```
+
+2. **Session Storage**: Use Redis for shared sessions
+   ```bash
+   CAMPFIRE_SESSION_STORE=redis
+   CAMPFIRE_REDIS_URL=redis://redis-cluster:6379
+   ```
+
+3. **Load Balancer**: Configure HAProxy or Nginx with sticky sessions
+   ```bash
+   # Start with load balancer
+   docker-compose --profile proxy up -d
+   ```
+
+4. **WebSocket Clustering**: Enable Redis-based WebSocket clustering
+   ```bash
+   CAMPFIRE_WEBSOCKET_CLUSTERING=true
+   CAMPFIRE_REDIS_PUBSUB_URL=redis://redis:6379
+   ```
+
+### Vertical Scaling
+
+Optimize single instance performance:
+
+```yaml
+# docker-compose.yml
+deploy:
+  resources:
+    limits:
+      memory: 4G
+      cpus: '4.0'
+    reservations:
+      memory: 2G
+      cpus: '2.0'
+```
+
+#### Performance Tuning
+
+```bash
+# Database optimization
+CAMPFIRE_DB_WAL_MODE=true
+CAMPFIRE_DB_MAX_CONNECTIONS=50
+CAMPFIRE_DB_CACHE_SIZE=10000
+
+# Application optimization
+CAMPFIRE_WORKER_THREADS=8
+CAMPFIRE_MESSAGE_BUFFER_SIZE=10000
+CAMPFIRE_CACHE_ENABLED=true
+
+# Memory optimization
+CAMPFIRE_MEMORY_POOL_SIZE=1073741824  # 1GB
+```
+
+### Capacity Planning
+
+| Deployment Size | Users | Instances | CPU | Memory | Storage |
+|----------------|-------|-----------|-----|--------|---------|
+| **Small** | 100 | 1 | 1 core | 1GB | 10GB |
+| **Medium** | 1,000 | 2-3 | 2-4 cores | 2-4GB | 50GB |
+| **Large** | 10,000 | 5-10 | 4-8 cores | 4-8GB | 500GB |
+| **Enterprise** | 100,000+ | 20+ | 8+ cores | 8-16GB | 5TB+ |
+
+For detailed scaling strategies, see [Scaling Guide](docs/scaling-guide.md).
+
+## Backup Strategy
+
+### Automated Backup Schedule
+
+```bash
+# Daily backups at 2 AM
+0 2 * * * /path/to/campfire/scripts/backup.sh
+
+# Weekly cleanup of old backups
+0 3 * * 0 find /path/to/campfire/backups -name "*.db*" -mtime +30 -delete
+```
+
+### Backup Verification
+
+```bash
+# Test backup integrity
+./scripts/restore.sh --dry-run backup_file.db.gz
+
+# Verify backup in test environment
+docker run --rm -v $(pwd)/backups:/backups campfire-on-rust:latest \
+  sqlite3 /backups/latest.db "PRAGMA integrity_check;"
+```
+
+## Maintenance
+
+### Updates
+
+1. **Backup database**:
+   ```bash
+   ./scripts/backup.sh
+   ```
+
+2. **Pull latest image**:
+   ```bash
+   docker pull campfire-on-rust:latest
+   ```
+
+3. **Deploy update**:
+   ```bash
+   ./scripts/deploy.sh deploy
+   ```
+
+### Cleanup
+
+```bash
+# Clean up old Docker images and containers
+./scripts/deploy.sh cleanup
+
+# Clean up old logs
+find logs/ -name "*.log.*" -mtime +30 -delete
+
+# Clean up old backups
+find backups/ -name "*.db*" -mtime +90 -delete
+```
+
+## Support
+
+### Getting Help
+
+1. Check application logs
+2. Verify configuration
+3. Test health endpoints
+4. Check resource usage
+5. Review security settings
+
+### Performance Monitoring
+
+Monitor these metrics:
+- Response times
+- Error rates
+- Database query performance
+- Memory usage
+- WebSocket connections
+- Push notification delivery rates
+
+For production support, ensure you have:
+- Monitoring and alerting set up
+- Regular backups tested
+- Log aggregation configured
+- Performance baselines established
