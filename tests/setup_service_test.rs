@@ -50,10 +50,9 @@ async fn test_requirement_11_1_demo_mode_detection() {
     
     // Now test with demo mode enabled
     env::set_var("CAMPFIRE_DEMO_MODE", "true");
-    let service2 = create_test_setup_service().await;
     
-    // Should not be first run when demo mode is enabled
-    assert!(!service2.is_first_run().await.unwrap());
+    // Should not be first run when demo mode is enabled (same service instance)
+    assert!(!service.is_first_run().await.unwrap());
     
     // Clean up
     env::remove_var("CAMPFIRE_DEMO_MODE");

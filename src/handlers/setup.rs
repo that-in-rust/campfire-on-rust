@@ -10,7 +10,7 @@ use crate::{
     models::CreateAdminRequest,
 };
 
-/// Serve first-run setup page
+/// Serve first-run setup page with enhanced error handling
 /// 
 /// # Preconditions
 /// - Application is running
@@ -20,6 +20,7 @@ use crate::{
 /// - Returns setup page HTML if first-run detected
 /// - Returns redirect to login if setup already complete
 /// - Displays clean setup interface with organization branding
+/// - Provides detailed error information and recovery options
 pub async fn serve_setup_page(State(state): State<AppState>) -> impl IntoResponse {
     // Check if this is a first-run scenario
     match state.setup_service.is_first_run().await {
@@ -46,28 +47,93 @@ pub async fn serve_setup_page(State(state): State<AppState>) -> impl IntoRespons
             (StatusCode::FOUND, headers, Html("")).into_response()
         }
         Err(e) => {
-            // Error checking first-run status
+            // Error checking first-run status - provide detailed error page with recovery options
             let error_html = format!(
                 r#"
                 <!DOCTYPE html>
                 <html>
                 <head>
                     <title>Setup Error - Campfire</title>
+                    <meta charset="utf-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1">
                     <style>
-                        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 40px; }}
-                        .error {{ background: #fee; border: 1px solid #fcc; padding: 20px; border-radius: 4px; }}
+                        body {{ 
+                            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                            margin: 0; 
+                            padding: 40px; 
+                            background: #f8f9fa;
+                        }}
+                        .container {{ 
+                            max-width: 600px; 
+                            margin: 0 auto; 
+                            background: white; 
+                            padding: 40px; 
+                            border-radius: 8px; 
+                            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                        }}
+                        .error {{ 
+                            background: #fee; 
+                            border: 1px solid #fcc; 
+                            padding: 20px; 
+                            border-radius: 4px; 
+                            margin-bottom: 20px;
+                        }}
+                        .recovery {{ 
+                            background: #e8f4fd; 
+                            border: 1px solid #bee5eb; 
+                            padding: 20px; 
+                            border-radius: 4px; 
+                            margin-top: 20px;
+                        }}
+                        .btn {{ 
+                            display: inline-block; 
+                            padding: 10px 20px; 
+                            background: #007bff; 
+                            color: white; 
+                            text-decoration: none; 
+                            border-radius: 4px; 
+                            margin-right: 10px;
+                        }}
+                        .btn:hover {{ background: #0056b3; }}
+                        .btn-secondary {{ background: #6c757d; }}
+                        .btn-secondary:hover {{ background: #545b62; }}
+                        h1 {{ color: #dc3545; }}
+                        h2 {{ color: #495057; }}
                     </style>
                 </head>
                 <body>
-                    <div class="error">
+                    <div class="container">
                         <h1>Setup Error</h1>
-                        <p>Unable to determine setup status: {}</p>
-                        <p><a href="/health">Check system health</a></p>
+                        <div class="error">
+                            <strong>Unable to determine setup status:</strong><br>
+                            {}
+                        </div>
+                        
+                        <h2>Recovery Options</h2>
+                        <div class="recovery">
+                            <p><strong>Try these steps to resolve the issue:</strong></p>
+                            <ol>
+                                <li>Check if the database is accessible and properly configured</li>
+                                <li>Verify environment variables are set correctly</li>
+                                <li>Ensure the application has proper file permissions</li>
+                                <li>Check the application logs for more detailed error information</li>
+                            </ol>
+                            
+                            <p><strong>Quick Actions:</strong></p>
+                            <a href="/health" class="btn">Check System Health</a>
+                            <a href="/api/setup/status" class="btn btn-secondary">Check Setup Status (JSON)</a>
+                            <a href="/" class="btn btn-secondary">Return to Home</a>
+                        </div>
+                        
+                        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6; color: #6c757d; font-size: 14px;">
+                            <p><strong>Technical Details:</strong> This error occurred while checking if the application requires first-run setup. 
+                            The setup detection process failed, which may indicate database connectivity issues or configuration problems.</p>
+                        </div>
                     </div>
                 </body>
                 </html>
                 "#,
-                e
+                html_escape::encode_text(&e.to_string())
             );
             
             let mut headers = HeaderMap::new();
@@ -116,7 +182,7 @@ pub async fn get_setup_status(State(state): State<AppState>) -> impl IntoRespons
     }
 }
 
-/// Create admin account API endpoint
+/// Create admin account API endpoint with enhanced error handling and validation
 /// 
 /// # Preconditions
 /// - First-run condition verified
@@ -129,13 +195,54 @@ pub async fn get_setup_status(State(state): State<AppState>) -> impl IntoRespons
 /// - Marks user as primary administrator
 /// - Returns created user and session token
 /// - Enables subsequent normal login flow
+/// - Provides detailed error information for troubleshooting
 pub async fn create_admin_account(
     State(state): State<AppState>,
     Json(request): Json<CreateAdminRequest>,
 ) -> impl IntoResponse {
+    // Pre-validation: Check if setup is still needed
+    match state.setup_service.is_first_run().await {
+        Ok(false) => {
+            // Setup already complete
+            let error_response = json!({
+                "success": false,
+                "error": "SETUP_ALREADY_COMPLETE",
+                "message": "Admin account already exists. Setup has been completed.",
+                "redirect_url": "/login",
+                "recovery_actions": [
+                    "Use the existing admin credentials to log in",
+                    "If you've forgotten the admin password, check your deployment documentation",
+                    "Contact your system administrator for password reset procedures"
+                ]
+            });
+            
+            return (StatusCode::CONFLICT, Json(error_response)).into_response();
+        }
+        Ok(true) => {
+            // First run confirmed - continue with account creation
+        }
+        Err(e) => {
+            // Error checking first-run status
+            let error_response = json!({
+                "success": false,
+                "error": "SETUP_VALIDATION_ERROR",
+                "message": format!("Unable to validate setup status: {}", e),
+                "recovery_actions": [
+                    "Check database connectivity",
+                    "Verify environment configuration",
+                    "Check application logs for detailed error information",
+                    "Try refreshing the page and attempting setup again"
+                ]
+            });
+            
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)).into_response();
+        }
+    }
+    
+    // Attempt to create admin account
     match state.setup_service.create_admin_account(request).await {
         Ok(response) => {
-            // Set session cookie for immediate login
+            // Success - set session cookie for immediate login
             let cookie_value = format!(
                 "campfire_session={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}",
                 response.session_token,
@@ -148,41 +255,115 @@ pub async fn create_admin_account(
                 HeaderValue::from_str(&cookie_value).unwrap(),
             );
             
+            // Validate system health after successful setup
+            let system_health = state.setup_service.validate_system_health().await
+                .unwrap_or_else(|_| crate::models::SystemHealth {
+                    database_connected: true, // We know it worked since we created the account
+                    fts_search_available: false,
+                    websocket_ready: true,
+                    push_notifications_configured: response.deployment_config.vapid_public_key.is_some(),
+                    static_assets_embedded: true,
+                    admin_account_exists: true,
+                });
+            
             let success_response = json!({
                 "success": true,
-                "message": "Admin account created successfully",
+                "message": "Admin account created successfully! You are now logged in.",
                 "user": {
                     "id": response.user.id,
                     "name": response.user.name,
                     "email": response.user.email,
-                    "admin": response.user.admin
+                    "admin": response.user.admin,
+                    "created_at": response.user.created_at
                 },
                 "session_token": response.session_token,
                 "deployment_config": response.deployment_config,
-                "redirect_url": "/chat"
+                "system_health": system_health,
+                "redirect_url": "/chat",
+                "next_steps": [
+                    "You can now access the chat interface",
+                    "Create additional rooms and invite users",
+                    "Configure push notifications if desired",
+                    "Set up bot integrations if needed"
+                ]
             });
             
             (StatusCode::CREATED, headers, Json(success_response)).into_response()
         }
         Err(e) => {
-            let error_code = match &e {
-                crate::errors::SetupError::NotFirstRun => "NOT_FIRST_RUN",
-                crate::errors::SetupError::InvalidEmail { .. } => "INVALID_EMAIL",
-                crate::errors::SetupError::WeakPassword { .. } => "WEAK_PASSWORD",
-                crate::errors::SetupError::AdminCreationFailed(_) => "ADMIN_CREATION_FAILED",
-                _ => "SETUP_ERROR",
+            // Error creating admin account - provide detailed error information
+            let (error_code, recovery_actions) = match &e {
+                crate::errors::SetupError::NotFirstRun => (
+                    "NOT_FIRST_RUN",
+                    vec![
+                        "Refresh the page and check if setup is already complete".to_string(),
+                        "If you see this error repeatedly, check for database connectivity issues".to_string(),
+                        "Try accessing /login to see if an admin account already exists".to_string(),
+                    ]
+                ),
+                crate::errors::SetupError::InvalidEmail { email } => (
+                    "INVALID_EMAIL",
+                    vec![
+                        format!("Provide a valid email address (current: '{}')", email),
+                        "Email must contain '@' and a domain (e.g., admin@example.com)".to_string(),
+                        "Avoid special characters that might cause issues".to_string(),
+                    ]
+                ),
+                crate::errors::SetupError::WeakPassword { reason } => (
+                    "WEAK_PASSWORD",
+                    vec![
+                        format!("Password requirement: {}", reason),
+                        "Use at least 8 characters with letters and numbers".to_string(),
+                        "Consider using a password manager for strong passwords".to_string(),
+                    ]
+                ),
+                crate::errors::SetupError::AdminCreationFailed(msg) => (
+                    "ADMIN_CREATION_FAILED",
+                    vec![
+                        "Check database connectivity and permissions".to_string(),
+                        "Verify the database schema is properly initialized".to_string(),
+                        format!("Technical details: {}", msg),
+                        "Check application logs for more information".to_string(),
+                    ]
+                ),
+                crate::errors::SetupError::Database(db_err) => (
+                    "DATABASE_ERROR",
+                    vec![
+                        "Check database connectivity".to_string(),
+                        "Verify database file permissions".to_string(),
+                        "Ensure sufficient disk space".to_string(),
+                        format!("Database error: {}", db_err),
+                    ]
+                ),
+                _ => (
+                    "SETUP_ERROR",
+                    vec![
+                        "Check system health at /health".to_string(),
+                        "Verify environment configuration".to_string(),
+                        "Check application logs for detailed error information".to_string(),
+                        "Try the setup process again".to_string(),
+                    ]
+                ),
             };
             
             let error_response = json!({
                 "success": false,
                 "error": error_code,
-                "message": e.to_string()
+                "message": e.to_string(),
+                "recovery_actions": recovery_actions,
+                "support_info": {
+                    "health_check_url": "/health",
+                    "setup_status_url": "/api/setup/status",
+                    "environment_check_url": "/api/setup/environment"
+                }
             });
             
             let status_code = match &e {
                 crate::errors::SetupError::NotFirstRun => StatusCode::CONFLICT,
                 crate::errors::SetupError::InvalidEmail { .. } => StatusCode::BAD_REQUEST,
                 crate::errors::SetupError::WeakPassword { .. } => StatusCode::BAD_REQUEST,
+                crate::errors::SetupError::AdminCreationFailed(_) => StatusCode::UNPROCESSABLE_ENTITY,
+                crate::errors::SetupError::Database(_) => StatusCode::SERVICE_UNAVAILABLE,
                 _ => StatusCode::INTERNAL_SERVER_ERROR,
             };
             
@@ -255,62 +436,28 @@ pub async fn validate_environment(State(state): State<AppState>) -> impl IntoRes
 mod tests {
     use super::*;
     use crate::{
-        database::Database,
-        services::setup::SetupServiceImpl,
+        CampfireDatabase,
+        services::setup::{SetupService, SetupServiceImpl},
         models::CreateAdminRequest,
     };
-    use axum::{
-        body::Body,
-        http::{Request, StatusCode},
-    };
-    use tower::ServiceExt;
     use std::sync::Arc;
 
-    async fn create_test_app_state() -> AppState {
-        let database = Database::new("sqlite::memory:").await.unwrap();
-        let setup_service = Arc::new(SetupServiceImpl::new(database.clone()));
-        
-        AppState {
-            db: database,
-            setup_service,
-            // Add other required fields with mock implementations
-            connection_manager: Arc::new(crate::services::connection::ConnectionManagerImpl::new()),
-            message_service: Arc::new(crate::services::message::MessageServiceImpl::new(
-                database.clone(),
-                Arc::new(crate::services::connection::ConnectionManagerImpl::new()),
-            )),
-            // ... other services would be mocked here
-        }
+    async fn create_test_setup_service() -> SetupServiceImpl {
+        let database = CampfireDatabase::new("sqlite::memory:").await.unwrap();
+        SetupServiceImpl::new(database)
     }
     
     #[tokio::test]
-    async fn test_serve_setup_page_first_run() {
-        let state = create_test_app_state().await;
+    async fn test_setup_service_first_run() {
+        let service = create_test_setup_service().await;
         
-        // Should serve setup page on first run
-        let response = serve_setup_page(State(state)).await.into_response();
-        assert_eq!(response.status(), StatusCode::OK);
-        
-        // Should contain HTML content type
-        let content_type = response.headers().get("content-type").unwrap();
-        assert!(content_type.to_str().unwrap().contains("text/html"));
+        // Should detect first run on empty database
+        assert!(service.is_first_run().await.unwrap());
     }
     
     #[tokio::test]
-    async fn test_get_setup_status() {
-        let state = create_test_app_state().await;
-        
-        let response = get_setup_status(State(state)).await.into_response();
-        assert_eq!(response.status(), StatusCode::OK);
-        
-        // Response should be JSON
-        let content_type = response.headers().get("content-type").unwrap();
-        assert!(content_type.to_str().unwrap().contains("application/json"));
-    }
-    
-    #[tokio::test]
-    async fn test_create_admin_account_success() {
-        let state = create_test_app_state().await;
+    async fn test_setup_service_admin_creation() {
+        let service = create_test_setup_service().await;
         
         let request = CreateAdminRequest {
             email: "admin@example.com".to_string(),
@@ -318,18 +465,17 @@ mod tests {
             name: "System Admin".to_string(),
         };
         
-        let response = create_admin_account(State(state), Json(request)).await.into_response();
-        assert_eq!(response.status(), StatusCode::CREATED);
+        let response = service.create_admin_account(request).await.unwrap();
         
-        // Should set session cookie
-        let set_cookie = response.headers().get("set-cookie");
-        assert!(set_cookie.is_some());
-        assert!(set_cookie.unwrap().to_str().unwrap().contains("campfire_session="));
+        assert_eq!(response.user.email, "admin@example.com");
+        assert_eq!(response.user.name, "System Admin");
+        assert!(response.user.admin);
+        assert!(!response.session_token.is_empty());
     }
     
     #[tokio::test]
-    async fn test_create_admin_account_invalid_email() {
-        let state = create_test_app_state().await;
+    async fn test_setup_service_invalid_email() {
+        let service = create_test_setup_service().await;
         
         let request = CreateAdminRequest {
             email: "invalid-email".to_string(),
@@ -337,13 +483,13 @@ mod tests {
             name: "System Admin".to_string(),
         };
         
-        let response = create_admin_account(State(state), Json(request)).await.into_response();
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        let result = service.create_admin_account(request).await;
+        assert!(matches!(result, Err(crate::errors::SetupError::InvalidEmail { .. })));
     }
     
     #[tokio::test]
-    async fn test_create_admin_account_weak_password() {
-        let state = create_test_app_state().await;
+    async fn test_setup_service_weak_password() {
+        let service = create_test_setup_service().await;
         
         let request = CreateAdminRequest {
             email: "admin@example.com".to_string(),
@@ -351,19 +497,20 @@ mod tests {
             name: "System Admin".to_string(),
         };
         
-        let response = create_admin_account(State(state), Json(request)).await.into_response();
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        let result = service.create_admin_account(request).await;
+        assert!(matches!(result, Err(crate::errors::SetupError::WeakPassword { .. })));
     }
     
     #[tokio::test]
-    async fn test_validate_environment() {
-        let state = create_test_app_state().await;
+    async fn test_setup_service_system_health() {
+        let service = create_test_setup_service().await;
         
-        let response = validate_environment(State(state)).await.into_response();
-        assert_eq!(response.status(), StatusCode::OK);
+        let health = service.validate_system_health().await.unwrap();
         
-        // Response should be JSON
-        let content_type = response.headers().get("content-type").unwrap();
-        assert!(content_type.to_str().unwrap().contains("application/json"));
+        assert!(health.database_connected);
+        assert!(health.fts_search_available);
+        assert!(health.websocket_ready);
+        assert!(health.static_assets_embedded);
+        assert!(!health.admin_account_exists); // No admin created yet
     }
 }

@@ -176,6 +176,7 @@ async fn main() -> Result<()> {
         // Demo API endpoints
         .route("/api/demo/status", get(campfire_on_rust::handlers::pages::demo_status))
         .route("/api/demo/initialize", post(campfire_on_rust::handlers::pages::initialize_demo))
+        .route("/api/demo/credentials", get(campfire_on_rust::handlers::pages::get_demo_credentials))
         
         // First-run setup endpoints
         .route("/setup", get(campfire_on_rust::handlers::setup::serve_setup_page))
@@ -198,13 +199,19 @@ async fn main() -> Result<()> {
             .route("/metrics/summary", get(metrics::metrics_summary));
     }
     
-    // Add WebSocket endpoint if enabled
+    // Add WebSocket endpoint if enabled (with setup completion validation)
     if config.features.websockets {
-        app = app.route("/ws", get(campfire_on_rust::handlers::websocket::websocket_handler));
+        let websocket_routes = Router::new()
+            .route("/ws", get(campfire_on_rust::handlers::websocket::websocket_handler))
+            .layer(middleware::from_fn_with_state(
+                app_state.clone(),
+                campfire_on_rust::middleware::setup::setup_completion_middleware
+            ));
+        app = app.merge(websocket_routes);
     }
     
-    // Core API routes
-    app = app
+    // Core API routes with setup completion validation
+    let protected_api_routes = Router::new()
         .route("/api/auth/login", post(campfire_on_rust::handlers::auth::login))
         .route("/api/auth/logout", post(campfire_on_rust::handlers::auth::logout))
         .route("/api/users/me", get(campfire_on_rust::handlers::users::get_current_user))
@@ -213,24 +220,41 @@ async fn main() -> Result<()> {
         .route("/api/rooms/:id", get(campfire_on_rust::handlers::rooms::get_room))
         .route("/api/rooms/:id/members", post(campfire_on_rust::handlers::rooms::add_room_member))
         .route("/api/rooms/:id/messages", get(campfire_on_rust::handlers::messages::get_messages))
-        .route("/api/rooms/:id/messages", post(campfire_on_rust::handlers::messages::create_message));
+        .route("/api/rooms/:id/messages", post(campfire_on_rust::handlers::messages::create_message))
+        .layer(middleware::from_fn_with_state(
+            app_state.clone(),
+            campfire_on_rust::middleware::setup::setup_completion_middleware
+        ));
     
-    // Add search endpoints if enabled
+    app = app.merge(protected_api_routes);
+    
+    // Add search endpoints if enabled (with setup completion validation)
     if config.features.search {
-        app = app.route("/api/search", get(campfire_on_rust::handlers::search::search_messages));
+        let search_routes = Router::new()
+            .route("/api/search", get(campfire_on_rust::handlers::search::search_messages))
+            .layer(middleware::from_fn_with_state(
+                app_state.clone(),
+                campfire_on_rust::middleware::setup::setup_completion_middleware
+            ));
+        app = app.merge(search_routes);
     }
     
-    // Add sound endpoints if enabled
+    // Add sound endpoints if enabled (with setup completion validation)
     if config.features.sounds {
-        app = app
+        let sound_routes = Router::new()
             .route("/api/sounds", get(campfire_on_rust::handlers::sounds::list_sounds))
             .route("/api/sounds/:sound_name", get(campfire_on_rust::handlers::sounds::get_sound))
-            .route("/api/sounds/:sound_name/info", get(campfire_on_rust::handlers::sounds::get_sound_info));
+            .route("/api/sounds/:sound_name/info", get(campfire_on_rust::handlers::sounds::get_sound_info))
+            .layer(middleware::from_fn_with_state(
+                app_state.clone(),
+                campfire_on_rust::middleware::setup::setup_completion_middleware
+            ));
+        app = app.merge(sound_routes);
     }
     
-    // Add push notification endpoints if enabled
+    // Add push notification endpoints if enabled (with setup completion validation)
     if config.features.push_notifications {
-        app = app
+        let mut push_routes = Router::new()
             .route("/api/push/subscriptions", post(campfire_on_rust::handlers::push::create_push_subscription))
             .route("/api/push/subscriptions/:id", axum::routing::delete(campfire_on_rust::handlers::push::delete_push_subscription))
             .route("/api/push/preferences", get(campfire_on_rust::handlers::push::get_notification_preferences))
@@ -239,20 +263,31 @@ async fn main() -> Result<()> {
         
         #[cfg(debug_assertions)]
         {
-            app = app.route("/api/push/test", post(campfire_on_rust::handlers::push::send_test_notification));
+            push_routes = push_routes.route("/api/push/test", post(campfire_on_rust::handlers::push::send_test_notification));
         }
+        
+        let push_routes = push_routes.layer(middleware::from_fn_with_state(
+            app_state.clone(),
+            campfire_on_rust::middleware::setup::setup_completion_middleware
+        ));
+        app = app.merge(push_routes);
     }
     
-    // Add bot endpoints if enabled
+    // Add bot endpoints if enabled (with setup completion validation)
     if config.features.bot_api {
-        app = app
+        let bot_routes = Router::new()
             .route("/api/bots", get(campfire_on_rust::handlers::bot::list_bots))
             .route("/api/bots", post(campfire_on_rust::handlers::bot::create_bot))
             .route("/api/bots/:id", get(campfire_on_rust::handlers::bot::get_bot))
             .route("/api/bots/:id", axum::routing::put(campfire_on_rust::handlers::bot::update_bot))
             .route("/api/bots/:id", axum::routing::delete(campfire_on_rust::handlers::bot::delete_bot))
             .route("/api/bots/:id/reset-token", post(campfire_on_rust::handlers::bot::reset_bot_token))
-            .route("/rooms/:room_id/bot/:bot_key/messages", post(campfire_on_rust::handlers::bot::create_bot_message));
+            .route("/rooms/:room_id/bot/:bot_key/messages", post(campfire_on_rust::handlers::bot::create_bot_message))
+            .layer(middleware::from_fn_with_state(
+                app_state.clone(),
+                campfire_on_rust::middleware::setup::setup_completion_middleware
+            ));
+        app = app.merge(bot_routes);
     }
     
     // Apply middleware layers
@@ -263,6 +298,13 @@ async fn main() -> Result<()> {
     if config.logging.trace_requests {
         app = app.layer(middleware::from_fn(logging::middleware::trace_requests));
     }
+    
+    // Add setup detection middleware for automatic redirection to setup when needed
+    // This middleware runs early to catch first-run scenarios before other processing
+    app = app.layer(middleware::from_fn_with_state(
+        app_state.clone(),
+        campfire_on_rust::middleware::setup::setup_detection_middleware
+    ));
     
     let app = app
         .layer(security::create_request_size_limit_layer_with_size(config.server.max_request_size))

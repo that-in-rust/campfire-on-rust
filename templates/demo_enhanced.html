@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
+    <meta name="view-transition" content="same-origin">
+    <meta name="color-scheme" content="light dark">
+    <title>Campfire Demo - Enterprise Team Chat Built with Rust</title>
+    <link rel="stylesheet" href="/static/css/campfire.css">
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --accent-color: #ff6b6b;
+            --success-color: #16a34a;
+            --warning-color: #f59e0b;
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+            --bg-card: rgba(255, 255, 255, 0.95);
+            --shadow-card: 0 20px 60px rgba(0, 0, 0, 0.15);
+            --border-radius: 16px;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: var(--primary-gradient);
+            min-height: 100vh;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+        
+        .hero-section {
+            text-align: center;
+            padding: 4rem 2rem 2rem;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .hero-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+            opacity: 0.3;
+            z-index: 0;
+        }
+        
+        .hero-content {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .hero-title {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 800;
+            margin-bottom: 1rem;
+            text-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            background: linear-gradient(45deg, #ffd93d, #ff6b6b, #4ecdc4);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradientShift 3s ease-in-out infinite;
+        }
+        
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        
+        .hero-subtitle {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            opacity: 0.95;
+            font-weight: 300;
+        }
+        
+        .hero-description {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .performance-badges {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+        
+        .performance-badge {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            padding: 0.75rem 1.5rem;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            box-shadow: var(--shadow-card);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .badge-value {
+            color: var(--accent-color);
+            font-size: 1.1em;
+        }
+        
+        .hero-cta {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+        
+        .cta-button {
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .cta-primary {
+            background: var(--accent-color);
+            color: white;
+            box-shadow: 0 8px 25px rgba(255, 107, 107, 0.4);
+        }
+        
+        .cta-primary:hover {
+            background: #ff5252;
+            transform: translateY(-3px);
+            box-shadow: 0 12px 35px rgba(255, 107, 107, 0.6);
+        }
+        
+        .cta-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .cta-secondary:hover {
+            background: rgba(255, 255, 255, 1);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-card);
+        }
+        
+        .demo-preview {
+            max-width: 1400px;
+            margin: 0 auto 4rem;
+            background: var(--bg-card);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-card);
+            overflow: hidden;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .preview-header {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .preview-dots {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .preview-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        
+        .dot-red { background: #ff5f56; }
+        .dot-yellow { background: #ffbd2e; }
+        .dot-green { background: #27ca3f; }
+        
+        .preview-dot:hover {
+            transform: scale(1.2);
+        }
+        
+        .preview-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            flex: 1;
+        }
+        
+        .preview-status {
+            font-size: 0.85rem;
+            color: var(--success-color);
+            font-weight: 500;
+        }
+        
+        .chat-preview {
+            display: flex;
+            height: 600px;
+        }
+        
+        .preview-sidebar {
+            width: 280px;
+            background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar-header {
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            font-size: 1.1rem;
+        }
+        
+        .room-list {
+            flex: 1;
+        }
+        
+        .room-item {
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .room-item:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        
+        .room-item.active {
+            background: rgba(255,255,255,0.15);
+            font-weight: 600;
+        }
+        
+        .room-icon {
+            font-size: 1.1rem;
+        }
+        
+        .preview-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #f8f9fa;
+        }
+        
+        .chat-header {
+            padding: 1rem 1.5rem;
+            background: white;
+            border-bottom: 1px solid #e9ecef;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .preview-messages {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+        
+        .preview-message {
+            margin-bottom: 1.5rem;
+            padding: 1rem 1.25rem;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            opacity: 0;
+            animation: fadeInUp 0.8s ease forwards;
+            border-left: 4px solid var(--accent-color);
+        }
+        
+        .message-author {
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .author-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .message-content {
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        
+        .message-time {
+            font-size: 0.8rem;
+            color: #9ca3af;
+            margin-top: 0.5rem;
+        }
+        
+        .typing-indicator {
+            padding: 1rem 1.25rem;
+            background: rgba(108, 117, 125, 0.1);
+            border-radius: 12px;
+            font-style: italic;
+            color: var(--text-secondary);
+            animation: pulse 2s ease-in-out infinite;
+            border-left: 4px solid var(--warning-color);
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+        
+        .demo-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+            background: var(--bg-card);
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .section-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .section-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+        }
+        
+        .section-subtitle {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin: 3rem 0;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border: 1px solid rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--accent-color);
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .credentials-section {
+            margin: 4rem 0;
+        }
+        
+        .credentials-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        
+        .credential-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .credential-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent-color), #4ecdc4);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+        
+        .credential-card:hover {
+            border-color: var(--accent-color);
+            transform: translateY(-5px);
+            box-shadow: 0 12px 30px rgba(255, 107, 107, 0.2);
+        }
+        
+        .credential-card:hover::before {
+            transform: scaleX(1);
+        }
+        
+        .credential-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .credential-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-color), #4ecdc4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+        
+        .credential-info {
+            flex: 1;
+        }
+        
+        .credential-email {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 1rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .credential-role {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        .credential-password {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            background: #f3f4f6;
+            padding: 0.5rem;
+            border-radius: 6px;
+            margin-top: 0.75rem;
+        }
+        
+        .quick-start {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border: 2px solid #0ea5e9;
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 3rem 0;
+        }
+        
+        .quick-start h3 {
+            color: #0369a1;
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+        }
+        
+        .quick-start ol {
+            margin-left: 2rem;
+            color: var(--text-primary);
+        }
+        
+        .quick-start li {
+            margin-bottom: 0.75rem;
+            line-height: 1.6;
+        }
+        
+        .pro-tip {
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            border: 2px solid var(--success-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        
+        .pro-tip strong {
+            color: #15803d;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin: 3rem 0;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-color) 0%, #ff5252 100%);
+            color: white;
+            box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 35px rgba(255, 107, 107, 0.5);
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: var(--text-primary);
+            border: 2px solid #e5e7eb;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        
+        .btn-secondary:hover {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            border-top: 1px solid rgba(0,0,0,0.1);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .footer a {
+            color: var(--accent-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            .hero-section {
+                padding: 2rem 1rem;
+            }
+            
+            .demo-container {
+                margin: 1rem;
+                padding: 2rem 1rem;
+            }
+            
+            .chat-preview {
+                flex-direction: column;
+                height: auto;
+            }
+            
+            .preview-sidebar {
+                width: 100%;
+                height: 200px;
+            }
+            
+            .credentials-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .performance-badges {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .hero-cta {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="hero-content">
+            <h1 class="hero-title">🔥 Campfire</h1>
+            <p class="hero-subtitle">Enterprise Team Chat Built with Rust</p>
+            <p class="hero-description">
+                Blazing fast, memory-safe team collaboration. Running completely offline with zero dependencies. 
+                No cloud subscriptions, no vendor lock-in, no compromises.
+            </p>
+            
+            <div class="performance-badges">
+                <div class="performance-badge">
+                    <span class="badge-value" id="response-time">&lt;5ms</span> Response Time
+                </div>
+                <div class="performance-badge">
+                    <span class="badge-value" id="memory-usage">12MB</span> Memory Usage
+                </div>
+                <div class="performance-badge">
+                    <span class="badge-value">0</span> External Dependencies
+                </div>
+                <div class="performance-badge">
+                    <span class="badge-value">100%</span> Offline Capable
+                </div>
+            </div>
+            
+            <div class="hero-cta">
+                <a href="#preview" class="cta-button cta-primary">See Live Demo</a>
+                <a href="/login" class="cta-button cta-secondary">Try It Now</a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Live Preview -->
+    <div class="demo-preview" id="preview">
+        <div class="preview-header">
+            <div class="preview-dots">
+                <div class="preview-dot dot-red"></div>
+                <div class="preview-dot dot-yellow"></div>
+                <div class="preview-dot dot-green"></div>
+            </div>
+            <div class="preview-title">Campfire - Live Team Chat</div>
+            <div class="preview-status">● Online</div>
+        </div>
+        
+        <div class="chat-preview">
+            <div class="preview-sidebar">
+                <div class="sidebar-header">Rooms</div>
+                <div class="room-list">
+                    <div class="room-item active">
+                        <span class="room-icon">#</span>
+                        <span>General</span>
+                    </div>
+                    <div class="room-item">
+                        <span class="room-icon">#</span>
+                        <span>Development</span>
+                    </div>
+                    <div class="room-item">
+                        <span class="room-icon">#</span>
+                        <span>Design</span>
+                    </div>
+                    <div class="room-item">
+                        <span class="room-icon">#</span>
+                        <span>Product</span>
+                    </div>
+                    <div class="room-item">
+                        <span class="room-icon">#</span>
+                        <span>Random</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="preview-main">
+                <div class="chat-header"># General</div>
+                <div class="preview-messages" id="live-messages">
+                    <!-- Messages will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="demo-container">
+        <div class="section-header">
+            <h2 class="section-title">Fully Loaded Demo Environment</h2>
+            <p class="section-subtitle">
+                Experience a complete team chat application with realistic data, 
+                multiple users, and all features enabled. Perfect for evaluation and testing.
+            </p>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="demo-users-count">8</div>
+                <div class="stat-label">Demo Users</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="demo-rooms-count">7</div>
+                <div class="stat-label">Chat Rooms</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="demo-messages-count">25</div>
+                <div class="stat-label">Sample Messages</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">59</div>
+                <div class="stat-label">Sound Effects</div>
+            </div>
+        </div>
+        
+        <div class="quick-start">
+            <h3>🚀 Quick Start Guide</h3>
+            <ol>
+                <li><strong>Choose any demo user</strong> from the credentials below (all passwords are "password")</li>
+                <li><strong>Click a credential card</strong> to auto-select that user for login</li>
+                <li><strong>Explore pre-loaded rooms:</strong> General, Development, Design, Product Planning, and more</li>
+                <li><strong>Try interactive features:</strong> @mentions, /play sounds, full-text search across all messages</li>
+                <li><strong>Multi-user simulation:</strong> Open multiple browser tabs to log in as different users and see real-time chat</li>
+                <li><strong>Test enterprise features:</strong> Room permissions, bot integration, push notifications</li>
+            </ol>
+            
+            <div class="pro-tip">
+                <strong>💡 Pro Tip for Realistic Testing:</strong>
+                <ul style="margin: 0.5rem 0 0 1.5rem; font-size: 0.9rem;">
+                    <li>Open <strong>2-3 browser tabs</strong> and log in as different users (Alice, Bob, Carol)</li>
+                    <li>Start a conversation in one tab and watch it appear in real-time in the others</li>
+                    <li>Try @mentioning users: <code>@alice</code> or <code>@bob</code></li>
+                    <li>Play sounds with commands like: <code>/play tada</code>, <code>/play yeah</code>, <code>/play nyan</code></li>
+                    <li>Use the search feature to find old messages across all rooms</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="credentials-section">
+            <div class="section-header">
+                <h3 class="section-title">One-Click Demo Accounts</h3>
+                <p class="section-subtitle">
+                    Click any card below to auto-select that user for login. All passwords are "password".
+                </p>
+            </div>
+            
+            <div class="credentials-grid">
+                <div class="credential-card" data-email="admin@campfire.demo">
+                    <div class="credential-header">
+                        <div class="credential-avatar">AD</div>
+                        <div class="credential-info">
+                            <div class="credential-email">admin@campfire.demo</div>
+                            <div class="credential-role">System Administrator</div>
+                        </div>
+                    </div>
+                    <div class="credential-password">Password: password</div>
+                </div>
+                
+                <div class="credential-card" data-email="alice@campfire.demo">
+                    <div class="credential-header">
+                        <div class="credential-avatar">AJ</div>
+                        <div class="credential-info">
+                            <div class="credential-email">alice@campfire.demo</div>
+                            <div class="credential-role">Product Manager</div>
+                        </div>
+                    </div>
+                    <div class="credential-password">Password: password</div>
+                </div>
+                
+                <div class="credential-card" data-email="bob@campfire.demo">
+                    <div class="credential-header">
+                        <div class="credential-avatar">BS</div>
+                        <div class="credential-info">
+                            <div class="credential-email">bob@campfire.demo</div>
+                            <div class="credential-role">Senior Developer</div>
+                        </div>
+                    </div>
+                    <div class="credential-password">Password: password</div>
+                </div>
+                
+                <div class="credential-card" data-email="carol@campfire.demo">
+                    <div class="credential-header">
+                        <div class="credential-avatar">CD</div>
+                        <div class="credential-info">
+                            <div class="credential-email">carol@campfire.demo</div>
+                            <div class="credential-role">UX Designer</div>
+                        </div>
+                    </div>
+                    <div class="credential-password">Password: password</div>
+                </div>
+                
+                <div class="credential-card" data-email="david@campfire.demo">
+                    <div class="credential-header">
+                        <div class="credential-avatar">DW</div>
+                        <div class="credential-info">
+                            <div class="credential-email">david@campfire.demo</div>
+                            <div class="credential-role">DevOps Engineer</div>
+                        </div>
+                    </div>
+                    <div class="credential-password">Password: password</div>
+                </div>
+                
+                <div class="credential-card" data-email="eve@campfire.demo">
+                    <div class="credential-header">
+                        <div class="credential-avatar">EB</div>
+                        <div class="credential-info">
+                            <div class="credential-email">eve@campfire.demo</div>
+                            <div class="credential-role">Marketing Manager</div>
+                        </div>
+                    </div>
+                    <div class="credential-password">Password: password</div>
+                </div>
+                
+                <div class="credential-card" data-email="frank@campfire.demo">
+                    <div class="credential-header">
+                        <div class="credential-avatar">FM</div>
+                        <div class="credential-info">
+                            <div class="credential-email">frank@campfire.demo</div>
+                            <div class="credential-role">Sales Director</div>
+                        </div>
+                    </div>
+                    <div class="credential-password">Password: password</div>
+                </div>
+                
+                <div class="credential-card" data-email="grace@campfire.demo">
+                    <div class="credential-header">
+                        <div class="credential-avatar">GL</div>
+                        <div class="credential-info">
+                            <div class="credential-email">grace@campfire.demo</div>
+                            <div class="credential-role">QA Engineer</div>
+                        </div>
+                    </div>
+                    <div class="credential-password">Password: password</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="action-buttons">
+            <a href="/login" class="btn btn-primary">Start Demo Experience</a>
+            <a href="https://github.com/that-in-rust/campfire-on-rust" class="btn btn-secondary" target="_blank">View Source Code</a>
+        </div>
+        
+        <div class="footer">
+            <p>
+                Built with ❤️ in Rust • Inspired by Basecamp's Campfire • 
+                <a href="https://github.com/that-in-rust/campfire-on-rust" target="_blank">Open Source</a>
+            </p>
+            <div id="demo-status" style="margin-top: 1rem; font-size: 0.8rem; opacity: 0.7;"></div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Start live demo simulation
+            startLiveDemo();
+            
+            // Load demo status and update metrics
+            await loadDemoStatus();
+            
+            // Add click handlers for credential cards
+            document.querySelectorAll('.credential-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const email = card.getAttribute('data-email');
+                    // Store selected user for quick login
+                    localStorage.setItem('demo_selected_user', email);
+                    // Navigate to login with visual feedback
+                    card.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 150);
+                });
+            });
+            
+            // Smooth scroll for CTA
+            document.querySelector('a[href="#preview"]').addEventListener('click', (e) => {
+                e.preventDefault();
+                document.getElementById('preview').scrollIntoView({ 
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+            });
+        });
+        
+        function startLiveDemo() {
+            const messagesContainer = document.getElementById('live-messages');
+            let messageIndex = 0;
+            
+            const demoMessages = [
+                {
+                    author: 'Alice Johnson',
+                    avatar: 'AJ',
+                    content: 'Good morning team! Ready for the sprint planning? 🚀',
+                    time: '9:15 AM',
+                    delay: 1000
+                },
+                {
+                    author: 'Bob Smith',
+                    avatar: 'BS',
+                    content: 'Absolutely! I\'ve got the performance metrics ready. Our Rust implementation is blazing fast! ⚡',
+                    time: '9:16 AM',
+                    delay: 3000
+                },
+                {
+                    author: 'Carol Davis',
+                    avatar: 'CD',
+                    content: 'The new UI mockups are looking great! @alice want to review them after standup?',
+                    time: '9:17 AM',
+                    delay: 4000
+                },
+                {
+                    author: 'Alice Johnson',
+                    avatar: 'AJ',
+                    content: '@carol Yes! Let\'s schedule a quick design review. This real-time chat is so smooth! /play tada',
+                    time: '9:18 AM',
+                    delay: 3000
+                },
+                {
+                    author: 'Demo Bot',
+                    avatar: '🤖',
+                    content: '🤖 Daily standup reminder: Meeting starts in 15 minutes! All hands on deck.',
+                    time: '9:19 AM',
+                    delay: 5000
+                },
+                {
+                    author: 'Bob Smith',
+                    avatar: 'BS',
+                    content: 'This WebSocket performance is incredible. Zero latency! Much better than our old system.',
+                    time: '9:20 AM',
+                    delay: 4000
+                }
+            ];
+            
+            function addMessage(message) {
+                const messageEl = document.createElement('div');
+                messageEl.className = 'preview-message';
+                messageEl.style.animationDelay = '0s';
+                
+                messageEl.innerHTML = `
+                    <div class="message-author">
+                        <div class="author-avatar">${message.avatar}</div>
+                        ${message.author}
+                    </div>
+                    <div class="message-content">${message.content}</div>
+                    <div class="message-time">${message.time}</div>
+                `;
+                
+                messagesContainer.appendChild(messageEl);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+            
+            function showTypingIndicator(author) {
+                const typingEl = document.createElement('div');
+                typingEl.className = 'typing-indicator';
+                typingEl.id = 'typing-indicator';
+                typingEl.textContent = `${author} is typing...`;
+                messagesContainer.appendChild(typingEl);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                
+                return typingEl;
+            }
+            
+            function removeTypingIndicator() {
+                const typingEl = document.getElementById('typing-indicator');
+                if (typingEl) {
+                    typingEl.remove();
+                }
+            }
+            
+            function scheduleNextMessage() {
+                if (messageIndex >= demoMessages.length) {
+                    // Restart the demo after a pause
+                    setTimeout(() => {
+                        messagesContainer.innerHTML = '';
+                        messageIndex = 0;
+                        scheduleNextMessage();
+                    }, 10000);
+                    return;
+                }
+                
+                const message = demoMessages[messageIndex];
+                
+                setTimeout(() => {
+                    // Show typing indicator
+                    const typingEl = showTypingIndicator(message.author);
+                    
+                    // Remove typing and add message after a short delay
+                    setTimeout(() => {
+                        removeTypingIndicator();
+                        addMessage(message);
+                        messageIndex++;
+                        scheduleNextMessage();
+                    }, 1500);
+                }, message.delay);
+            }
+            
+            // Start the demo
+            scheduleNextMessage();
+        }
+        
+        async function loadDemoStatus() {
+            try {
+                const response = await fetch('/api/demo/status');
+                if (response.ok) {
+                    const status = await response.json();
+                    updateDemoStatus(status);
+                    updatePerformanceMetrics(status);
+                } else {
+                    console.warn('Failed to load demo status');
+                }
+            } catch (error) {
+                console.warn('Error loading demo status:', error);
+            }
+        }
+        
+        function updateDemoStatus(status) {
+            const statusElement = document.getElementById('demo-status');
+            if (status.demo_mode) {
+                statusElement.innerHTML = `
+                    ✅ Demo ready: ${status.demo_users} users, ${status.demo_rooms} rooms loaded
+                `;
+                statusElement.style.color = 'var(--success-color)';
+            } else {
+                statusElement.innerHTML = `
+                    ⚠️ Demo data not initialized - <button onclick="initializeDemo()" style="background: none; border: none; color: var(--accent-color); cursor: pointer; text-decoration: underline;">Click to initialize</button>
+                `;
+                statusElement.style.color = 'var(--warning-color)';
+            }
+        }
+        
+        function updatePerformanceMetrics(status) {
+            if (status.performance) {
+                const responseTimeEl = document.getElementById('response-time');
+                const memoryUsageEl = document.getElementById('memory-usage');
+                const demoUsersEl = document.getElementById('demo-users-count');
+                const demoRoomsEl = document.getElementById('demo-rooms-count');
+                const demoMessagesEl = document.getElementById('demo-messages-count');
+                
+                if (responseTimeEl) {
+                    responseTimeEl.textContent = `<${status.performance.response_time_ms}ms`;
+                }
+                if (memoryUsageEl) {
+                    memoryUsageEl.textContent = `${status.performance.memory_usage_mb}MB`;
+                }
+                if (demoUsersEl) {
+                    demoUsersEl.textContent = status.demo_users;
+                }
+                if (demoRoomsEl) {
+                    demoRoomsEl.textContent = status.demo_rooms;
+                }
+                if (demoMessagesEl) {
+                    demoMessagesEl.textContent = status.demo_messages;
+                }
+            }
+        }
+        
+        async function initializeDemo() {
+            const statusElement = document.getElementById('demo-status');
+            statusElement.innerHTML = '⏳ Initializing demo data...';
+            statusElement.style.color = 'var(--text-secondary)';
+            
+            try {
+                const response = await fetch('/api/demo/initialize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        statusElement.innerHTML = `✅ Demo initialized: ${result.demo_users} users, ${result.demo_rooms} rooms created`;
+                        statusElement.style.color = 'var(--success-color)';
+                        
+                        // Refresh the page after a short delay to show updated content
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
+                    } else {
+                        statusElement.innerHTML = `❌ Initialization failed: ${result.message}`;
+                        statusElement.style.color = 'var(--error-color, #dc2626)';
+                    }
+                } else {
+                    statusElement.innerHTML = '❌ Failed to initialize demo data';
+                    statusElement.style.color = 'var(--error-color, #dc2626)';
+                }
+            } catch (error) {
+                console.error('Demo initialization error:', error);
+                statusElement.innerHTML = '❌ Network error during initialization';
+                statusElement.style.color = 'var(--error-color, #dc2626)';
+            }
+        }
+    </script>
+</body>
+</html>

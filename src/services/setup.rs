@@ -69,7 +69,7 @@ impl SetupServiceImpl {
     
     /// Validates email format using simple regex
     fn validate_email(&self, email: &str) -> Result<(), SetupError> {
-        if email.is_empty() {
+        if email.trim().is_empty() {
             return Err(SetupError::InvalidEmail { 
                 email: email.to_string() 
             });

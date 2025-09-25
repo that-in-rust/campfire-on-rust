@@ -459,6 +459,8 @@ mod tests {
             message_service.clone(),
         ));
         
+        let setup_service = Arc::new(crate::services::setup::SetupServiceImpl::new(db.clone()));
+        
         AppState {
             db,
             auth_service,
@@ -467,6 +469,7 @@ mod tests {
             search_service,
             push_service,
             bot_service,
+            setup_service,
         }
     }
 

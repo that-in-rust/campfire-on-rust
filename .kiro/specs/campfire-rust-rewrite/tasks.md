@@ -164,14 +164,14 @@
   - Add deployment configuration management
   - _Requirements: 11.1, 11.2, 11.3, 11.4_
 
-- [-] 25. Create first-run setup UI and handlers
+- [x] 25. Create first-run setup UI and handlers
   - Implement setup page template for admin account creation
   - Add setup API handlers for account creation
   - Create setup status detection and routing logic
   - Add environment configuration validation
   - _Requirements: 11.1, 11.2, 11.8_
 
-- [ ] 26. Integrate first-run setup with application startup
+- [x] 26. Integrate first-run setup with application startup
   - Add setup detection to main application flow
   - Implement automatic redirection to setup when needed
   - Create setup completion validation
@@ -180,7 +180,7 @@
 
 ## Demo Experience Enhancement (Missing ❌)
 
-- [ ] 27. Enhance demo mode detection and landing page
+- [-] 27. Enhance demo mode detection and landing page
   - Implement professional landing page with live chat preview
   - Add demo mode environment variable detection
   - Create value proposition display with performance metrics
