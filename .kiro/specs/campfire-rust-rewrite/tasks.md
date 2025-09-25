@@ -218,7 +218,7 @@ n
   - Add bot API rate limiting and abuse prevention
   - _Requirements: 4.3, 8.3, 9.3_
 
-- [-] 32. Create deployment documentation and scripts
+- [x] 32. Create deployment documentation and scripts
   - Write Docker deployment guide with environment variables
   - Create backup and restore procedures
   - Add monitoring and alerting setup instructions
@@ -227,14 +227,14 @@ n
 
 ## Performance Optimization (Missing ❌)
 
-- [ ] 33. Implement performance monitoring and optimization
+- [x] 33. Implement performance monitoring and optimization
   - Add performance metrics collection for critical paths
   - Create database query optimization and indexing
   - Implement connection pooling optimization
   - Add memory usage monitoring and optimization
   - _Requirements: Performance contract requirements_
 
-- [ ] 34. Add caching layer for frequently accessed data
+- [x] 34. Add caching layer for frequently accessed data
   - Implement in-memory caching for user sessions
   - Add room membership caching with invalidation
   - Create message history caching for active rooms
@@ -243,7 +243,7 @@ n
 
 ## Final Integration and Validation (Missing ❌)
 
-- [ ] 35. Complete end-to-end integration testing
+- [x] 35. Complete end-to-end integration testing
   - Create full user journey tests from registration to messaging
   - Test WebSocket real-time functionality across multiple clients
   - Validate demo mode and first-run setup flows
@@ -265,6 +265,9 @@ n
   - _Requirements: All performance requirements_
 
 - [ ] 38. Add a git tag of v0.1 or something - the absolute beginner one as you deem fit for releases to be captured - also choose the most permissive license
+
+- [ ] 39. We need 2 worflows zero friction - download latest binary via a curl script to our github repo - and run on local - if you like it - then easiest way to deploy on railway
+
 
 ## Summary
 

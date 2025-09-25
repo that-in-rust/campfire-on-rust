@@ -29,6 +29,9 @@ pub struct Config {
     
     /// Feature flags
     pub features: FeatureFlags,
+    
+    /// Cache configuration
+    pub cache: CacheConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -200,6 +203,39 @@ pub struct FeatureFlags {
     pub demo_mode: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CacheConfig {
+    /// Enable in-memory caching
+    pub enabled: bool,
+    
+    /// Session cache size (number of entries)
+    pub session_cache_size: u64,
+    
+    /// Room membership cache size (number of entries)
+    pub membership_cache_size: u64,
+    
+    /// Message history cache size (number of entries)
+    pub message_cache_size: u64,
+    
+    /// Search result cache size (number of entries)
+    pub search_cache_size: u64,
+    
+    /// Default session cache TTL in seconds
+    pub session_ttl_secs: u64,
+    
+    /// Default membership cache TTL in seconds
+    pub membership_ttl_secs: u64,
+    
+    /// Default message cache TTL in seconds
+    pub message_ttl_secs: u64,
+    
+    /// Default search cache TTL in seconds
+    pub search_ttl_secs: u64,
+    
+    /// Cache cleanup interval in seconds
+    pub cleanup_interval_secs: u64,
+}
+
 impl Config {
     /// Load configuration from environment variables
     pub fn from_env() -> Result<Self> {
@@ -211,6 +247,7 @@ impl Config {
             push: PushConfig::from_env()?,
             metrics: MetricsConfig::from_env()?,
             features: FeatureFlags::from_env()?,
+            cache: CacheConfig::from_env()?,
         };
         
         config.validate()?;
@@ -519,6 +556,53 @@ impl FeatureFlags {
                 .unwrap_or_else(|_| "true".to_string())
                 .parse()
                 .context("Invalid CAMPFIRE_DEMO_MODE")?,
+        })
+    }
+}
+
+impl CacheConfig {
+    fn from_env() -> Result<Self> {
+        Ok(CacheConfig {
+            enabled: env::var("CAMPFIRE_CACHE_ENABLED")
+                .unwrap_or_else(|_| "true".to_string())
+                .parse()
+                .context("Invalid CAMPFIRE_CACHE_ENABLED")?,
+            session_cache_size: env::var("CAMPFIRE_CACHE_SESSION_SIZE")
+                .unwrap_or_else(|_| "10000".to_string())
+                .parse()
+                .context("Invalid CAMPFIRE_CACHE_SESSION_SIZE")?,
+            membership_cache_size: env::var("CAMPFIRE_CACHE_MEMBERSHIP_SIZE")
+                .unwrap_or_else(|_| "50000".to_string())
+                .parse()
+                .context("Invalid CAMPFIRE_CACHE_MEMBERSHIP_SIZE")?,
+            message_cache_size: env::var("CAMPFIRE_CACHE_MESSAGE_SIZE")
+                .unwrap_or_else(|_| "1000".to_string())
+                .parse()
+                .context("Invalid CAMPFIRE_CACHE_MESSAGE_SIZE")?,
+            search_cache_size: env::var("CAMPFIRE_CACHE_SEARCH_SIZE")
+                .unwrap_or_else(|_| "5000".to_string())
+                .parse()
+                .context("Invalid CAMPFIRE_CACHE_SEARCH_SIZE")?,
+            session_ttl_secs: env::var("CAMPFIRE_CACHE_SESSION_TTL")
+                .unwrap_or_else(|_| "1800".to_string()) // 30 minutes
+                .parse()
+                .context("Invalid CAMPFIRE_CACHE_SESSION_TTL")?,
+            membership_ttl_secs: env::var("CAMPFIRE_CACHE_MEMBERSHIP_TTL")
+                .unwrap_or_else(|_| "1800".to_string()) // 30 minutes
+                .parse()
+                .context("Invalid CAMPFIRE_CACHE_MEMBERSHIP_TTL")?,
+            message_ttl_secs: env::var("CAMPFIRE_CACHE_MESSAGE_TTL")
+                .unwrap_or_else(|_| "300".to_string()) // 5 minutes
+                .parse()
+                .context("Invalid CAMPFIRE_CACHE_MESSAGE_TTL")?,
+            search_ttl_secs: env::var("CAMPFIRE_CACHE_SEARCH_TTL")
+                .unwrap_or_else(|_| "600".to_string()) // 10 minutes
+                .parse()
+                .context("Invalid CAMPFIRE_CACHE_SEARCH_TTL")?,
+            cleanup_interval_secs: env::var("CAMPFIRE_CACHE_CLEANUP_INTERVAL")
+                .unwrap_or_else(|_| "3600".to_string()) // 1 hour
+                .parse()
+                .context("Invalid CAMPFIRE_CACHE_CLEANUP_INTERVAL")?,
         })
     }
 }

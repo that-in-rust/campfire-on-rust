@@ -7,6 +7,13 @@ pub mod push;
 pub mod bot;
 pub mod setup;
 pub mod demo;
+pub mod optimized_connection;
+pub mod cache;
+pub mod cached_auth;
+pub mod cached_room;
+pub mod cached_message;
+pub mod cached_search;
+pub mod cache_manager;
 
 pub use auth::AuthService;
 pub use message::{MessageService, MessageServiceTrait};
@@ -17,3 +24,10 @@ pub use push::{PushNotificationService, PushNotificationServiceImpl, VapidConfig
 pub use bot::{BotService, BotServiceImpl};
 pub use setup::{SetupService, SetupServiceImpl};
 pub use demo::{DemoServiceTrait, DemoServiceImpl, DemoUserCredential, DemoIntegrityStatus, SimulationSession, TourStep, DemoStatistics};
+pub use optimized_connection::OptimizedConnectionManager;
+pub use cache::{CacheService, CacheServiceTrait, CacheStats, CacheError};
+pub use cached_auth::CachedAuthService;
+pub use cached_room::CachedRoomService;
+pub use cached_message::CachedMessageService;
+pub use cached_search::CachedSearchService;
+pub use cache_manager::{CacheManager, CacheManagerFactory, CacheHealthStatus, CacheHealth};

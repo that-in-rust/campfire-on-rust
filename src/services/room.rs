@@ -75,6 +75,11 @@ impl RoomService {
         Self { db }
     }
     
+    /// Get reference to the database for testing purposes
+    pub fn database(&self) -> &Arc<CampfireDatabase> {
+        &self.db
+    }
+    
     /// Validates room name according to business rules
     fn validate_room_name(name: &str) -> Result<(), RoomError> {
         let trimmed = name.trim();

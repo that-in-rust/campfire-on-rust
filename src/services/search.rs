@@ -45,7 +45,7 @@ pub struct SearchRequest {
 }
 
 /// Search response with pagination
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchResponse {
     pub results: Vec<SearchResult>,
     pub total_count: u32,
@@ -94,6 +94,7 @@ pub trait SearchServiceTrait: Send + Sync {
 }
 
 /// Implementation of SearchService using SQLite FTS5
+#[derive(Clone)]
 pub struct SearchService {
     db: Arc<CampfireDatabase>,
     room_service: Arc<dyn RoomServiceTrait>,
@@ -105,6 +106,11 @@ impl SearchService {
         room_service: Arc<dyn RoomServiceTrait>,
     ) -> Self {
         Self { db, room_service }
+    }
+    
+    /// Get reference to the database for testing purposes
+    pub fn database(&self) -> &Arc<CampfireDatabase> {
+        &self.db
     }
     
     /// Validate search query

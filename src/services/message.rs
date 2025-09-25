@@ -82,6 +82,11 @@ impl MessageService {
         }
     }
     
+    /// Get reference to the database for testing purposes
+    pub fn database(&self) -> &Arc<CampfireDatabase> {
+        &self.db
+    }
+    
     pub fn with_push_service(
         db: Arc<CampfireDatabase>, 
         connection_manager: Arc<dyn ConnectionManager>,

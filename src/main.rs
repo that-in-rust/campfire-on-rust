@@ -224,7 +224,9 @@ async fn main() -> Result<()> {
     if config.metrics.enabled {
         app = app
             .route(&config.metrics.endpoint, get(metrics::metrics_endpoint))
-            .route("/metrics/summary", get(metrics::metrics_summary));
+            .route("/metrics/summary", get(metrics::metrics_summary))
+            .route("/api/performance/summary", get(metrics::performance_summary))
+            .route("/api/performance/optimize", post(metrics::optimize_performance));
     }
     
     // Add WebSocket endpoint if enabled (with setup completion validation)
