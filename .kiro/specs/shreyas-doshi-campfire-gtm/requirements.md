@@ -13,42 +13,42 @@ Shreyas Doshi's approach emphasizes:
 
 ## Requirements
 
-### Requirement 1: Single-Focus User Experience
+### Requirement 1: Two-Path User Experience
 
-**User Story:** As a GitHub visitor exploring Campfire, I want to immediately understand how to get team chat working for my team, so that I can deploy it right now without confusion.
-
-#### Acceptance Criteria
-
-1. WHEN a user visits the GitHub repository THEN they SHALL see one primary action: "Deploy Campfire Now"
-2. WHEN a user sees the main page THEN the primary deployment button SHALL be the most prominent element
-3. WHEN a user wants to see a demo first THEN they SHALL find a small secondary link that leads back to deployment
-4. WHEN a user wants to run locally THEN they SHALL find a small secondary link with working instructions
-5. WHEN a user completes any secondary action THEN they SHALL be guided back to the primary deployment path
-
-### Requirement 2: Simple Demo Experience
-
-**User Story:** As a potential user who wants to see Campfire working before deploying, I want a quick demo that shows me the product and then gets me to deployment, so that I can make a fast decision.
+**User Story:** As a GitHub visitor exploring Campfire, I want to either try it locally or deploy it for my team, so that I can get to working software immediately without confusion.
 
 #### Acceptance Criteria
 
-1. WHEN a user clicks "See it working first" THEN they SHALL get a working demo within 3 seconds
-2. WHEN in demo mode THEN it SHALL be obvious this is a demo with realistic team chat data
-3. WHEN a user tries the demo THEN they SHALL see a prominent "Deploy for Real" button
-4. WHEN a user finishes exploring the demo THEN they SHALL be directed to the deployment button
-5. WHEN demo mode is enabled THEN it SHALL work without any setup or configuration
+1. WHEN a user visits the GitHub repository THEN they SHALL see two clear options: "Try it locally" and "Deploy for your team"
+2. WHEN a user chooses "Try it locally" THEN they SHALL get a working curl command that downloads and starts Campfire immediately
+3. WHEN a user chooses "Deploy for your team" THEN they SHALL get a working Railway deployment button
+4. WHEN a user successfully runs locally THEN they SHALL see a clear path to deploy for their team
+5. WHEN either path is chosen THEN the user SHALL get to working Campfire software within 3 minutes
 
-### Requirement 3: Single Primary Deployment Path
+### Requirement 2: Local Sampling Experience
 
-**User Story:** As a team decision-maker, I want one clear way to deploy Campfire that works reliably, so that I can get my team using it immediately without evaluating multiple options.
+**User Story:** As a developer who wants to try Campfire before deploying it for my team, I want to run it locally and see it working, so that I can evaluate it properly.
 
 #### Acceptance Criteria
 
-1. WHEN a user clicks "Deploy Campfire Now" THEN they SHALL be taken to a working Railway deployment
+1. WHEN a user runs the install script THEN Campfire SHALL download, install, and start automatically on localhost:3000
+2. WHEN Campfire runs locally THEN it SHALL have demo data that shows realistic team chat functionality
+3. WHEN a user explores the local version THEN they SHALL see all core features working (chat, rooms, search)
+4. WHEN a user is satisfied with local testing THEN they SHALL see a clear "Deploy for Your Team" option
+5. WHEN local installation is provided THEN it SHALL work without complex setup or configuration
+
+### Requirement 3: Team Deployment Path
+
+**User Story:** As a team decision-maker, I want to deploy Campfire for my team quickly and reliably, so that we can start using it for team chat immediately.
+
+#### Acceptance Criteria
+
+1. WHEN a user clicks "Deploy for Your Team" THEN they SHALL be taken to a working Railway deployment
 2. WHEN the Railway deployment starts THEN it SHALL complete successfully within 3 minutes
-3. WHEN deployment completes THEN the user SHALL have a working Campfire instance with a URL
-4. WHEN a user prefers local installation THEN they SHALL find working instructions as a secondary option
-5. WHEN any deployment method is provided THEN it SHALL be tested and verified to work before publishing
-6. WHEN deployment fails THEN the user SHALL get clear error messages and working alternatives
+3. WHEN deployment completes THEN the user SHALL have a working Campfire instance with a URL they can share
+4. WHEN team members visit the deployed URL THEN they SHALL be able to create accounts and start chatting
+5. WHEN deployment is provided THEN it SHALL be tested and verified to work before publishing
+6. WHEN deployment fails THEN the user SHALL get clear error messages and support contact information
 
 ### Requirement 4: Clear Value Communication
 

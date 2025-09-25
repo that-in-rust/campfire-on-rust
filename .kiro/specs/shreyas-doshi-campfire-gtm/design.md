@@ -65,7 +65,7 @@ graph TD
 graph TD
     A["GitHub Visitor"] --> B{Want to use Campfire?}
     
-    B --> C["👀 Try it locally<br/>git clone && cargo run"]
+    B --> C["👀 Try it locally<br/>curl | bash → instant start"]
     B --> D["🚀 Deploy for team<br/>Railway button"]
     
     C --> E["Working on localhost:3000<br/>in 2 minutes"]
@@ -102,7 +102,7 @@ graph TD
 #### 2. Create One Working Install Method
 **Goal**: One command that actually works
 **Approach**: Start simple, not comprehensive
-- Either fix the curl script OR provide working `git clone && cargo run`
+- Fix the curl script to download pre-built binary and start automatically
 - Test on one platform first (macOS)
 - Expand to other platforms only after first one works
 
@@ -125,7 +125,7 @@ graph TD
     <div class="path">
       <h3>👀 Try it on your machine</h3>
       <p>See Campfire working locally in 2 minutes</p>
-      <code>git clone && cargo run</code>
+      <code>curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash</code>
       <p><small>Then visit localhost:3000</small></p>
     </div>
     
