@@ -1,0 +1,72 @@
+# Multi-stage Dockerfile optimized for Railway deployment
+# Campfire v0.1 - Zero-friction deployment
+
+# Build stage
+FROM rust:1.75-slim as builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory
+WORKDIR /app
+
+# Copy dependency files first for better caching
+COPY Cargo.toml Cargo.lock ./
+
+# Create a dummy main.rs to build dependencies
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+RUN echo 'name = "campfire_on_rust"' >> Cargo.toml
+
+# Build dependencies (this layer will be cached)
+RUN cargo build --release && rm -rf src
+
+# Copy source code
+COPY src ./src
+COPY assets ./assets
+COPY templates ./templates
+
+# Build the application
+RUN cargo build --release --bin campfire-on-rust
+
+# Runtime stage - minimal image
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app user for security
+RUN useradd -r -s /bin/false -m -d /app campfire
+
+# Create data directory with proper permissions
+RUN mkdir -p /app/data && chown -R campfire:campfire /app
+
+# Copy binary from builder stage
+COPY --from=builder /app/target/release/campfire-on-rust /usr/local/bin/campfire-on-rust
+
+# Make binary executable
+RUN chmod +x /usr/local/bin/campfire-on-rust
+
+# Switch to app user
+USER campfire
+WORKDIR /app
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:${CAMPFIRE_PORT:-3000}/health || exit 1
+
+# Expose port
+EXPOSE 3000
+
+# Set default environment variables
+ENV CAMPFIRE_HOST=0.0.0.0
+ENV CAMPFIRE_PORT=3000
+ENV CAMPFIRE_DATABASE_URL=sqlite:///app/data/campfire.db
+ENV RUST_LOG=campfire_on_rust=info
+
+# Start the application
+CMD ["campfire-on-rust"]

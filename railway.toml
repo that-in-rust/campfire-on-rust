@@ -1,0 +1,46 @@
+# Railway.app Configuration for Campfire v0.1
+# Zero-friction deployment configuration
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+# Environment variables for Railway deployment
+[env]
+# Application configuration
+CAMPFIRE_HOST = "0.0.0.0"
+CAMPFIRE_PORT = { default = "3000" }
+CAMPFIRE_LOG_LEVEL = { default = "info" }
+
+# Database configuration (Railway provides persistent storage)
+CAMPFIRE_DATABASE_URL = { default = "sqlite:///app/data/campfire.db" }
+
+# Production settings
+RUST_LOG = { default = "campfire_on_rust=info,tower_http=debug" }
+RUST_BACKTRACE = { default = "1" }
+
+# Optional: Push notifications (users can set these)
+# CAMPFIRE_VAPID_PUBLIC_KEY = ""
+# CAMPFIRE_VAPID_PRIVATE_KEY = ""
+
+# Optional: SSL domain for automatic HTTPS
+# CAMPFIRE_SSL_DOMAIN = ""
+
+# Security settings
+CAMPFIRE_SESSION_TIMEOUT_HOURS = { default = "24" }
+CAMPFIRE_MAX_MESSAGE_LENGTH = { default = "10000" }
+CAMPFIRE_ENABLE_USER_REGISTRATION = { default = "true" }
+
+# Performance settings
+CAMPFIRE_MAX_CONNECTIONS = { default = "100" }
+CAMPFIRE_CONNECTION_TIMEOUT_SECONDS = { default = "30" }
+
+[experimental]
+# Enable Railway's new features
+configAsCode = true
