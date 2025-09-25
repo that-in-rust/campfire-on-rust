@@ -2,7 +2,7 @@
 
 ## Phase 1: Make It Work (Foundation Tasks)
 
-- [x] 1. Fix Compilation Errors
+- [ ] 1. Fix Compilation Errors
   - Fix all 41 compilation errors preventing `cargo run` from working
   - Add missing enum variants (`TypingIndicator`, `TooManyConnections`)
   - Resolve type mismatches (u64 vs usize, Arc<T> vs T)
@@ -16,32 +16,27 @@
   - Verify application is accessible at http://localhost:3000
   - Test basic functionality (login, create room, send message)
   - Confirm demo mode works with `CAMPFIRE_DEMO_MODE=true`
-  - _Requirements: 9.1, 9.2_
-
-- [ ] 3. Create Working Installation Script
+  -  
+  - Create Working Installation Script
   - Fix the broken install script in `scripts/install.sh`
   - Update placeholder URLs to actual repository: `https://github.com/that-in-rust/campfire-on-rust`
   - Create pre-built binaries for macOS, Linux, Windows and host them on GitHub Releases
   - Ensure script downloads correct binary for user's platform and architecture
   - Test `curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash` works
   - Script should install binary, set up data directory, and start Campfire automatically
-  - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7_
-
-- [ ] 4. Update README to Match Reality
+  - Update README to Match Reality
   - Replace all placeholder URLs with actual repository URLs
   - Remove or update performance claims that can't be verified
   - Update installation commands to use working methods
   - Remove features that don't actually work
   - Ensure every command in README has been tested and works
-  - _Requirements: 10.1, 10.2, 10.3, 10.7_
-
-- [ ] 5. Clean Repository Structure
+  - Clean Repository Structure
   - Move development artifacts (.Slate/, monitoring/, benches/) to appropriate locations
   - Remove or archive multiple TASK_*.md files from root
   - Consolidate duplicate documentation files
   - Ensure root directory shows only essential files for end users
   - Create clean, focused impression worthy of DHH/Jason Fried standards
-  - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7_
+  - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7_ _Requirements: 10.1, 10.2, 10.3, 10.7_   - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7 9.1, 9.2_
 
 ## Phase 2: Make It Clear (GTM Implementation)
 
