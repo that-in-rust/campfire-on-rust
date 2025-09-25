@@ -1,6 +1,20 @@
 # Campfire Rust - Production Deployment Guide
 
-This guide covers deploying Campfire Rust to production using Docker and Docker Compose.
+This comprehensive guide covers deploying Campfire Rust to production using Docker and Docker Compose, including monitoring, backup strategies, and performance optimization.
+
+## Table of Contents
+
+1. [Quick Start](#quick-start)
+2. [Configuration](#configuration)
+3. [Deployment Methods](#deployment-methods)
+4. [Database Management](#database-management)
+5. [Monitoring and Alerting](#monitoring-and-alerting)
+6. [Security](#security)
+7. [Performance Tuning](#performance-tuning)
+8. [Scaling](#scaling)
+9. [Backup Strategy](#backup-strategy)
+10. [Troubleshooting](#troubleshooting)
+11. [Maintenance](#maintenance)
 
 ## Quick Start
 
@@ -69,17 +83,43 @@ CAMPFIRE_VAPID_SUBJECT=mailto:admin@your-domain.com
 
 1. **Basic deployment**:
    ```bash
+   # Start with default configuration
    docker-compose up -d
+   
+   # Check status
+   docker-compose ps
+   
+   # View logs
+   docker-compose logs -f campfire
    ```
 
-2. **With monitoring**:
+2. **With monitoring stack**:
    ```bash
+   # Start with Prometheus and Grafana
    docker-compose --profile monitoring up -d
+   
+   # Access monitoring
+   # - Prometheus: http://localhost:9090
+   # - Grafana: http://localhost:3001 (admin/admin)
    ```
 
-3. **With reverse proxy**:
+3. **With reverse proxy and SSL**:
    ```bash
+   # Start with Traefik reverse proxy
    docker-compose --profile proxy up -d
+   
+   # Access via proxy
+   # - Application: http://campfire.localhost
+   # - Traefik Dashboard: http://traefik.localhost:8080
+   ```
+
+4. **Full production stack**:
+   ```bash
+   # Start everything (app + monitoring + proxy)
+   docker-compose --profile monitoring --profile proxy up -d
+   
+   # Verify all services are running
+   docker-compose ps
    ```
 
 ### Method 2: Deployment Script
@@ -177,29 +217,200 @@ docker exec campfire /app/scripts/backup.sh
 ./scripts/migrate.sh create add_new_feature
 ```
 
-## Monitoring
+## Monitoring and Alerting
 
 ### Health Checks
 
-- **Basic health**: `GET /health`
-- **Readiness**: `GET /health/ready`
-- **Liveness**: `GET /health/live`
+The application provides comprehensive health check endpoints:
 
-### Metrics
+- **Basic health**: `GET /health` - Simple alive check
+- **Readiness**: `GET /health/ready` - Ready to serve traffic
+- **Liveness**: `GET /health/live` - Application is functioning
+- **Detailed**: `GET /health/detailed` - Component-level status
 
-Prometheus metrics available at `/metrics`:
+```bash
+# Check application health
+curl -f http://localhost:3000/health
 
-- HTTP request metrics
-- Database operation metrics
-- WebSocket connection metrics
-- Application-specific metrics
+# Get detailed health information
+curl http://localhost:3000/health/detailed | jq
+```
 
-### Grafana Dashboard
+### Metrics Collection
 
-If using the monitoring profile:
-- Grafana: http://localhost:3001
-- Username: admin
-- Password: admin
+Prometheus metrics are available at `/metrics` endpoint:
+
+#### Application Metrics
+- `campfire_http_requests_total` - HTTP request counter
+- `campfire_http_request_duration_seconds` - Request duration histogram
+- `campfire_websocket_connections_active` - Active WebSocket connections
+- `campfire_messages_sent_total` - Total messages sent
+- `campfire_database_operations_total` - Database operation counter
+- `campfire_database_operation_duration_seconds` - Database operation duration
+
+#### System Metrics
+- `campfire_memory_usage_bytes` - Memory usage
+- `campfire_cpu_usage_percent` - CPU usage percentage
+- `campfire_disk_usage_bytes` - Disk usage
+- `campfire_uptime_seconds` - Application uptime
+
+### Monitoring Stack Setup
+
+Deploy the complete monitoring stack:
+
+```bash
+# Start with monitoring
+docker-compose --profile monitoring up -d
+
+# Or add monitoring to existing deployment
+docker-compose up -d prometheus grafana
+```
+
+#### Prometheus Configuration
+
+The Prometheus configuration includes:
+- Application metrics scraping every 10 seconds
+- System metrics collection
+- 30-day retention policy
+- Alerting rules for critical conditions
+
+#### Grafana Dashboards
+
+Access Grafana at http://localhost:3001:
+- **Username**: admin
+- **Password**: admin (change on first login)
+
+Pre-configured dashboards:
+1. **Campfire Overview** - High-level application metrics
+2. **Performance Dashboard** - Response times and throughput
+3. **System Resources** - CPU, memory, disk usage
+4. **WebSocket Monitoring** - Real-time connection metrics
+5. **Database Performance** - Query performance and connection pool
+
+### Alerting Rules
+
+Create alerting rules in `monitoring/rules/campfire.yml`:
+
+```yaml
+groups:
+  - name: campfire.rules
+    rules:
+      # High error rate
+      - alert: HighErrorRate
+        expr: rate(campfire_http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} errors per second"
+
+      # High response time
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(campfire_http_request_duration_seconds_bucket[5m])) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is {{ $value }}s"
+
+      # Database connection issues
+      - alert: DatabaseConnectionFailure
+        expr: campfire_database_operations_total{status="error"} > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection failures"
+          description: "Database operations are failing"
+
+      # Memory usage
+      - alert: HighMemoryUsage
+        expr: campfire_memory_usage_bytes / (1024*1024*1024) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value }}GB"
+
+      # WebSocket connection issues
+      - alert: WebSocketConnectionDrop
+        expr: decrease(campfire_websocket_connections_active[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "WebSocket connections dropping"
+          description: "{{ $value }} WebSocket connections dropped in 5 minutes"
+```
+
+### External Monitoring Integration
+
+#### Datadog Integration
+```bash
+# Add Datadog agent to docker-compose.yml
+datadog:
+  image: datadog/agent:latest
+  environment:
+    - DD_API_KEY=${DD_API_KEY}
+    - DD_SITE=datadoghq.com
+    - DD_LOGS_ENABLED=true
+    - DD_PROCESS_AGENT_ENABLED=true
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    - /proc/:/host/proc/:ro
+    - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+```
+
+#### New Relic Integration
+```bash
+# Environment variables for New Relic
+CAMPFIRE_NEWRELIC_LICENSE_KEY=your_license_key
+CAMPFIRE_NEWRELIC_APP_NAME=campfire-production
+```
+
+### Log Aggregation
+
+#### ELK Stack Integration
+```yaml
+# Add to docker-compose.yml
+elasticsearch:
+  image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+  environment:
+    - discovery.type=single-node
+    - xpack.security.enabled=false
+  ports:
+    - "9200:9200"
+
+logstash:
+  image: docker.elastic.co/logstash/logstash:8.11.0
+  volumes:
+    - ./monitoring/logstash/pipeline:/usr/share/logstash/pipeline:ro
+  depends_on:
+    - elasticsearch
+
+kibana:
+  image: docker.elastic.co/kibana/kibana:8.11.0
+  ports:
+    - "5601:5601"
+  environment:
+    - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+  depends_on:
+    - elasticsearch
+```
+
+#### Structured Logging Configuration
+```bash
+# Enable structured logging
+CAMPFIRE_LOG_FORMAT=json
+CAMPFIRE_LOG_STRUCTURED=true
+CAMPFIRE_LOG_LEVEL=info
+
+# Log sampling for high-traffic environments
+CAMPFIRE_LOG_SAMPLE_RATE=0.1  # Log 10% of requests
+```
 
 ### Log Management
 
@@ -355,25 +566,93 @@ docker inspect campfire | grep -A 10 Health
 
 ## Scaling
 
+### Performance Monitoring
+
+Monitor application performance with the built-in monitoring script:
+
+```bash
+# Monitor for 10 minutes with 5-second intervals
+./scripts/performance-monitor.sh -d 600 -i 5
+
+# Continuous monitoring
+./scripts/performance-monitor.sh --continuous
+
+# Generate report from existing data
+./scripts/performance-monitor.sh --report-only
+```
+
 ### Horizontal Scaling
 
-For multiple instances:
+For multiple instances, follow the comprehensive scaling guide:
 
-1. **Use external database** (PostgreSQL recommended for production)
-2. **Shared session storage** (Redis)
-3. **Load balancer** with sticky sessions for WebSocket
-4. **Shared file storage** for uploads
+1. **Database Migration**: Migrate from SQLite to PostgreSQL
+   ```bash
+   # PostgreSQL configuration
+   CAMPFIRE_DATABASE_URL=postgresql://user:pass@postgres:5432/campfire
+   CAMPFIRE_DB_MAX_CONNECTIONS=100
+   ```
+
+2. **Session Storage**: Use Redis for shared sessions
+   ```bash
+   CAMPFIRE_SESSION_STORE=redis
+   CAMPFIRE_REDIS_URL=redis://redis-cluster:6379
+   ```
+
+3. **Load Balancer**: Configure HAProxy or Nginx with sticky sessions
+   ```bash
+   # Start with load balancer
+   docker-compose --profile proxy up -d
+   ```
+
+4. **WebSocket Clustering**: Enable Redis-based WebSocket clustering
+   ```bash
+   CAMPFIRE_WEBSOCKET_CLUSTERING=true
+   CAMPFIRE_REDIS_PUBSUB_URL=redis://redis:6379
+   ```
 
 ### Vertical Scaling
 
-Increase container resources:
+Optimize single instance performance:
+
 ```yaml
+# docker-compose.yml
 deploy:
   resources:
     limits:
-      memory: 1G
+      memory: 4G
+      cpus: '4.0'
+    reservations:
+      memory: 2G
       cpus: '2.0'
 ```
+
+#### Performance Tuning
+
+```bash
+# Database optimization
+CAMPFIRE_DB_WAL_MODE=true
+CAMPFIRE_DB_MAX_CONNECTIONS=50
+CAMPFIRE_DB_CACHE_SIZE=10000
+
+# Application optimization
+CAMPFIRE_WORKER_THREADS=8
+CAMPFIRE_MESSAGE_BUFFER_SIZE=10000
+CAMPFIRE_CACHE_ENABLED=true
+
+# Memory optimization
+CAMPFIRE_MEMORY_POOL_SIZE=1073741824  # 1GB
+```
+
+### Capacity Planning
+
+| Deployment Size | Users | Instances | CPU | Memory | Storage |
+|----------------|-------|-----------|-----|--------|---------|
+| **Small** | 100 | 1 | 1 core | 1GB | 10GB |
+| **Medium** | 1,000 | 2-3 | 2-4 cores | 2-4GB | 50GB |
+| **Large** | 10,000 | 5-10 | 4-8 cores | 4-8GB | 500GB |
+| **Enterprise** | 100,000+ | 20+ | 8+ cores | 8-16GB | 5TB+ |
+
+For detailed scaling strategies, see [Scaling Guide](docs/scaling-guide.md).
 
 ## Backup Strategy
 

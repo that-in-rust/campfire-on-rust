@@ -350,11 +350,23 @@ pub async fn reset_bot_token(
 pub async fn create_bot_message(
     State(state): State<AppState>,
     Path((room_id, bot_key)): Path<(Uuid, String)>,
-    Json(request): Json<CreateBotMessageRequest>,
+    Json(message_request): Json<CreateBotMessageRequest>,
 ) -> Response {
     let room_id = RoomId(room_id);
     
     info!("Bot message creation attempt for room {} with key {}", room_id, bot_key);
+    
+    // Note: Bot abuse protection and rate limiting are handled by middleware
+    
+    // Validate bot token format
+    if let Err(validation_error) = sanitization::validate_bot_token(&bot_key) {
+        warn!("Invalid bot token format: {}", validation_error);
+        return create_error_response(
+            StatusCode::UNAUTHORIZED,
+            "Invalid bot token format",
+            "INVALID_BOT_TOKEN_FORMAT"
+        );
+    }
     
     // Authenticate bot
     let bot_user = match state.bot_service.authenticate_bot(&bot_key).await {
@@ -378,12 +390,22 @@ pub async fn create_bot_message(
     };
     
     // Validate request
-    if let Err(validation_error) = validate_request(&request) {
+    if let Err(validation_error) = validate_request(&message_request) {
         return validation_error.into_response();
     }
     
-    // Sanitize message content
-    let content = sanitization::sanitize_message_content(&request.content);
+    // Enhanced content validation and sanitization
+    let content = match sanitization::validate_and_sanitize_input(&message_request.content, 10000) {
+        Ok(sanitized) => sanitization::sanitize_message_content(&sanitized),
+        Err(validation_error) => {
+            warn!("Bot message content validation failed: {}", validation_error);
+            return create_error_response(
+                StatusCode::BAD_REQUEST,
+                &format!("Content validation failed: {}", validation_error),
+                "INVALID_CONTENT"
+            );
+        }
+    };
     
     // Create message
     match state.bot_service.create_bot_message(bot_user.id, room_id, content).await {

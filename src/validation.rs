@@ -5,7 +5,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use ammonia::Builder;
 
 /// Custom validation error response
@@ -148,6 +148,60 @@ pub struct CreateBotMessageRequest {
 pub mod sanitization {
     use super::Builder;
     use std::collections::HashSet;
+    use regex::Regex;
+    
+    // Precompiled regex patterns for security
+    fn get_sql_injection_pattern() -> &'static Regex {
+        static PATTERN: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+        PATTERN.get_or_init(|| {
+            Regex::new(r"(?i)(union|select|insert|update|delete|drop|create|alter|exec|execute|script|javascript|vbscript|onload|onerror|onclick)").unwrap()
+        })
+    }
+    
+    fn get_xss_pattern() -> &'static Regex {
+        static PATTERN: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+        PATTERN.get_or_init(|| {
+            Regex::new(r"(?i)(<script|javascript:|vbscript:|onload=|onerror=|onclick=|data:text/html)").unwrap()
+        })
+    }
+    
+    fn get_path_traversal_pattern() -> &'static Regex {
+        static PATTERN: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+        PATTERN.get_or_init(|| {
+            Regex::new(r"(\.\./|\.\.\\|%2e%2e%2f|%2e%2e%5c)").unwrap()
+        })
+    }
+    
+    /// Comprehensive input validation and sanitization
+    pub fn validate_and_sanitize_input(input: &str, max_length: usize) -> Result<String, String> {
+        // Check for null bytes
+        if input.contains('\0') {
+            return Err("Input contains null bytes".to_string());
+        }
+        
+        // Check length
+        if input.len() > max_length {
+            return Err(format!("Input too long: {} > {}", input.len(), max_length));
+        }
+        
+        // Check for SQL injection patterns
+        if get_sql_injection_pattern().is_match(input) {
+            return Err("Input contains potentially dangerous SQL patterns".to_string());
+        }
+        
+        // Check for XSS patterns
+        if get_xss_pattern().is_match(input) {
+            return Err("Input contains potentially dangerous script patterns".to_string());
+        }
+        
+        // Check for path traversal
+        if get_path_traversal_pattern().is_match(input) {
+            return Err("Input contains path traversal patterns".to_string());
+        }
+        
+        // Sanitize and return
+        Ok(sanitize_user_input(input))
+    }
     
     /// Sanitize HTML content for messages
     pub fn sanitize_message_content(content: &str) -> String {
@@ -163,9 +217,21 @@ pub mod sanitization {
         allowed_tags.insert("code");
         allowed_tags.insert("pre");
         
+        let mut allowed_attributes = HashSet::new();
+        allowed_attributes.insert("href");
+        allowed_attributes.insert("title");
+        
         Builder::default()
             .tags(allowed_tags)
+            .generic_attributes(allowed_attributes)
             .link_rel(Some("nofollow noopener noreferrer"))
+            .url_schemes({
+                let mut schemes = HashSet::new();
+                schemes.insert("http");
+                schemes.insert("https");
+                schemes.insert("mailto");
+                schemes
+            })
             .clean(content)
             .to_string()
     }
@@ -197,9 +263,60 @@ pub mod sanitization {
     
     /// Validate and sanitize user input
     pub fn sanitize_user_input(input: &str) -> String {
-        // Remove HTML, normalize whitespace
+        // Remove HTML, normalize whitespace, remove control characters
         let sanitized = sanitize_plain_text(input);
-        sanitized.trim().chars().take(1000).collect()
+        
+        let normalized: String = sanitized
+            .chars()
+            .filter(|c| !c.is_control() || c.is_whitespace())
+            .collect::<String>()
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+        
+        normalized.trim().chars().take(1000).collect()
+    }
+    
+    /// Sanitize email addresses
+    pub fn sanitize_email(email: &str) -> String {
+        // Remove HTML and normalize
+        let sanitized = sanitize_plain_text(email);
+        
+        // Remove whitespace and convert to lowercase
+        sanitized.trim().to_lowercase()
+    }
+    
+    /// Sanitize URLs
+    pub fn sanitize_url(url: &str) -> Result<String, String> {
+        let sanitized = sanitize_plain_text(url);
+        
+        // Basic URL validation
+        if !sanitized.starts_with("http://") && !sanitized.starts_with("https://") {
+            return Err("URL must start with http:// or https://".to_string());
+        }
+        
+        // Check for dangerous protocols
+        if sanitized.contains("javascript:") || sanitized.contains("data:") || sanitized.contains("vbscript:") {
+            return Err("URL contains dangerous protocol".to_string());
+        }
+        
+        Ok(sanitized.trim().to_string())
+    }
+    
+    /// Validate bot token format
+    pub fn validate_bot_token(token: &str) -> Result<String, String> {
+        let sanitized = sanitize_plain_text(token);
+        
+        // Bot tokens should be alphanumeric with hyphens/underscores
+        if !sanitized.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+            return Err("Bot token contains invalid characters".to_string());
+        }
+        
+        if sanitized.len() < 10 || sanitized.len() > 100 {
+            return Err("Bot token length must be between 10 and 100 characters".to_string());
+        }
+        
+        Ok(sanitized)
     }
 }
 

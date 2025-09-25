@@ -10,3 +10,4 @@ pub mod bot;
 pub mod pages;
 pub mod setup;
 pub mod demo;
+pub mod security;

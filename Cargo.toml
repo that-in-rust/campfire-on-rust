@@ -32,7 +32,8 @@ anyhow = "1.0"
 
 # Logging and tracing
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+tracing-appender = "0.2"
 
 # HTML sanitization and rich text processing
 ammonia = "3.0"

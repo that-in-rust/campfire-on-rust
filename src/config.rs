@@ -83,6 +83,24 @@ pub struct LoggingConfig {
     
     /// Enable request tracing
     pub trace_requests: bool,
+    
+    /// Enable audit logging for administrative actions
+    pub audit_enabled: bool,
+    
+    /// Audit log file path (None = same as main log)
+    pub audit_file_path: Option<PathBuf>,
+    
+    /// Enable performance monitoring logs
+    pub performance_monitoring: bool,
+    
+    /// Performance threshold in milliseconds for warnings
+    pub performance_threshold_ms: u64,
+    
+    /// Enable error recovery logging
+    pub error_recovery_logging: bool,
+    
+    /// Log rotation settings
+    pub rotation: LogRotationConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,6 +108,21 @@ pub enum LogFormat {
     Json,
     Pretty,
     Compact,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogRotationConfig {
+    /// Enable log rotation
+    pub enabled: bool,
+    
+    /// Maximum log file size in bytes before rotation
+    pub max_size_bytes: u64,
+    
+    /// Maximum number of rotated log files to keep
+    pub max_files: usize,
+    
+    /// Rotation check interval in seconds
+    pub check_interval_secs: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -322,6 +355,25 @@ impl LoggingConfig {
             _ => LogFormat::Pretty,
         };
         
+        let rotation = LogRotationConfig {
+            enabled: env::var("CAMPFIRE_LOG_ROTATION_ENABLED")
+                .unwrap_or_else(|_| "true".to_string())
+                .parse()
+                .context("Invalid CAMPFIRE_LOG_ROTATION_ENABLED")?,
+            max_size_bytes: env::var("CAMPFIRE_LOG_MAX_SIZE")
+                .unwrap_or_else(|_| "104857600".to_string()) // 100MB
+                .parse()
+                .context("Invalid CAMPFIRE_LOG_MAX_SIZE")?,
+            max_files: env::var("CAMPFIRE_LOG_MAX_FILES")
+                .unwrap_or_else(|_| "10".to_string())
+                .parse()
+                .context("Invalid CAMPFIRE_LOG_MAX_FILES")?,
+            check_interval_secs: env::var("CAMPFIRE_LOG_ROTATION_INTERVAL")
+                .unwrap_or_else(|_| "3600".to_string()) // 1 hour
+                .parse()
+                .context("Invalid CAMPFIRE_LOG_ROTATION_INTERVAL")?,
+        };
+        
         Ok(LoggingConfig {
             level: env::var("CAMPFIRE_LOG_LEVEL")
                 .unwrap_or_else(|_| "info".to_string()),
@@ -337,6 +389,26 @@ impl LoggingConfig {
                 .unwrap_or_else(|_| "true".to_string())
                 .parse()
                 .context("Invalid CAMPFIRE_TRACE_REQUESTS")?,
+            audit_enabled: env::var("CAMPFIRE_AUDIT_ENABLED")
+                .unwrap_or_else(|_| "true".to_string())
+                .parse()
+                .context("Invalid CAMPFIRE_AUDIT_ENABLED")?,
+            audit_file_path: env::var("CAMPFIRE_AUDIT_LOG_FILE")
+                .ok()
+                .map(PathBuf::from),
+            performance_monitoring: env::var("CAMPFIRE_PERFORMANCE_MONITORING")
+                .unwrap_or_else(|_| "true".to_string())
+                .parse()
+                .context("Invalid CAMPFIRE_PERFORMANCE_MONITORING")?,
+            performance_threshold_ms: env::var("CAMPFIRE_PERFORMANCE_THRESHOLD_MS")
+                .unwrap_or_else(|_| "1000".to_string())
+                .parse()
+                .context("Invalid CAMPFIRE_PERFORMANCE_THRESHOLD_MS")?,
+            error_recovery_logging: env::var("CAMPFIRE_ERROR_RECOVERY_LOGGING")
+                .unwrap_or_else(|_| "true".to_string())
+                .parse()
+                .context("Invalid CAMPFIRE_ERROR_RECOVERY_LOGGING")?,
+            rotation,
         })
     }
 }

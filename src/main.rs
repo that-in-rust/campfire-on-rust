@@ -13,7 +13,7 @@ use campfire_on_rust::{
     ConnectionManagerImpl, SearchService, PushNotificationServiceImpl, 
     VapidConfig, BotServiceImpl, SetupServiceImpl, health, metrics, shutdown, config, logging, demo
 };
-use campfire_on_rust::middleware::security;
+use campfire_on_rust::middleware::{security, rate_limiting, RateLimitConfig};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -168,8 +168,23 @@ async fn main() -> Result<()> {
         }
     );
 
+    // Initialize security middleware
+    let rate_limit_config = RateLimitConfig {
+        general_rpm: config.security.rate_limit_rpm,
+        auth_rpm: config.security.rate_limit_rpm / 6, // Stricter for auth
+        bot_rpm: config.security.rate_limit_rpm * 2, // More lenient for bots
+        burst_size: 10,
+    };
+    
+    let (csrf_protection, csrf_layer) = security::create_csrf_protection_layer();
+    let (bot_abuse_protection, bot_abuse_layer) = security::create_bot_abuse_protection_layer();
+
     // Build application with routes based on feature flags
     let mut app = Router::new()
+        // Security endpoints
+        .route("/api/security/csrf-token", get(campfire_on_rust::handlers::security::get_csrf_token))
+        .route("/api/security/info", get(campfire_on_rust::handlers::security::get_security_info))
+        
         // HTML pages with demo mode awareness
         .route("/", get(campfire_on_rust::handlers::pages::serve_root_page))
         .route("/chat", get(campfire_on_rust::assets::serve_chat_interface))
@@ -320,10 +335,11 @@ async fn main() -> Result<()> {
     ));
     
     let app = app
-        .layer(security::create_request_size_limit_layer_with_size(config.server.max_request_size))
-        .layer(security::create_timeout_layer_with_duration(config.request_timeout()))
+        // Basic security middleware layers
         .layer(security::create_cors_layer(&config.security.cors_origins, config.security.force_https))
         .layer(security::create_security_headers_layer(config.security.force_https))
+        .layer(security::create_timeout_layer_with_duration(config.request_timeout()))
+        .layer(security::create_request_size_limit_layer_with_size(config.server.max_request_size))
         .with_state(app_state);
 
     // Start server with graceful shutdown

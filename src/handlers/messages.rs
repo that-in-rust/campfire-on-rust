@@ -1,9 +1,12 @@
 use axum::{
-    extract::{Path, Query, State},
-    http::StatusCode,
+    extract::{Path, Query, State, ConnectInfo},
+    http::{StatusCode, HeaderMap},
     response::{IntoResponse, Json, Response},
 };
 use serde::{Deserialize, Serialize};
+use std::net::SocketAddr;
+use std::collections::HashMap;
+use std::time::Instant;
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
@@ -11,7 +14,8 @@ use crate::errors::MessageError;
 use crate::middleware::AuthenticatedUser;
 use crate::models::{Message, MessageId, RoomId};
 use crate::validation::{CreateMessageRequest, sanitization, validate_request};
-use crate::AppState;
+use crate::logging::{audit::{AuditAction, AuditLogger}, error_handling::handle_message_error};
+use crate::{AppState, log_performance_warning, log_business_event};
 
 #[derive(Deserialize)]
 pub struct GetMessagesQuery {
@@ -60,16 +64,39 @@ pub struct ErrorResponse {
 pub async fn create_message(
     State(state): State<AppState>,
     Path(room_id_str): Path<String>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     auth_user: AuthenticatedUser,
     Json(request): Json<CreateMessageRequest>,
 ) -> Result<Response, Response> {
+    let start_time = Instant::now();
+    let ip_address = addr.ip().to_string();
+    let user_agent = headers
+        .get("user-agent")
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or("unknown");
+    let audit_logger = AuditLogger::new(true); // TODO: Get from config
+
     info!(
-        "Creating message in room {} for user {}",
-        room_id_str, auth_user.user.id
+        "Creating message in room {} for user {} from IP: {}",
+        room_id_str, auth_user.user.id, ip_address
     );
 
     // Validate request
     if let Err(validation_error) = validate_request(&request) {
+        // Log validation failure
+        let mut details = HashMap::new();
+        details.insert("room_id".to_string(), room_id_str.clone());
+        details.insert("user_id".to_string(), auth_user.user.id.to_string());
+        details.insert("error".to_string(), "validation_failed".to_string());
+        
+        audit_logger.log_security_event(
+            AuditAction::MessageCreated,
+            Some(auth_user.user.id),
+            Some(&ip_address),
+            details,
+        );
+        
         return Err(validation_error.into_response());
     }
     
@@ -83,7 +110,7 @@ pub async fn create_message(
     match state
         .message_service
         .create_message_with_deduplication(
-            content,
+            content.clone(),
             room_id,
             auth_user.user.id,
             request.client_message_id,
@@ -91,53 +118,76 @@ pub async fn create_message(
         .await
     {
         Ok(message) => {
-            info!("Message created successfully: {}", message.id);
+            let duration = start_time.elapsed();
+            
+            // Check for performance issues
+            if duration.as_millis() > 1000 {
+                log_performance_warning!("message_creation", duration, std::time::Duration::from_millis(1000));
+            }
+            
+            info!("Message created successfully: {} in {:?}", message.id, duration);
+            
+            // Log successful message creation
+            let mut details = HashMap::new();
+            details.insert("message_id".to_string(), message.id.to_string());
+            details.insert("room_id".to_string(), room_id.to_string());
+            details.insert("content_length".to_string(), content.len().to_string());
+            details.insert("client_message_id".to_string(), request.client_message_id.to_string());
+            details.insert("duration_ms".to_string(), duration.as_millis().to_string());
+            
+            audit_logger.log_user_action(
+                AuditAction::MessageCreated,
+                auth_user.user.id,
+                "message",
+                Some(message.id.to_string()),
+                details,
+            );
+            
+            // Log business event for analytics
+            log_business_event!("message_sent", auth_user.user.id, format!("room:{}, length:{}", room_id, content.len()));
+            
             Ok((
                 StatusCode::CREATED,
                 Json(MessageResponse { message }),
             ).into_response())
         }
-        Err(MessageError::Authorization { user_id, room_id }) => {
-            warn!("User {} not authorized for room {}", user_id, room_id);
-            Err(create_error_response(
-                StatusCode::FORBIDDEN,
-                "You are not authorized to post messages in this room",
-            ))
-        }
-        Err(MessageError::InvalidContent { reason }) => {
-            warn!("Invalid message content: {}", reason);
-            Err(create_error_response(
-                StatusCode::BAD_REQUEST,
-                &format!("Invalid message content: {}", reason),
-            ))
-        }
-        Err(MessageError::ContentTooLong { length }) => {
-            warn!("Message content too long: {} chars", length);
-            Err(create_error_response(
-                StatusCode::BAD_REQUEST,
-                &format!("Message content too long: {} chars (max: 10000)", length),
-            ))
-        }
-        Err(MessageError::ContentTooShort) => {
-            warn!("Message content too short");
-            Err(create_error_response(
-                StatusCode::BAD_REQUEST,
-                "Message content cannot be empty",
-            ))
-        }
-        Err(MessageError::RateLimit { limit, window }) => {
-            warn!("Rate limit exceeded: {} per {}", limit, window);
-            Err(create_error_response(
-                StatusCode::TOO_MANY_REQUESTS,
-                &format!("Rate limit exceeded: {} messages per {}", limit, window),
-            ))
-        }
-        Err(err) => {
-            error!("Failed to create message: {:?}", err);
-            Err(create_error_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to create message",
-            ))
+        Err(message_error) => {
+            let duration = start_time.elapsed();
+            
+            // Log failed message creation
+            let mut details = HashMap::new();
+            details.insert("room_id".to_string(), room_id.to_string());
+            details.insert("user_id".to_string(), auth_user.user.id.to_string());
+            details.insert("error".to_string(), message_error.to_string());
+            details.insert("duration_ms".to_string(), duration.as_millis().to_string());
+            details.insert("user_agent".to_string(), user_agent.to_string());
+            
+            // Determine if this is a security event
+            let is_security_event = matches!(
+                message_error,
+                MessageError::Authorization { .. } | MessageError::RateLimit { .. }
+            );
+            
+            if is_security_event {
+                audit_logger.log_security_event(
+                    AuditAction::MessageCreated,
+                    Some(auth_user.user.id),
+                    Some(&ip_address),
+                    details,
+                );
+            } else {
+                audit_logger.log_user_action(
+                    AuditAction::MessageCreated,
+                    auth_user.user.id,
+                    "message",
+                    None::<String>,
+                    details,
+                );
+            }
+            
+            warn!("Failed to create message: {:?} in {:?}", message_error, duration);
+            
+            Err(handle_message_error(message_error, Some("create_message")).into_response())
         }
     }
 }
@@ -163,11 +213,15 @@ pub async fn get_messages(
     State(state): State<AppState>,
     Path(room_id_str): Path<String>,
     Query(query): Query<GetMessagesQuery>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     auth_user: AuthenticatedUser,
 ) -> Result<Response, Response> {
+    let start_time = Instant::now();
+    let ip_address = addr.ip().to_string();
+    
     info!(
-        "Getting messages for room {} for user {}",
-        room_id_str, auth_user.user.id
+        "Getting messages for room {} for user {} from IP: {}",
+        room_id_str, auth_user.user.id, ip_address
     );
 
     // Parse room_id from path parameter
@@ -176,10 +230,12 @@ pub async fn get_messages(
     // Parse and validate limit
     let limit = query.limit.unwrap_or(50);
     if limit > 100 {
-        return Err(create_error_response(
-            StatusCode::BAD_REQUEST,
-            "Limit cannot exceed 100 messages",
-        ));
+        return Err(handle_message_error(
+            MessageError::InvalidContent { 
+                reason: "Limit cannot exceed 100 messages".to_string() 
+            },
+            Some("get_messages")
+        ).into_response());
     }
 
     // Parse before parameter if provided
@@ -196,7 +252,32 @@ pub async fn get_messages(
         .await
     {
         Ok(messages) => {
-            info!("Retrieved {} messages for room {}", messages.len(), room_id);
+            let duration = start_time.elapsed();
+            
+            // Check for performance issues
+            if duration.as_millis() > 500 {
+                log_performance_warning!("message_retrieval", duration, std::time::Duration::from_millis(500));
+            }
+            
+            info!("Retrieved {} messages for room {} in {:?}", messages.len(), room_id, duration);
+            
+            // Log message retrieval for audit (only for large requests or slow queries)
+            if limit > 50 || duration.as_millis() > 1000 {
+                let audit_logger = AuditLogger::new(true);
+                let mut details = HashMap::new();
+                details.insert("room_id".to_string(), room_id.to_string());
+                details.insert("limit".to_string(), limit.to_string());
+                details.insert("messages_returned".to_string(), messages.len().to_string());
+                details.insert("duration_ms".to_string(), duration.as_millis().to_string());
+                
+                audit_logger.log_user_action(
+                    AuditAction::MessageCreated, // Using MessageCreated as closest match
+                    auth_user.user.id,
+                    "message_query",
+                    Some(room_id.to_string()),
+                    details,
+                );
+            }
             
             // Determine if there are more messages
             // This is a simple heuristic - if we got the full limit, there might be more
@@ -207,19 +288,28 @@ pub async fn get_messages(
                 Json(MessagesResponse { messages, has_more }),
             ).into_response())
         }
-        Err(MessageError::Authorization { user_id, room_id }) => {
-            warn!("User {} not authorized for room {}", user_id, room_id);
-            Err(create_error_response(
-                StatusCode::FORBIDDEN,
-                "You are not authorized to view messages in this room",
-            ))
-        }
-        Err(err) => {
-            error!("Failed to get messages: {:?}", err);
-            Err(create_error_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to retrieve messages",
-            ))
+        Err(message_error) => {
+            let duration = start_time.elapsed();
+            
+            warn!("Failed to get messages: {:?} in {:?}", message_error, duration);
+            
+            // Log failed message retrieval for security events
+            if matches!(message_error, MessageError::Authorization { .. }) {
+                let audit_logger = AuditLogger::new(true);
+                let mut details = HashMap::new();
+                details.insert("room_id".to_string(), room_id.to_string());
+                details.insert("error".to_string(), message_error.to_string());
+                details.insert("duration_ms".to_string(), duration.as_millis().to_string());
+                
+                audit_logger.log_security_event(
+                    AuditAction::UnauthorizedAccess,
+                    Some(auth_user.user.id),
+                    Some(&ip_address),
+                    details,
+                );
+            }
+            
+            Err(handle_message_error(message_error, Some("get_messages")).into_response())
         }
     }
 }
@@ -228,10 +318,12 @@ pub async fn get_messages(
 fn parse_room_id(room_id_str: &str) -> Result<RoomId, Response> {
     match Uuid::parse_str(room_id_str) {
         Ok(uuid) => Ok(RoomId(uuid)),
-        Err(_) => Err(create_error_response(
-            StatusCode::BAD_REQUEST,
-            "Invalid room ID format",
-        )),
+        Err(_) => Err(handle_message_error(
+            MessageError::InvalidContent { 
+                reason: "Invalid room ID format".to_string() 
+            },
+            Some("parse_room_id")
+        ).into_response()),
     }
 }
 
@@ -239,21 +331,13 @@ fn parse_room_id(room_id_str: &str) -> Result<RoomId, Response> {
 fn parse_message_id(message_id_str: &str) -> Result<MessageId, Response> {
     match Uuid::parse_str(message_id_str) {
         Ok(uuid) => Ok(MessageId(uuid)),
-        Err(_) => Err(create_error_response(
-            StatusCode::BAD_REQUEST,
-            "Invalid message ID format",
-        )),
+        Err(_) => Err(handle_message_error(
+            MessageError::InvalidContent { 
+                reason: "Invalid message ID format".to_string() 
+            },
+            Some("parse_message_id")
+        ).into_response()),
     }
-}
-
-/// Create a standardized error response
-fn create_error_response(status: StatusCode, message: &str) -> Response {
-    let error_response = ErrorResponse {
-        error: message.to_string(),
-        code: status.as_u16(),
-    };
-
-    (status, Json(error_response)).into_response()
 }
 
 #[cfg(test)]
@@ -288,10 +372,13 @@ mod tests {
     }
 
     #[test]
-    fn test_create_error_response() {
-        let _response = create_error_response(StatusCode::BAD_REQUEST, "Test error");
-        // We can't easily test the response body here without more setup,
-        // but we can verify the function doesn't panic
-        assert!(true);
+    fn test_error_handling() {
+        // Test that error handling functions work correctly
+        let error = MessageError::InvalidContent { 
+            reason: "Test error".to_string() 
+        };
+        let user_friendly = handle_message_error(error, Some("test"));
+        assert_eq!(user_friendly.status, StatusCode::BAD_REQUEST);
+        assert_eq!(user_friendly.code, "INVALID_CONTENT");
     }
 }
