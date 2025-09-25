@@ -7,7 +7,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 pub mod optimized_pool;
-pub use optimized_pool::{OptimizedConnectionPool, PoolConfig, DatabaseStats};
+pub use optimized_pool::{OptimizedConnectionPool, PoolConfig};
 
 /// Database Writer Pattern (Critical Gap #3)
 /// 

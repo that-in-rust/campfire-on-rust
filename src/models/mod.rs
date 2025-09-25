@@ -344,6 +344,11 @@ pub enum WebSocketMessage {
         user_id: UserId,
         room_id: RoomId,
     },
+    TypingIndicator {
+        user_id: UserId,
+        room_id: RoomId,
+        is_typing: bool,
+    },
     PresenceUpdate {
         room_id: RoomId,
         online_users: Vec<UserId>,

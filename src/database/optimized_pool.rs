@@ -61,7 +61,7 @@ impl OptimizedConnectionPool {
             .synchronous(config.synchronous)
             .busy_timeout(config.busy_timeout)
             .pragma("cache_size", config.cache_size.to_string())
-            .pragma("temp_store", &config.temp_store)
+            .pragma("temp_store", config.temp_store.clone())
             .pragma("mmap_size", config.mmap_size.to_string())
             .pragma("optimize", "")
             .pragma("foreign_keys", "ON")
@@ -140,7 +140,7 @@ impl OptimizedConnectionPool {
         operation_name: &str,
     ) -> Result<T, SqlxError>
     where
-        T: for<'r> sqlx::FromRow<'r, sqlx::sqlite::SqliteRow> + Send + Unpin,
+        T: for<'r> sqlx::FromRow<'r, sqlx::sqlite::SqliteRow> + Send + Unpin + std::fmt::Debug,
     {
         let start = Instant::now();
         
@@ -168,7 +168,7 @@ impl OptimizedConnectionPool {
         operation_name: &str,
     ) -> Result<Option<T>, SqlxError>
     where
-        T: for<'r> sqlx::FromRow<'r, sqlx::sqlite::SqliteRow> + Send + Unpin,
+        T: for<'r> sqlx::FromRow<'r, sqlx::sqlite::SqliteRow> + Send + Unpin + std::fmt::Debug,
     {
         let start = Instant::now();
         
@@ -196,7 +196,7 @@ impl OptimizedConnectionPool {
         operation_name: &str,
     ) -> Result<Vec<T>, SqlxError>
     where
-        T: for<'r> sqlx::FromRow<'r, sqlx::sqlite::SqliteRow> + Send + Unpin,
+        T: for<'r> sqlx::FromRow<'r, sqlx::sqlite::SqliteRow> + Send + Unpin + std::fmt::Debug,
     {
         let start = Instant::now();
         
@@ -231,7 +231,7 @@ impl OptimizedConnectionPool {
                 let monitor = get_performance_monitor();
                 monitor.update_connection_pool_stats(|stats| {
                     stats.active_connections = pool.size();
-                    stats.idle_connections = pool.num_idle();
+                    stats.idle_connections = pool.num_idle() as u32;
                     stats.total_connections = pool.size();
                     // Note: SQLx doesn't expose wait time directly, so we use 0 as placeholder
                     stats.connection_wait_time_ms = 0.0;
@@ -292,7 +292,7 @@ impl OptimizedConnectionPool {
             room_count: room_count as u64,
             database_size_bytes: db_size as u64,
             connection_count: self.pool.size(),
-            idle_connections: self.pool.num_idle(),
+            idle_connections: self.pool.num_idle() as u32,
             query_time_ms: query_time.as_millis() as u64,
         })
     }

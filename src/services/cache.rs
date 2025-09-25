@@ -246,9 +246,12 @@ impl CacheService {
     /// Check if room data should be invalidated based on recent changes
     async fn should_invalidate_room(&self, room_id: RoomId) -> bool {
         let tracker = self.invalidation_tracker.read().await;
-        if let Some(last_invalidation) = tracker.get(&room_id) {
+        let last_invalidation_time = tracker.get(&room_id).map(|time| *time);
+        drop(tracker); // Explicitly drop the lock
+        
+        if let Some(last_invalidation_time) = last_invalidation_time {
             // Invalidate if last change was within the last 5 minutes
-            let should_invalidate = Utc::now() - *last_invalidation < Duration::minutes(5);
+            let should_invalidate = Utc::now() - last_invalidation_time < Duration::minutes(5);
             should_invalidate
         } else {
             false

@@ -121,6 +121,9 @@ pub enum ConnectionError {
     #[error("Connection already exists for user {user_id}")]
     AlreadyConnected { user_id: UserId },
     
+    #[error("Too many connections: {current_count} (max: {max_count})")]
+    TooManyConnections { current_count: usize, max_count: usize },
+    
     #[error("WebSocket protocol error: {0}")]
     Protocol(String),
 }

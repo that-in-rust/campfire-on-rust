@@ -200,12 +200,16 @@ impl OptimizedConnectionManager {
                 }
                 
                 // Clean up typing indicators
-                for mut entry in room_presence.iter_mut() {
-                    let room_presence = entry.value_mut();
+                let mut rooms_to_update = Vec::new();
+                
+                for entry in room_presence.iter() {
+                    let room_id = *entry.key();
+                    let current_presence = entry.value();
                     let mut updated = false;
                     
-                    // Remove expired typing indicators
-                    room_presence.typing_users.retain(|_, &mut started_at| {
+                    // Check for expired typing indicators
+                    let mut new_typing_users = current_presence.typing_users.clone();
+                    new_typing_users.retain(|_, &mut started_at| {
                         let keep = now.duration_since(started_at) <= config.typing_timeout;
                         if !keep {
                             updated = true;
@@ -214,14 +218,18 @@ impl OptimizedConnectionManager {
                     });
                     
                     if updated {
-                        // Update the Arc to notify other tasks
                         let new_presence = RoomPresence {
-                            online_users: room_presence.online_users.clone(),
-                            typing_users: room_presence.typing_users.clone(),
+                            online_users: current_presence.online_users.clone(),
+                            typing_users: new_typing_users,
                             last_updated: now,
                         };
-                        *room_presence = new_presence;
+                        rooms_to_update.push((room_id, Arc::new(new_presence)));
                     }
+                }
+                
+                // Update the rooms that need updating
+                for (room_id, new_presence) in rooms_to_update {
+                    room_presence.insert(room_id, new_presence);
                 }
             }
         });
@@ -349,8 +357,19 @@ impl OptimizedConnectionManager {
         let start = Instant::now();
         
         // Create cache key for this message type
+        let message_type_id = match message {
+            WebSocketMessage::NewMessage { .. } => 0u8,
+            WebSocketMessage::UserJoined { .. } => 1u8,
+            WebSocketMessage::UserLeft { .. } => 2u8,
+            WebSocketMessage::TypingStart { .. } => 3u8,
+            WebSocketMessage::TypingStop { .. } => 4u8,
+            WebSocketMessage::TypingIndicator { .. } => 5u8,
+            WebSocketMessage::PresenceUpdate { .. } => 6u8,
+            WebSocketMessage::SoundPlayback { .. } => 7u8,
+        };
+        
         let cache_key = format!("{}:{}", 
-            std::mem::discriminant(message) as u8,
+            message_type_id,
             match message {
                 WebSocketMessage::NewMessage { message } => message.id.0.to_string(),
                 WebSocketMessage::PresenceUpdate { room_id, .. } => room_id.0.to_string(),
@@ -387,7 +406,7 @@ impl OptimizedConnectionManager {
             })
             .collect();
         
-        let results = futures::future::join_all(send_futures).await;
+        let results = futures_util::future::join_all(send_futures).await;
         
         for result in results {
             match result {
@@ -420,7 +439,7 @@ impl OptimizedConnectionManager {
         );
         
         if failed_sends > 0 {
-            Err(BroadcastError::PartialFailure { connection_count: failed_sends })
+            Err(BroadcastError::PartialFailure { connection_count: failed_sends as usize })
         } else {
             Ok(successful_sends as usize)
         }
@@ -441,8 +460,8 @@ impl ConnectionManager for OptimizedConnectionManager {
         if let Some(existing_connections) = self.user_connections.get(&user_id) {
             if existing_connections.len() >= self.config.max_connections_per_user {
                 return Err(ConnectionError::TooManyConnections { 
-                    user_id, 
-                    limit: self.config.max_connections_per_user 
+                    current_count: existing_connections.len(),
+                    max_count: self.config.max_connections_per_user 
                 });
             }
         }

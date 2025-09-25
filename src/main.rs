@@ -13,7 +13,7 @@ use campfire_on_rust::{
     ConnectionManagerImpl, SearchService, PushNotificationServiceImpl, 
     VapidConfig, BotServiceImpl, SetupServiceImpl, health, metrics, shutdown, config, logging, demo
 };
-use campfire_on_rust::middleware::{security, rate_limiting, RateLimitConfig};
+use campfire_on_rust::middleware::{security, RateLimitConfig};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -341,7 +341,8 @@ async fn main() -> Result<()> {
         .layer(security::create_cors_layer(&config.security.cors_origins, config.security.force_https))
         .layer(security::create_security_headers_layer(config.security.force_https))
         .layer(security::create_timeout_layer_with_duration(config.request_timeout()))
-        .layer(security::create_request_size_limit_layer_with_size(config.server.max_request_size))
+        // TODO: Re-enable request size limit layer after fixing compatibility issue
+        // .layer(security::create_request_size_limit_layer_with_size(config.server.max_request_size))
         .with_state(app_state);
 
     // Start server with graceful shutdown

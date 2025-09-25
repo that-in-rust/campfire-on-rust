@@ -56,7 +56,7 @@ pub struct PerformanceMonitor {
     connection_pool_stats: Arc<RwLock<ConnectionPoolStats>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct RequestTimingStats {
     pub total_requests: AtomicU64,
     pub total_duration_ms: AtomicU64,
@@ -65,7 +65,7 @@ pub struct RequestTimingStats {
     pub error_count: AtomicU64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct QueryPerformanceStats {
     pub query_count: AtomicU64,
     pub total_duration_ms: AtomicU64,
@@ -74,7 +74,7 @@ pub struct QueryPerformanceStats {
     pub last_execution: AtomicU64, // timestamp
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct WebSocketPerformanceStats {
     pub active_connections: usize,
     pub total_messages_sent: u64,
@@ -84,7 +84,7 @@ pub struct WebSocketPerformanceStats {
     pub reconnection_count: u64,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MemoryStats {
     pub heap_allocated_bytes: u64,
     pub heap_deallocated_bytes: u64,
@@ -104,7 +104,7 @@ pub struct AlertThresholds {
     pub max_websocket_latency_ms: u64,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ConnectionPoolStats {
     pub active_connections: u32,
     pub idle_connections: u32,
@@ -281,29 +281,44 @@ impl PerformanceMonitor {
     /// Collect system-level performance metrics
     #[cfg(feature = "performance-monitoring")]
     async fn collect_system_metrics(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let mut system = self.system.lock();
-        system.refresh_all();
+        // Collect metrics in a blocking task to avoid Send issues
+        let system_metrics = {
+            let mut system = self.system.lock();
+            system.refresh_all();
+            
+            // CPU usage
+            let cpu_usage = system.global_cpu_info().cpu_usage();
+            
+            // Memory usage
+            let total_memory = system.total_memory();
+            let used_memory = system.used_memory();
+            let memory_usage_percent = (used_memory as f64 / total_memory as f64) * 100.0;
+            
+            // Process-specific metrics
+            let process_metrics = system.processes().values().find(|p| {
+                p.name().contains("campfire") || p.name().contains("rust")
+            }).map(|process| {
+                (
+                    process.memory() as f64 * 1024.0,
+                    process.virtual_memory() as f64 * 1024.0,
+                    process.cpu_usage() as f64,
+                )
+            });
+            
+            (cpu_usage, total_memory, used_memory, memory_usage_percent, process_metrics)
+        };
         
-        // CPU usage
-        let cpu_usage = system.global_cpu_info().cpu_usage();
+        let (cpu_usage, total_memory, used_memory, memory_usage_percent, process_metrics) = system_metrics;
+        
         gauge!("system_cpu_usage_percent", cpu_usage as f64);
-        
-        // Memory usage
-        let total_memory = system.total_memory();
-        let used_memory = system.used_memory();
-        let memory_usage_percent = (used_memory as f64 / total_memory as f64) * 100.0;
-        
         gauge!("system_memory_total_bytes", total_memory as f64);
         gauge!("system_memory_used_bytes", used_memory as f64);
         gauge!("system_memory_usage_percent", memory_usage_percent);
         
-        // Process-specific metrics
-        if let Some(process) = system.processes().values().find(|p| {
-            p.name().contains("campfire") || p.name().contains("rust")
-        }) {
-            gauge!("process_memory_bytes", process.memory() as f64 * 1024.0);
-            gauge!("process_virtual_memory_bytes", process.virtual_memory() as f64 * 1024.0);
-            gauge!("process_cpu_usage_percent", process.cpu_usage() as f64);
+        if let Some((process_memory, process_virtual_memory, process_cpu)) = process_metrics {
+            gauge!("process_memory_bytes", process_memory);
+            gauge!("process_virtual_memory_bytes", process_virtual_memory);
+            gauge!("process_cpu_usage_percent", process_cpu);
         }
         
         // Update internal memory stats
