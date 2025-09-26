@@ -98,6 +98,20 @@
     <!-- Error notification area -->
     <div id="error-notifications" aria-live="assertive" aria-atomic="true" class="sr-only"></div>
     
+    <!-- Demo banner (persistent indicator) -->
+    <div id="demo-banner" class="demo-banner" style="display: none;">
+        <div class="demo-banner-content">
+            <div class="demo-banner-left">
+                <span class="demo-badge">🔥 DEMO MODE</span>
+                <span class="demo-text">This is sample data - try all features!</span>
+            </div>
+            <div class="demo-banner-right">
+                <button class="demo-banner-btn" onclick="showDeployGuide()">Deploy for Your Team</button>
+                <button class="demo-banner-close" onclick="hideDemoBanner()" aria-label="Hide demo banner">×</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Demo welcome overlay -->
     <div id="demo-welcome-overlay" class="demo-overlay" style="display: none;">
         <div class="demo-welcome-content">
@@ -129,9 +143,77 @@
                     </ul>
                 </div>
                 
+                <div class="demo-cta-section">
+                    <div class="demo-cta-box">
+                        <h3>🚀 Ready to Deploy for Your Team?</h3>
+                        <p>Get your own Campfire instance running in under 3 minutes with Railway deployment.</p>
+                        <div class="demo-cta-buttons">
+                            <button class="btn btn-cta-primary" onclick="showDeployGuide()">Deploy Now</button>
+                            <button class="btn btn-cta-secondary" onclick="window.open('https://github.com/that-in-rust/campfire-on-rust', '_blank')">View Source</button>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="demo-actions">
                     <button class="btn btn-primary" onclick="closeDemoWelcome()">Start Exploring</button>
                     <button class="btn btn-secondary" onclick="openMultiUserGuide()">Multi-User Testing Guide</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deploy guide overlay -->
+    <div id="deploy-guide-overlay" class="demo-overlay" style="display: none;">
+        <div class="demo-welcome-content">
+            <div class="demo-welcome-header">
+                <h2>🚀 Deploy Campfire for Your Team</h2>
+                <button class="demo-close-btn" onclick="closeDeployGuide()" aria-label="Close deploy guide">×</button>
+            </div>
+            <div class="demo-welcome-body">
+                <p>Ready to get your team using Campfire? Choose your deployment method:</p>
+                
+                <div class="deploy-options">
+                    <div class="deploy-option">
+                        <h3>⚡ Railway (Recommended)</h3>
+                        <p>One-click deployment with automatic HTTPS and scaling</p>
+                        <ul>
+                            <li>✅ Deploy in under 3 minutes</li>
+                            <li>✅ Automatic HTTPS with custom domains</li>
+                            <li>✅ Built-in database and file storage</li>
+                            <li>✅ Auto-scaling based on usage</li>
+                        </ul>
+                        <button class="btn btn-cta-primary" onclick="deployToRailway()">Deploy to Railway</button>
+                    </div>
+                    
+                    <div class="deploy-option">
+                        <h3>🖥️ Self-Hosted</h3>
+                        <p>Install on your own server or local machine</p>
+                        <ul>
+                            <li>✅ Full control over your data</li>
+                            <li>✅ No monthly fees</li>
+                            <li>✅ Works offline</li>
+                            <li>✅ Easy installation script</li>
+                        </ul>
+                        <button class="btn btn-cta-secondary" onclick="showInstallScript()">Get Install Script</button>
+                    </div>
+                </div>
+                
+                <div class="deploy-features">
+                    <h3>🎯 What You Get:</h3>
+                    <div class="feature-grid">
+                        <div class="feature-item">💬 Real-time messaging</div>
+                        <div class="feature-item">🏠 Multiple room types</div>
+                        <div class="feature-item">@ @mentions & notifications</div>
+                        <div class="feature-item">🔊 59 sound effects</div>
+                        <div class="feature-item">🔍 Full-text search</div>
+                        <div class="feature-item">🤖 Bot API integration</div>
+                        <div class="feature-item">📱 Mobile responsive</div>
+                        <div class="feature-item">🌙 Dark mode support</div>
+                    </div>
+                </div>
+                
+                <div class="deploy-actions">
+                    <button class="btn btn-secondary" onclick="closeDeployGuide()">Continue Demo</button>
                 </div>
             </div>
         </div>
@@ -448,6 +530,101 @@
             }
         }
         
+        /* Demo banner styles */
+        .demo-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
+            color: white;
+            z-index: 9999;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            animation: slideDown 0.3s ease-out;
+        }
+        
+        .demo-banner-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .demo-banner-left {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .demo-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        
+        .demo-text {
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .demo-banner-right {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .demo-banner-btn {
+            background: rgba(255, 255, 255, 0.9);
+            color: #ff6b6b;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .demo-banner-btn:hover {
+            background: white;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .demo-banner-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.25rem;
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 4px;
+            transition: background 0.2s ease;
+        }
+        
+        .demo-banner-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+            }
+            to {
+                transform: translateY(0);
+            }
+        }
+        
+        /* Adjust main content when demo banner is visible */
+        .app-container.demo-mode {
+            padding-top: 60px;
+        }
+
         /* Demo overlay styles */
         .demo-overlay {
             position: fixed;
@@ -574,7 +751,170 @@
             color: var(--color-primary);
         }
         
+        /* Enhanced demo CTA styles */
+        .demo-cta-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 2rem 0;
+            color: white;
+            text-align: center;
+        }
+        
+        .demo-cta-box h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.5rem;
+            color: white;
+        }
+        
+        .demo-cta-box p {
+            margin: 0 0 1.5rem 0;
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        
+        .demo-cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn-cta-primary {
+            background: #ff6b6b;
+            color: white;
+            padding: 0.875rem 2rem;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 1rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+        }
+        
+        .btn-cta-primary:hover {
+            background: #ff5252;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.6);
+        }
+        
+        .btn-cta-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 0.875rem 2rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-cta-secondary:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        /* Deploy guide styles */
+        .deploy-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+        
+        .deploy-option {
+            background: var(--color-surface, #f8f9fa);
+            border: 2px solid var(--color-border, #e9ecef);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .deploy-option:hover {
+            border-color: var(--color-primary, #007bff);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .deploy-option h3 {
+            margin: 0 0 0.5rem 0;
+            color: var(--color-text, #333);
+            font-size: 1.25rem;
+        }
+        
+        .deploy-option p {
+            margin: 0 0 1rem 0;
+            color: var(--color-text-secondary, #666);
+            font-size: 0.95rem;
+        }
+        
+        .deploy-option ul {
+            text-align: left;
+            margin: 1rem 0;
+            padding-left: 0;
+            list-style: none;
+        }
+        
+        .deploy-option li {
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--color-text-secondary, #666);
+        }
+        
+        .deploy-features {
+            background: var(--color-surface, #f8f9fa);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+        }
+        
+        .deploy-features h3 {
+            margin: 0 0 1rem 0;
+            color: var(--color-text, #333);
+            text-align: center;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.75rem;
+        }
+        
+        .feature-grid .feature-item {
+            background: white;
+            padding: 0.75rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-align: center;
+            border: 1px solid var(--color-border, #e9ecef);
+        }
+        
+        .deploy-actions {
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--color-border, #e9ecef);
+        }
+        
         @media (max-width: 768px) {
+            .demo-banner-content {
+                flex-direction: column;
+                gap: 0.5rem;
+                padding: 0.5rem 1rem;
+            }
+            
+            .demo-banner-left {
+                justify-content: center;
+            }
+            
+            .demo-banner-right {
+                justify-content: center;
+            }
+            
             .demo-welcome-content {
                 margin: 10px;
                 max-height: 90vh;
@@ -599,6 +939,23 @@
             
             .demo-actions .btn {
                 width: 100%;
+            }
+            
+            .demo-cta-buttons {
+                flex-direction: column;
+            }
+            
+            .btn-cta-primary,
+            .btn-cta-secondary {
+                width: 100%;
+            }
+            
+            .deploy-options {
+                grid-template-columns: 1fr;
+            }
+            
+            .feature-grid {
+                grid-template-columns: 1fr 1fr;
             }
         }
     </style>
@@ -665,12 +1022,38 @@
                 const response = await fetch('/api/demo/status');
                 if (response.ok) {
                     const status = await response.json();
-                    if (status.demo_mode && !localStorage.getItem('demo_welcome_shown')) {
-                        showDemoWelcome();
+                    if (status.demo_mode) {
+                        showDemoBanner();
+                        if (!localStorage.getItem('demo_welcome_shown')) {
+                            showDemoWelcome();
+                        }
                     }
                 }
             } catch (error) {
                 console.log('Demo status check failed:', error);
+            }
+        }
+        
+        function showDemoBanner() {
+            const banner = document.getElementById('demo-banner');
+            const appContainer = document.querySelector('.app-container');
+            if (banner && !localStorage.getItem('demo_banner_hidden')) {
+                banner.style.display = 'block';
+                if (appContainer) {
+                    appContainer.classList.add('demo-mode');
+                }
+            }
+        }
+        
+        function hideDemoBanner() {
+            const banner = document.getElementById('demo-banner');
+            const appContainer = document.querySelector('.app-container');
+            if (banner) {
+                banner.style.display = 'none';
+                if (appContainer) {
+                    appContainer.classList.remove('demo-mode');
+                }
+                localStorage.setItem('demo_banner_hidden', 'true');
             }
         }
         
@@ -694,6 +1077,80 @@
             }
         }
         
+        function showDeployGuide() {
+            // Close welcome overlay if open
+            closeDemoWelcome();
+            
+            const overlay = document.getElementById('deploy-guide-overlay');
+            if (overlay) {
+                overlay.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            }
+        }
+        
+        function closeDeployGuide() {
+            const overlay = document.getElementById('deploy-guide-overlay');
+            if (overlay) {
+                overlay.style.display = 'none';
+                document.body.style.overflow = '';
+            }
+        }
+        
+        function deployToRailway() {
+            // Open Railway deployment in new tab
+            window.open('https://railway.app/template/campfire-rust', '_blank');
+            
+            // Track deployment click
+            trackDemoEvent('deploy_railway_clicked');
+        }
+        
+        function showInstallScript() {
+            closeDeployGuide();
+            
+            // Show install script in a new overlay or alert
+            setTimeout(() => {
+                const installCommand = `curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash`;
+                
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(installCommand).then(() => {
+                        alert(`📋 Install script copied to clipboard!
+
+Run this command on your server:
+
+${installCommand}
+
+The script will:
+✅ Download the latest Campfire binary
+✅ Set up the database and configuration
+✅ Start the service on port 3000
+✅ Create systemd service (Linux) or launch daemon (macOS)
+
+Visit http://your-server:3000 after installation completes.`);
+                    }).catch(() => {
+                        showInstallScriptFallback(installCommand);
+                    });
+                } else {
+                    showInstallScriptFallback(installCommand);
+                }
+            }, 300);
+        }
+        
+        function showInstallScriptFallback(command) {
+            alert(`🖥️ Self-Hosted Installation:
+
+Copy and run this command on your server:
+
+${command}
+
+The script will:
+✅ Download the latest Campfire binary
+✅ Set up the database and configuration  
+✅ Start the service on port 3000
+✅ Create systemd service (Linux) or launch daemon (macOS)
+
+Visit http://your-server:3000 after installation completes.`);
+        }
+        
         function openMultiUserGuide() {
             closeDemoWelcome();
             
@@ -711,6 +1168,30 @@
 
 All demo users have the password: "password"`);
             }, 300);
+        }
+        
+        // Track demo events for analytics
+        function trackDemoEvent(eventName, properties = {}) {
+            try {
+                // Simple event tracking - could be enhanced with proper analytics
+                fetch('/api/demo/track-event', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        event: eventName,
+                        properties: properties,
+                        timestamp: new Date().toISOString(),
+                        user_agent: navigator.userAgent,
+                        url: window.location.href
+                    })
+                }).catch(error => {
+                    console.log('Event tracking failed:', error);
+                });
+            } catch (error) {
+                console.log('Event tracking error:', error);
+            }
         }
     </script>
 </body>

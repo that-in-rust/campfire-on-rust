@@ -39,6 +39,71 @@ pub struct CompleteTourStepRequest {
     pub step_id: String,
 }
 
+/// Get demo mode status and basic information
+pub async fn get_demo_status(State(state): State<AppState>) -> impl IntoResponse {
+    // Check if we're in demo mode
+    let demo_mode = std::env::var("CAMPFIRE_DEMO_MODE")
+        .unwrap_or_else(|_| "false".to_string())
+        .to_lowercase() == "true";
+    
+    if !demo_mode {
+        return Json(json!({
+            "demo_mode": false,
+            "message": "Demo mode not enabled"
+        })).into_response();
+    }
+    
+    // Get demo statistics if in demo mode
+    match state.demo_service.get_demo_statistics().await {
+        Ok(stats) => {
+            Json(json!({
+                "demo_mode": true,
+                "demo_users": stats.total_users,
+                "demo_rooms": stats.total_rooms,
+                "demo_messages": stats.total_messages,
+                "active_sessions": stats.active_sessions,
+                "uptime_seconds": stats.uptime_seconds,
+                "features_available": [
+                    "real_time_messaging",
+                    "mentions",
+                    "sound_effects", 
+                    "search",
+                    "multiple_rooms",
+                    "bot_integration",
+                    "mobile_responsive",
+                    "dark_mode"
+                ]
+            })).into_response()
+        }
+        Err(e) => {
+            warn!("Failed to get demo statistics: {}", e);
+            Json(json!({
+                "demo_mode": true,
+                "demo_users": 0,
+                "demo_rooms": 0,
+                "demo_messages": 0,
+                "active_sessions": 0,
+                "uptime_seconds": 0,
+                "error": "Failed to load demo statistics"
+            })).into_response()
+        }
+    }
+}
+
+/// Track demo events for analytics (simple implementation)
+pub async fn track_demo_event(
+    State(_state): State<AppState>,
+    Json(event_data): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    // Log the event for now - could be enhanced with proper analytics
+    info!("Demo event tracked: {}", event_data);
+    
+    Json(json!({
+        "success": true,
+        "message": "Event tracked successfully"
+    }))
+}
+
 /// Get demo user credentials for one-click login (Requirement 10.3)
 pub async fn get_demo_credentials(State(state): State<AppState>) -> impl IntoResponse {
     match state.demo_service.get_demo_credentials().await {
