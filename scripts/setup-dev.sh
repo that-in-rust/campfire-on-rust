@@ -1,5 +1,5 @@
 #!/bin/bash
-# Development environment setup script for Campfire Rust rewrite
+# Development environment setup script for campfire-on-rust
 
 set -e
 
@@ -10,7 +10,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}🏗️  Setting up Campfire Rust development environment...${NC}"
+echo -e "${BLUE}🏗️  Setting up campfire-on-rust development environment...${NC}"
 
 # Check if Rust is installed
 if ! command -v rustc &> /dev/null; then

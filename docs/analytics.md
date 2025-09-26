@@ -1,6 +1,6 @@
-# Campfire Analytics - Simple Success Tracking
+# campfire-on-rust Analytics - Simple Success Tracking
 
-This document describes the privacy-friendly analytics implementation for tracking Campfire's GTM (Go-To-Market) success metrics.
+This document describes the privacy-friendly analytics implementation for tracking campfire-on-rust's GTM (Go-To-Market) success metrics.
 
 ## Overview
 
@@ -82,7 +82,7 @@ GET /api/analytics/health         # Analytics system health check
 - Integrated with existing demo functionality
 
 ### 4. Application Startup Tracking
-- Automatic tracking when Campfire starts successfully
+- Automatic tracking when campfire-on-rust starts successfully
 - Records startup time and configuration
 
 ## Success Metrics
@@ -129,7 +129,7 @@ pub struct AnalyticsEvent {
 
 ### Feature Flags
 - Analytics tracking is always optional and can be disabled
-- No impact on core Campfire functionality if disabled
+- No impact on core campfire-on-rust functionality if disabled
 
 ## Compliance
 
@@ -191,7 +191,7 @@ cargo test analytics --lib
 ### Manual Testing
 1. Visit README and click deploy button
 2. Run install script locally
-3. Start Campfire and check metrics endpoint
+3. Start campfire-on-rust and check metrics endpoint
 4. Verify privacy compliance (no personal data)
 
 ## Troubleshooting

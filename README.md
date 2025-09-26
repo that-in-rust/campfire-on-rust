@@ -1,4 +1,4 @@
-# Campfire *on rust* 🔥
+# campfire-on-rust 🔥
 
 > Team chat that just works. No drama, no complexity, no monthly fees.
 
@@ -6,7 +6,7 @@
 
 ## What's this?
 
-Remember when Basecamp had Campfire and it was actually good? This is that, but in Rust. Same clean vibes, same "it just works" energy, zero vendor lock-in.
+Remember when Basecamp had Campfire and it was actually good? This is campfire-on-rust. Same clean vibes, same "it just works" energy, zero vendor lock-in.
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#ff6b35','primaryTextColor':'#000000','primaryBorderColor':'#ff6b35','lineColor':'#333333','secondaryColor':'#f4f4f4','tertiaryColor':'#ffffff','background':'#ffffff','mainBkg':'#ff6b35','secondBkg':'#f8f9fa','tertiaryBkg':'#ffffff'}, 'flowchart': {'nodeSpacing': 75, 'rankSpacing': 75, 'wrappingWidth': 150}}}%%
@@ -80,7 +80,7 @@ flowchart TD
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#4caf50','primaryTextColor':'#000000','primaryBorderColor':'#4caf50','lineColor':'#333333'}}}%%
 mindmap
-  root((Campfire))
+  root((campfire-on-rust))
     Chat
       Real-time messages
       @mentions
@@ -106,7 +106,7 @@ mindmap
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#ff6b35','primaryTextColor':'#000000','primaryBorderColor':'#ff6b35','lineColor':'#333333'}}}%%
 xychart-beta
-    title "Campfire vs Alternatives"
+    title "campfire-on-rust vs Alternatives"
     x-axis [Startup, Memory, Cost/month, Setup time]
     y-axis "Performance (lower = better)" 0 --> 100
     bar [1, 20, 0, 2]
@@ -121,7 +121,7 @@ xychart-beta
 
 ## Honest comparison
 
-**What Campfire nails:**
+**What campfire-on-rust nails:**
 - ⚡ Actually fast (not "enterprise fast")
 - 💸 Zero recurring costs
 - 🎯 Does chat, doesn't try to be Slack
@@ -171,7 +171,7 @@ sequenceDiagram
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#607d8b','primaryTextColor':'#000000','primaryBorderColor':'#607d8b','lineColor':'#333333'}}}%%
 timeline
-    title Campfire Roadmap
+    title campfire-on-rust Roadmap
     
     section v0.1 ✅
         Dec 2024 : Core chat
@@ -200,15 +200,15 @@ timeline
 
 **Port 3000 busy?**
 ```bash
-# Change port in ~/.campfire/.env
-echo "CAMPFIRE_PORT=3001" >> ~/.campfire/.env
+# Change port in ~/.campfire-on-rust/.env
+echo "CAMPFIRE_PORT=3001" >> ~/.campfire-on-rust/.env
 ```
 
 **Database issues?**
 ```bash
 # Reset everything
-rm ~/.campfire/campfire.db
-# Restart Campfire - it'll recreate the DB
+rm ~/.campfire-on-rust/campfire.db
+# Restart campfire-on-rust - it'll recreate the DB
 ```
 
 **Railway deploy failing?**
@@ -218,7 +218,7 @@ rm ~/.campfire/campfire.db
 
 ## Thanks
 
-Huge props to **DHH** and **Jason Fried** for the original Campfire. This is just a love letter to that simplicity, written in Rust.
+Huge props to **DHH** and **Jason Fried** for the original Campfire. campfire-on-rust is just a love letter to that simplicity, written in Rust.
 
 ---
 

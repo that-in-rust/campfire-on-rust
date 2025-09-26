@@ -1,6 +1,6 @@
-// Campfire Service Worker for PWA support
+// campfire-on-rust Service Worker for PWA support
 
-const CACHE_NAME = 'campfire-v1';
+const CACHE_NAME = 'campfire-on-rust-v1';
 const urlsToCache = [
     '/',
     '/static/css/campfire.css',

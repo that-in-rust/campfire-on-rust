@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Campfire Enhanced Database Backup Script
+# campfire-on-rust Enhanced Database Backup Script
 # Creates compressed backups with timestamp, integrity verification, and multiple backup types
 
 set -euo pipefail
@@ -483,7 +483,7 @@ show_summary() {
 
 # Main backup function
 main() {
-    log "Starting Campfire database backup..."
+    log "Starting campfire-on-rust database backup..."
     
     # Check dependencies
     check_dependencies

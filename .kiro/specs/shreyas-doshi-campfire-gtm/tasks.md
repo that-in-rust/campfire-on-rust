@@ -1,4 +1,4 @@
-# Implementation Plan: Shreyas Doshi Campfire GTM
+# Implementation Plan: Shreyas Doshi campfire-on-rust GTM
 
 ## Phase 1: Make It Work (Foundation Tasks)
 
@@ -121,7 +121,7 @@
 - [x] 10. Ensure Mobile-Friendly Experience - using industry standard testing frameworks which do not need any human interactions to validate the experience
   - Test README readability and button functionality on mobile devices
   - Verify Railway deployment process works smoothly on mobile browsers
-  - Test deployed Campfire interface responsiveness on various mobile devices
+  - Test deployed campfire-on-rust interface responsiveness on various mobile devices
   - Ensure install script instructions are mobile-friendly
   - Add mobile-specific guidance if needed
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
@@ -131,13 +131,13 @@
 - [ ] 11. End-to-End Testing on current machine (mac) using industry standard testing frameworks so you do not need any human tests. + for other platforms which you do not have right now like linux or windows - research deeply and check for what mistakes can happen
   - Test complete "Try it locally" flow: `curl | bash` → localhost:3000 on clean machines
   - Test complete "Deploy for your team" flow from GitHub README to working chat
-  - Verify both paths lead to working Campfire within promised timeframes (2-3 minutes)
+  - Verify both paths lead to working campfire-on-rust within promised timeframes (2-3 minutes)
   - Test install script on macOS (Intel/Apple Silicon), Linux (Ubuntu/CentOS), Windows (WSL)
   - Document any platform-specific issues and provide solutions
   - _Requirements: 1.5, 2.1, 3.2, 10.1, 10.5, 10.7_
 
 - [x] 12. Launch Preparation and Final Validation
-  - Final review of README for clarity, accuracy, and mobile-friendliness - start by thanking DHH and Jason Fried for sharing campfire - and tell the story of how this is just a fork of campfire on rust - a humble attempt at same experience with Rust flavour
+  - Final review of README for clarity, accuracy, and mobile-friendliness - start by thanking DHH and Jason Fried for sharing campfire - and tell the story of how this is just campfire-on-rust - a humble attempt at same experience with Rust flavour
   - Ensure all links, commands, and deployment buttons work as documented
   - Verify Railway template deploys successfully in multiple regions
   - Test that support channels (GitHub Issues, Discussions) are properly configured
@@ -182,9 +182,8 @@
   - [x] Product is ready for public GTM launch with confidence
 
 
-- [ ] check if all the campfire on the repo - readmme and other files is campfire-on-rust
+- [-] check if all the campfire on the repo - readmme - all scripts and other files is campfire-on-rust remove italics everyone - just let it be campfire-on-rust - like Ruby-On-Rails -- its a full continous thing
 
-- [ ] 
 
 
 ## Implementation Notes

@@ -10,7 +10,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}🧪 Testing Campfire Install Script${NC}"
+echo -e "${BLUE}🧪 Testing campfire-on-rust Install Script${NC}"
 echo ""
 
 # Create a temporary directory for testing

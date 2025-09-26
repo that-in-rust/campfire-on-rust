@@ -1,5 +1,5 @@
 #!/bin/bash
-# Campfire v0.1 - Railway Deployment Script
+# campfire-on-rust v0.1 - Railway Deployment Script
 # Zero-friction deployment to Railway.app
 
 set -e
@@ -52,7 +52,7 @@ railway_login() {
 
 # Deploy via template (easiest method)
 deploy_via_template() {
-    echo -e "${BLUE}🚀 Deploying Campfire via Railway template...${NC}"
+    echo -e "${BLUE}🚀 Deploying campfire-on-rust via Railway template...${NC}"
     echo ""
     echo -e "${GREEN}🎯 One-Click Deployment:${NC}"
     echo -e "${YELLOW}1. Click this link: ${RAILWAY_TEMPLATE_URL}${NC}"
@@ -92,7 +92,7 @@ deploy_from_local() {
     # Check if we're in a git repository
     if ! git rev-parse --git-dir >/dev/null 2>&1; then
         echo -e "${RED}Error: Not in a git repository${NC}"
-        echo -e "${YELLOW}Please run this script from the Campfire project directory${NC}"
+        echo -e "${YELLOW}Please run this script from the campfire-on-rust project directory${NC}"
         exit 1
     fi
     
@@ -116,7 +116,7 @@ deploy_from_local() {
     url=$(railway domain)
     
     echo -e "${GREEN}🎉 Deployment complete!${NC}"
-    echo -e "${GREEN}🌐 Your Campfire is available at: ${url}${NC}"
+    echo -e "${GREEN}🌐 Your campfire-on-rust is available at: ${url}${NC}"
 }
 
 # Configure environment variables
@@ -153,7 +153,7 @@ configure_environment() {
 
 # Show post-deployment instructions
 show_post_deployment() {
-    echo -e "${GREEN}🎉 Campfire v0.1 Railway Deployment Complete!${NC}"
+    echo -e "${GREEN}🎉 campfire-on-rust v0.1 Railway Deployment Complete!${NC}"
     echo ""
     echo -e "${BLUE}Next Steps:${NC}"
     echo -e "  1. ${YELLOW}Visit your deployment URL${NC}"
@@ -224,7 +224,7 @@ main() {
 # Handle script arguments
 case "${1:-}" in
     --help|-h)
-        echo "Campfire v0.1 Railway Deployment Script"
+        echo "campfire-on-rust v0.1 Railway Deployment Script"
         echo ""
         echo "Usage:"
         echo "  ./scripts/deploy-railway.sh              # Interactive deployment"

@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-We actively support the following versions of Campfire with security updates:
+We actively support the following versions of campfire-on-rust with security updates:
 
 | Version | Supported          |
 | ------- | ------------------ |
@@ -37,7 +37,7 @@ Please include as much information as possible:
 
 ### 🛡️ Security Measures
 
-Campfire includes several built-in security features:
+campfire-on-rust includes several built-in security features:
 
 - **bcrypt password hashing** with secure salts
 - **Secure session tokens** with proper expiration
@@ -57,11 +57,11 @@ Campfire includes several built-in security features:
 
 ### 🏆 Recognition
 
-We believe in recognizing security researchers who help keep Campfire secure:
+We believe in recognizing security researchers who help keep campfire-on-rust secure:
 
 - **Hall of Fame**: Security researchers who report valid vulnerabilities
 - **Public Credit**: In security advisories and release notes (if desired)
-- **Swag**: Campfire stickers and merchandise for significant findings
+- **Swag**: campfire-on-rust stickers and merchandise for significant findings
 
 ### 📚 Security Resources
 
@@ -78,4 +78,4 @@ We ask that you:
 - **Only interact with accounts you own** or have explicit permission to access
 - **Don't access or modify data** belonging to other users
 
-Thank you for helping keep Campfire and our users safe! 🔥
+Thank you for helping keep campfire-on-rust and our users safe! 🔥

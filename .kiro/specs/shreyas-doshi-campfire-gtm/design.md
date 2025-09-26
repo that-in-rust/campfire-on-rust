@@ -1,8 +1,8 @@
-# Design Document: Shreyas Doshi Campfire GTM
+# Design Document: Shreyas Doshi campfire-on-rust GTM
 
 ## Overview
 
-This design creates a **simple, friction-free GTM approach** for Campfire MVP 0.1:
+This design creates a **simple, friction-free GTM approach** for campfire-on-rust MVP 0.1:
 
 **Phase 1: Make It Work** - Fix the broken code so people can actually try it
 **Phase 2: Make It Clear** - Simple, honest messaging that gets people to working software fast
@@ -63,7 +63,7 @@ graph TD
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#ff6b35','primaryTextColor':'#ffffff','primaryBorderColor':'#ff6b35','lineColor':'#333333','secondaryColor':'#f4f4f4','tertiaryColor':'#ffffff','background':'#ffffff','mainBkg':'#ff6b35','secondBkg':'#fbe9e7','tertiaryBkg':'#ffffff'}}}%%
 graph TD
-    A["GitHub Visitor"] --> B{Want to use Campfire?}
+    A["GitHub Visitor"] --> B{Want to use campfire-on-rust?}
     
     B --> C["👀 Try it locally<br/>curl | bash → instant start"]
     B --> D["🚀 Deploy for team<br/>Railway button"]
@@ -119,12 +119,12 @@ graph TD
 ```html
 <!-- Two simple options: try it or use it -->
 <div class="two-paths">
-  <h2>🔥 Get Campfire Working Right Now</h2>
+  <h2>🔥 Get campfire-on-rust Working Right Now</h2>
   
   <div class="path-choice">
     <div class="path">
       <h3>👀 Try it on your machine</h3>
-      <p>See Campfire working locally in 2 minutes</p>
+      <p>See campfire-on-rust working locally in 2 minutes</p>
       <code>curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash</code>
       <p><small>Then visit localhost:3000</small></p>
     </div>

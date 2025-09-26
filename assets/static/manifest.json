@@ -1,6 +1,6 @@
 {
-  "name": "Campfire Chat",
-  "short_name": "Campfire",
+  "name": "campfire-on-rust Chat",
+  "short_name": "campfire-on-rust",
   "description": "Real-time chat application",
   "start_url": "/",
   "display": "standalone",

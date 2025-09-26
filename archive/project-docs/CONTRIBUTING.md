@@ -1,6 +1,6 @@
-# Contributing to Campfire 🔥
+# Contributing to campfire-on-rust 🔥
 
-Thank you for your interest in contributing to Campfire! This guide will help you get started with contributing to our Rust-powered team chat application.
+Thank you for your interest in contributing to campfire-on-rust! This guide will help you get started with contributing to our Rust-powered team chat application.
 
 ## 🚀 Quick Start
 
@@ -41,7 +41,7 @@ cargo fmt
 1. **Check discussions**: Browse [GitHub Discussions](https://github.com/that-in-rust/campfire-on-rust/discussions)
 2. **Describe the problem**: What user need does this address?
 3. **Propose solution**: How should it work?
-4. **Consider scope**: Does it fit Campfire's simplicity philosophy?
+4. **Consider scope**: Does it fit campfire-on-rust's simplicity philosophy?
 
 ### 🔧 Code Contributions
 **Ready to code?** Here's how:
@@ -61,7 +61,7 @@ cargo fmt
 - **Document**: Add doc comments for public APIs
 
 ### Architecture Principles
-Campfire follows these core principles:
+campfire-on-rust follows these core principles:
 
 1. **Simplicity over complexity**: Core features only, no bloat
 2. **Performance**: Rust's zero-cost abstractions
@@ -204,6 +204,6 @@ Regular contributors may be invited to become maintainers with:
 
 ## 🙏 Thank You
 
-Every contribution, no matter how small, makes Campfire better for everyone. Whether you're fixing a typo, reporting a bug, or implementing a major feature, your help is appreciated!
+Every contribution, no matter how small, makes campfire-on-rust better for everyone. Whether you're fixing a typo, reporting a bug, or implementing a major feature, your help is appreciated!
 
 **Happy coding!** 🦀🔥
