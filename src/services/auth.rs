@@ -1,11 +1,11 @@
 use async_trait::async_trait;
 use bcrypt::{hash, verify, DEFAULT_COST};
-use chrono::{DateTime, Duration, Utc};
+use chrono::{Duration, Utc};
 use rand::{thread_rng, Rng};
 use std::sync::Arc;
 
 use crate::database::CampfireDatabase;
-use crate::errors::{AuthError, DatabaseError};
+use crate::errors::AuthError;
 use crate::models::{Session, User, UserId};
 
 #[async_trait]

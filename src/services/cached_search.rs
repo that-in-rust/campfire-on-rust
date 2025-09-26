@@ -6,7 +6,7 @@ use crate::database::CampfireDatabase;
 use crate::models::{UserId, RoomId};
 use crate::services::search::{SearchService, SearchServiceTrait, SearchRequest, SearchResponse, SearchError};
 use crate::services::room::RoomServiceTrait;
-use crate::services::cache::{CacheService, CacheServiceTrait};
+use crate::services::cache::CacheServiceTrait;
 
 /// Cached search service that wraps the base SearchService
 /// 
@@ -117,7 +117,7 @@ impl SearchServiceTrait for CachedSearchService {
         request: SearchRequest,
     ) -> Result<SearchResponse, SearchError> {
         // Create cache key that includes user context
-        let cache_key = self.create_cache_key(user_id, &request);
+        let _cache_key = self.create_cache_key(user_id, &request);
         
         // Try cache first
         match self.cache_service.get_cached_search(&request).await {

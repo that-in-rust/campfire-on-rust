@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
-use tracing::{info, warn, error};
+use tracing::info;
 
 /// Simple event tracking for GTM success metrics
 #[derive(Debug, Clone, Serialize, Deserialize)]

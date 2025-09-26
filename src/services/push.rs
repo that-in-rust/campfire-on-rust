@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use std::sync::Arc;
 use web_push::{
-    WebPushClient, WebPushMessage, WebPushMessageBuilder, VapidSignatureBuilder, SubscriptionInfo,
+    WebPushClient, WebPushMessageBuilder, VapidSignatureBuilder, SubscriptionInfo,
 };
 use sqlx::Row;
 

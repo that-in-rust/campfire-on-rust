@@ -4,7 +4,7 @@ use axum::{
         Query, State,
     },
     http::{HeaderMap, StatusCode},
-    response::{IntoResponse, Response},
+    response::IntoResponse,
 };
 use futures_util::{sink::SinkExt, stream::StreamExt};
 use serde::Deserialize;
@@ -406,6 +406,7 @@ enum IncomingWebSocketMessage {
 /// Outgoing WebSocket message types (to client)
 #[derive(Debug, serde::Serialize)]
 #[serde(tag = "type")]
+#[allow(dead_code)]
 enum OutgoingWebSocketMessage {
     Error {
         message: String,

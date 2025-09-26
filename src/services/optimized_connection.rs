@@ -2,11 +2,8 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::mpsc;
 use dashmap::DashMap;
-use parking_lot::Mutex;
-use arc_swap::ArcSwap;
-use uuid::Uuid;
 use tracing::{debug, info, warn, error};
 
 use crate::errors::{ConnectionError, BroadcastError};
@@ -45,6 +42,7 @@ pub struct OptimizedConnectionManager {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct ConnectionInfo {
     user_id: UserId,
     sender: WebSocketSender,
@@ -55,6 +53,7 @@ struct ConnectionInfo {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct PresenceInfo {
     user_id: UserId,
     connection_count: usize,
@@ -63,6 +62,7 @@ struct PresenceInfo {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 enum PresenceStatus {
     Online,
     Away,

@@ -1,8 +1,6 @@
 use anyhow::{Context, Result};
-use std::io;
-use std::path::Path;
 use tracing_subscriber::{
-    fmt::{self, format::FmtSpan},
+    fmt::format::FmtSpan,
     EnvFilter,
 };
 
@@ -396,7 +394,7 @@ pub mod error_handling {
     };
     use serde_json::json;
     use tracing::{error, warn};
-    use std::collections::HashMap;
+    
 
     /// User-friendly error messages with actionable guidance
     pub struct UserFriendlyError {
@@ -457,7 +455,7 @@ pub mod error_handling {
     }
 
     /// Convert application errors to user-friendly responses
-    pub fn handle_message_error(error: MessageError, user_context: Option<&str>) -> UserFriendlyError {
+    pub fn handle_message_error(error: MessageError, _user_context: Option<&str>) -> UserFriendlyError {
         match error {
             MessageError::Authorization { user_id, room_id } => {
                 warn!("Authorization error: user {} attempted to access room {}", user_id, room_id);
@@ -502,7 +500,7 @@ pub mod error_handling {
                     "Combine multiple thoughts into a single message".to_string(),
                 ])
             }
-            MessageError::NotFound { message_id } => {
+            MessageError::NotFound { message_id: _ } => {
                 UserFriendlyError::new(
                     "The requested message could not be found",
                     "MESSAGE_NOT_FOUND",
@@ -538,7 +536,7 @@ pub mod error_handling {
     }
 
     /// Convert authentication errors to user-friendly responses
-    pub fn handle_auth_error(error: AuthError, user_context: Option<&str>) -> UserFriendlyError {
+    pub fn handle_auth_error(error: AuthError, _user_context: Option<&str>) -> UserFriendlyError {
         match error {
             AuthError::InvalidCredentials => {
                 UserFriendlyError::new(
@@ -561,7 +559,7 @@ pub mod error_handling {
                     "Your data has been saved and will be available after login".to_string(),
                 ])
             }
-            AuthError::UserNotFound { email } => {
+            AuthError::UserNotFound { email: _ } => {
                 // Don't reveal if user exists for security
                 UserFriendlyError::new(
                     "Invalid email or password",
@@ -619,9 +617,9 @@ pub mod error_handling {
     }
 
     /// Convert room errors to user-friendly responses
-    pub fn handle_room_error(error: RoomError, user_context: Option<&str>) -> UserFriendlyError {
+    pub fn handle_room_error(error: RoomError, _user_context: Option<&str>) -> UserFriendlyError {
         match error {
-            RoomError::NotFound { room_id } => {
+            RoomError::NotFound { room_id: _ } => {
                 UserFriendlyError::new(
                     "The requested room could not be found",
                     "ROOM_NOT_FOUND",
@@ -643,7 +641,7 @@ pub mod error_handling {
                     "Make sure you're logged in with the correct account".to_string(),
                 ])
             }
-            RoomError::AlreadyMember { user_id, room_id } => {
+            RoomError::AlreadyMember { user_id: _, room_id: _ } => {
                 UserFriendlyError::new(
                     "You are already a member of this room",
                     "ALREADY_MEMBER",
@@ -764,7 +762,7 @@ pub mod rotation {
     use anyhow::{Context, Result};
     use std::fs;
     use std::path::{Path, PathBuf};
-    use chrono::{DateTime, Utc};
+    use chrono::Utc;
     
     /// Rotate log file if it exceeds size limit
     pub fn rotate_if_needed(
@@ -863,7 +861,7 @@ pub mod audit {
     use serde::{Deserialize, Serialize};
     use std::collections::HashMap;
     use tracing::{info, warn};
-    use crate::models::{UserId, RoomId, MessageId};
+    use crate::models::UserId;
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct AuditEvent {

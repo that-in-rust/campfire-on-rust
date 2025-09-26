@@ -8,7 +8,7 @@ use tokio::sync::RwLock;
 use dashmap::DashMap;
 use serde::{Serialize, Deserialize};
 
-use crate::models::{UserId, RoomId, MessageId, Message, User, InvolvementLevel, Session};
+use crate::models::{UserId, RoomId, MessageId, Message, User, InvolvementLevel};
 use crate::services::search::{SearchResponse, SearchRequest};
 
 /// Cache-specific errors
@@ -434,7 +434,7 @@ impl CacheServiceTrait for CacheService {
     async fn clear_expired_entries(&self) -> Result<u64, CacheError> {
         // moka automatically handles TTL-based expiration
         // This method could trigger manual cleanup if needed
-        let mut cleared = 0;
+        let cleared = 0;
         
         // Trigger cleanup on all caches
         self.session_cache.run_pending_tasks().await;

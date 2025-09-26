@@ -4,11 +4,11 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use metrics::{counter, gauge, histogram, describe_counter, describe_gauge, describe_histogram};
-use metrics_exporter_prometheus::{Matcher, PrometheusBuilder, PrometheusHandle};
+use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use tracing::{error, info, warn};
 use tokio::sync::RwLock;
 use dashmap::DashMap;
@@ -19,9 +19,10 @@ use once_cell::sync::Lazy;
 use sysinfo::{System, SystemExt, CpuExt, ProcessExt};
 
 use crate::AppState;
+use std::sync::OnceLock;
 
 /// Metrics recorder handle for Prometheus export
-static mut PROMETHEUS_HANDLE: Option<PrometheusHandle> = None;
+static PROMETHEUS_HANDLE: OnceLock<PrometheusHandle> = OnceLock::new();
 
 /// Global performance monitor instance
 static PERFORMANCE_MONITOR: Lazy<Arc<PerformanceMonitor>> = Lazy::new(|| {
@@ -614,9 +615,7 @@ pub fn init_metrics() -> Result<(), Box<dyn std::error::Error>> {
     let builder = PrometheusBuilder::new();
     let handle = builder.install_recorder()?;
     
-    unsafe {
-        PROMETHEUS_HANDLE = Some(handle);
-    }
+    PROMETHEUS_HANDLE.set(handle).map_err(|_| "Prometheus handle already initialized")?;
     
     // Describe all metrics
     describe_metrics();
@@ -711,14 +710,12 @@ fn describe_metrics() {
 
 /// Prometheus metrics endpoint
 pub async fn metrics_endpoint() -> Result<Response, StatusCode> {
-    unsafe {
-        if let Some(handle) = PROMETHEUS_HANDLE.as_ref() {
-            let metrics = handle.render();
-            Ok(metrics.into_response())
-        } else {
-            error!("Metrics system not initialized");
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
+    if let Some(handle) = PROMETHEUS_HANDLE.get() {
+        let metrics = handle.render();
+        Ok(metrics.into_response())
+    } else {
+        error!("Metrics system not initialized");
+        Err(StatusCode::INTERNAL_SERVER_ERROR)
     }
 }
 
@@ -737,7 +734,7 @@ pub async fn performance_summary() -> Result<axum::Json<PerformanceSummary>, Sta
 
 /// Performance optimization endpoint for caching frequently accessed data
 pub async fn optimize_performance() -> Result<axum::Json<serde_json::Value>, StatusCode> {
-    let monitor = get_performance_monitor();
+    let _monitor = get_performance_monitor();
     
     // Trigger optimization tasks
     tokio::spawn(async move {

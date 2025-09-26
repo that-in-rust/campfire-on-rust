@@ -1,7 +1,7 @@
 use axum::{
     extract::State,
     http::{header, HeaderMap, HeaderValue},
-    response::{Html, IntoResponse, Json},
+    response::{Html, IntoResponse},
 };
 use serde_json::json;
 use std::env;
@@ -407,21 +407,21 @@ async fn serve_enhanced_demo_landing_page(State(_state): State<AppState>) -> imp
 }
 
 /// Count demo users for metrics display
-async fn count_demo_users(state: &AppState) -> u32 {
+async fn count_demo_users(_state: &AppState) -> u32 {
     // Simple count of users with demo email domains
     // In a real implementation, this would be a proper database query
     8 // We know we create 8 demo users
 }
 
 /// Count demo rooms for metrics display
-async fn count_demo_rooms(state: &AppState) -> u32 {
+async fn count_demo_rooms(_state: &AppState) -> u32 {
     // Simple count of demo rooms
     // In a real implementation, this would be a proper database query
     7 // We know we create 7 demo rooms
 }
 
 /// Count demo messages for metrics display
-async fn count_demo_messages(state: &AppState) -> u32 {
+async fn count_demo_messages(_state: &AppState) -> u32 {
     // Estimate based on demo conversations
     // In a real implementation, this would be a proper database query
     25 // Approximate number of demo messages

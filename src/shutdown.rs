@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use signal_hook::consts::SIGTERM;
 use signal_hook_tokio::Signals;
 use std::sync::Arc;
@@ -270,6 +269,7 @@ impl Resource for WebSocketResource {
 }
 
 /// Background task resource
+#[allow(dead_code)]
 pub struct BackgroundTaskResource {
     name: String,
     task_handle: Option<tokio::task::JoinHandle<()>>,

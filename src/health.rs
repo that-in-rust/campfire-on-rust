@@ -92,7 +92,7 @@ pub fn get_uptime_seconds() -> u64 {
 
 /// Comprehensive health check endpoint
 pub async fn health_check(State(state): State<AppState>) -> Result<Json<HealthResponse>, StatusCode> {
-    let start_time = Instant::now();
+    let _start_time = Instant::now();
     
     // Run all health checks
     let database_check = check_database_health(&state).await;
@@ -149,7 +149,7 @@ pub async fn readiness_check(State(state): State<AppState>) -> Result<Json<Readi
         },
     };
     
-    let status_code = if ready {
+    let _status_code = if ready {
         StatusCode::OK
     } else {
         StatusCode::SERVICE_UNAVAILABLE

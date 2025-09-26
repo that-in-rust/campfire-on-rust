@@ -311,7 +311,7 @@ impl SearchServiceTrait for SearchService {
         }
         
         // Get total count for pagination
-        let count_query = if let Some(room_id) = request.room_id {
+        let count_query = if let Some(_room_id) = request.room_id {
             format!(
                 r#"
                 SELECT COUNT(*) as total

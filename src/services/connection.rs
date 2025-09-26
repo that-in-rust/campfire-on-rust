@@ -3,7 +3,6 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use tokio::time::{Duration, Instant};
-use uuid::Uuid;
 
 use crate::errors::{ConnectionError, BroadcastError};
 use crate::models::{ConnectionId, MessageId, RoomId, UserId, WebSocketMessage};
@@ -97,6 +96,7 @@ pub trait ConnectionManager: Send + Sync {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct ConnectionInfo {
     user_id: UserId,
     sender: WebSocketSender,
@@ -106,6 +106,7 @@ struct ConnectionInfo {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct PresenceInfo {
     user_id: UserId,
     connection_count: usize,
@@ -113,6 +114,7 @@ struct PresenceInfo {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct TypingInfo {
     user_id: UserId,
     room_id: RoomId,
@@ -767,6 +769,7 @@ mock! {
 mod tests {
     use super::*;
     use tokio::sync::mpsc;
+    use uuid::Uuid;
     
     #[tokio::test]
     async fn test_connection_management() {

@@ -10,7 +10,7 @@ use crate::services::message::{MessageService, MessageServiceTrait};
 use crate::services::room::RoomServiceTrait;
 use crate::services::connection::ConnectionManager;
 use crate::services::push::PushNotificationService;
-use crate::services::cache::{CacheService, CacheServiceTrait};
+use crate::services::cache::CacheServiceTrait;
 
 /// Cached message service that wraps the base MessageService
 /// 

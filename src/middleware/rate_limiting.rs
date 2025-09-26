@@ -5,7 +5,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use governor::{
-    clock::{DefaultClock, QuantaClock},
+    clock::DefaultClock,
     state::{InMemoryState, NotKeyed},
     Quota, RateLimiter,
 };
@@ -310,7 +310,7 @@ pub async fn rate_limiting_middleware(
 }
 
 /// Create rate limiting layer with configuration
-pub fn create_rate_limiting_layer(config: RateLimitConfig) -> tower::layer::util::Identity {
+pub fn create_rate_limiting_layer(_config: RateLimitConfig) -> tower::layer::util::Identity {
     // For now, return identity layer - rate limiting will be implemented in a simpler way
     tower::layer::util::Identity::new()
 }

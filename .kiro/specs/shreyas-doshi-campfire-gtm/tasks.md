@@ -185,6 +185,7 @@
 - [x] check if all the campfire on the repo - readmme - all scripts and other files is campfire-on-rust remove italics everyone - just let it be campfire-on-rust - like Ruby-On-Rails -- its a full continous thing
 
 
+- [x] Remove all warnings in the cargo build
 
 ## Implementation Notes
 

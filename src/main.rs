@@ -174,15 +174,15 @@ async fn main() -> Result<()> {
     );
 
     // Initialize security middleware
-    let rate_limit_config = RateLimitConfig {
+    let _rate_limit_config = RateLimitConfig {
         general_rpm: config.security.rate_limit_rpm,
         auth_rpm: config.security.rate_limit_rpm / 6, // Stricter for auth
         bot_rpm: config.security.rate_limit_rpm * 2, // More lenient for bots
         burst_size: 10,
     };
     
-    let (csrf_protection, csrf_layer) = security::create_csrf_protection_layer();
-    let (bot_abuse_protection, bot_abuse_layer) = security::create_bot_abuse_protection_layer();
+    let (_csrf_protection, _csrf_layer) = security::create_csrf_protection_layer();
+    let (_bot_abuse_protection, _bot_abuse_layer) = security::create_bot_abuse_protection_layer();
 
     // Build application with routes based on feature flags
     let mut app = Router::new()

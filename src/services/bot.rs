@@ -7,7 +7,7 @@ use std::time::Duration;
 use tokio::time::timeout;
 use tracing::{error, info};
 
-use crate::database::{Database, DatabaseWriter};
+use crate::database::DatabaseWriter;
 use crate::errors::BotError;
 use crate::models::*;
 use crate::services::MessageServiceTrait;

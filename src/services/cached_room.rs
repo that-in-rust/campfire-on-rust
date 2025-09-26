@@ -4,9 +4,9 @@ use std::time::Duration;
 
 use crate::database::CampfireDatabase;
 use crate::errors::RoomError;
-use crate::models::{Room, RoomId, RoomType, UserId, InvolvementLevel, Membership};
+use crate::models::{Room, RoomId, RoomType, UserId, InvolvementLevel};
 use crate::services::room::{RoomService, RoomServiceTrait};
-use crate::services::cache::{CacheService, CacheServiceTrait};
+use crate::services::cache::CacheServiceTrait;
 
 /// Cached room service that wraps the base RoomService
 /// 
@@ -43,7 +43,9 @@ impl CachedRoomService {
     
     /// Cache TTLs for different data types
     const MEMBERSHIP_CACHE_TTL: Duration = Duration::from_secs(1800); // 30 minutes
+    #[allow(dead_code)]
     const ROOM_LIST_CACHE_TTL: Duration = Duration::from_secs(600);   // 10 minutes
+    #[allow(dead_code)]
     const ROOM_METADATA_CACHE_TTL: Duration = Duration::from_secs(3600); // 1 hour
 }
 

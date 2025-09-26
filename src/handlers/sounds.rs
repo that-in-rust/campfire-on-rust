@@ -4,7 +4,7 @@ use axum::{
     response::{IntoResponse, Json, Response},
 };
 use serde::{Serialize};
-use tracing::{error, info};
+use tracing::info;
 
 use crate::sounds::{SoundManager, SoundInfo};
 use crate::AppState;

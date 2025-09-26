@@ -6,7 +6,7 @@ use crate::database::CampfireDatabase;
 use crate::errors::AuthError;
 use crate::models::{Session, User, UserId};
 use crate::services::auth::{AuthService, AuthServiceTrait};
-use crate::services::cache::{CacheService, CacheServiceTrait};
+use crate::services::cache::CacheServiceTrait;
 
 /// Cached authentication service that wraps the base AuthService
 /// 

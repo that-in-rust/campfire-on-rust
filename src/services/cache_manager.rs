@@ -118,7 +118,7 @@ impl CacheManager {
     
     /// Perform cache cleanup and return number of entries cleaned
     async fn perform_cleanup(&self) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
-        let stats_before = self.cache_service.get_cache_stats().await;
+        let _stats_before = self.cache_service.get_cache_stats().await;
         
         // Clear expired entries
         let cleaned_count = self.cache_service.clear_expired_entries().await?;

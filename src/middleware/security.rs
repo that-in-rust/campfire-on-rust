@@ -1,5 +1,4 @@
 use axum::{
-    extract::State,
     http::{header, HeaderValue, Method, Request, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
@@ -11,7 +10,7 @@ use tower_http::{
     timeout::TimeoutLayer,
     set_header::SetResponseHeaderLayer,
 };
-use tracing::{debug, warn};
+use tracing::warn;
 use uuid::Uuid;
 
 /// Comprehensive security headers middleware
@@ -434,6 +433,7 @@ pub fn create_bot_abuse_protection_layer() -> (BotAbuseProtection, tower::layer:
 }
 
 /// Extract bot token from path (same as in rate_limiting.rs)
+#[allow(dead_code)]
 fn extract_bot_token_from_path(path: &str) -> Option<String> {
     let parts: Vec<&str> = path.split('/').collect();
     if parts.len() >= 5 && parts[3] == "bot" {

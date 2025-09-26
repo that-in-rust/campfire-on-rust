@@ -3,12 +3,12 @@ use axum::{
     http::{header, HeaderMap, HeaderValue, StatusCode},
     response::{Html, IntoResponse, Json},
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
 use tracing::{info, warn};
 
-use crate::services::{DemoServiceTrait, DemoServiceImpl};
+
 use crate::AppState;
 
 /// Query parameters for demo credential selection
@@ -602,6 +602,7 @@ fn get_integrity_recommendations(integrity: &crate::services::DemoIntegrityStatu
 mod tests {
     use super::*;
     use crate::database::CampfireDatabase;
+    use crate::services::{DemoServiceImpl, DemoServiceTrait};
     use std::sync::Arc;
     
     #[tokio::test]

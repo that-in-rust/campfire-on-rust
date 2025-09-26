@@ -5,7 +5,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use ammonia::Builder;
 
 /// Custom validation error response

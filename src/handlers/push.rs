@@ -6,7 +6,7 @@ use axum::{
 };
 use crate::models::*;
 use crate::validation::{CreatePushSubscriptionRequest, validate_request};
-use crate::services::PushNotificationService;
+
 
 /// Create a new push subscription
 pub async fn create_push_subscription(

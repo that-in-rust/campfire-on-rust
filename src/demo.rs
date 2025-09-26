@@ -2,7 +2,7 @@ use anyhow::Result;
 use bcrypt::{hash, DEFAULT_COST};
 use chrono::Utc;
 use std::sync::Arc;
-use tracing::{info, warn};
+use tracing::info;
 use uuid::Uuid;
 
 use crate::database::CampfireDatabase;

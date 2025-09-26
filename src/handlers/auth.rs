@@ -13,7 +13,7 @@ use crate::middleware::session::SessionToken;
 use crate::models::LoginResponse;
 use crate::validation::{LoginRequest, sanitization, validate_request};
 use crate::logging::{audit::{AuditAction, AuditLogger}, error_handling::handle_auth_error};
-use crate::{AppState, audit_user_action, audit_security_event, log_audit_event};
+use crate::AppState;
 
 /// POST /api/auth/login
 /// 
