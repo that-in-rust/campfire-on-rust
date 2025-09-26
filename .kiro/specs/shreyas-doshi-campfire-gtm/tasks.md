@@ -187,6 +187,10 @@
 
 - [x] Remove all warnings in the cargo build
 
+- [ ] Actual checks part 1:
+  - [ ] Are our images and UI exactly same as basecamp campfire - they should be we literally forked from them - check on - https://github.com/basecamp/once-campfire - infact you can find the offline version to compare the assets the font everything directly via going to the folder here - /Users/neetipatni/desktop/Game20250927/once-campfire 
+  - [ ] https://railway.com/deploy/campfire-rust leads me to nowhere - why was this even allowed to pass
+
 ## Implementation Notes
 
 ### Development Approach
