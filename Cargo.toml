@@ -92,19 +92,24 @@ tikv-jemallocator = { version = "0.5", optional = true }
 # CPU profiling
 pprof = { version = "0.13", features = ["flamegraph", "protobuf-codec"], optional = true }
 
+# Testing framework dependencies (optional for production)
+criterion = { version = "0.5", features = ["html_reports"], optional = true }
+proptest = { version = "1.0", optional = true }
+
 [dev-dependencies]
 tokio-test = "0.4"
 mockall = "0.12"
 testcontainers = "0.15"
 hyper = { version = "0.14", features = ["full"] }
 tempfile = "3.0"
-criterion = { version = "0.5", features = ["html_reports"] }
+# cargo-dist = "0.30"  # Removed due to compatibility issues
 
 [features]
 default = ["performance-monitoring"]
 jemalloc = ["tikv-jemallocator"]
 profiling = ["pprof"]
 performance-monitoring = ["sysinfo"]
+testing = ["criterion", "proptest"]
 
 
 
@@ -140,10 +145,10 @@ overflow-checks = true
 opt-level = 1
 debug = true
 
-# cargo-dist configuration
+# cargo-dist configuration for professional cross-platform builds
 [workspace.metadata.dist]
 # The preferred cargo-dist version to use in CI (Cargo.toml SemVer syntax)
-cargo-dist-version = "0.4.0"
+cargo-dist-version = "0.30.0"
 # CI backends to support
 ci = ["github"]
 # The installers to generate for each app
@@ -158,3 +163,9 @@ targets = [
 ]
 # Publish jobs to run in CI
 pr-run-mode = "plan"
+# Generate checksums for all artifacts
+checksum = "sha256"
+# Create GitHub releases automatically
+create-release = true
+# Include release notes
+include = ["CHANGELOG.md", "README.md"]

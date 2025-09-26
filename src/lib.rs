@@ -15,6 +15,10 @@ pub mod config;
 pub mod logging;
 pub mod demo;
 
+// L1 Core Testing Framework - Professional CI/CD Testing
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;
+
 pub use database::CampfireDatabase;
 pub use services::auth::{AuthService, AuthServiceTrait};
 pub use services::room::{RoomService, RoomServiceTrait};
