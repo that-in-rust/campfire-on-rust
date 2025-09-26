@@ -348,13 +348,16 @@ async fn test_installation_script_platform_compatibility() {
     let required_platforms = vec![
         ("Linux", "linux"),
         ("Darwin", "darwin"), 
-        ("Windows", "windows"),
     ];
     
-    for (os_name, expected_platform) in required_platforms {
+    for (os_name, _expected_platform) in required_platforms {
         assert!(script_content.contains(&format!("{}*)", os_name)), 
             "Script doesn't handle {} platform", os_name);
     }
+    
+    // Test Windows platform detection (uses different pattern)
+    assert!(script_content.contains("CYGWIN*|MINGW*|MSYS*"), 
+        "Script doesn't handle Windows platform");
     
     // Test architecture support
     let required_architectures = vec![

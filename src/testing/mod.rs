@@ -12,6 +12,7 @@ pub mod l2_async_infrastructure;
 pub mod l3_external_ecosystem;
 pub mod executable_specifications;
 pub mod professional_alternatives;
+pub mod railway_deployment;
 
 // Re-export key types for easier access
 pub use criterion_provider::{CriterionProvider, MockCriterionProvider, ProductionCriterionProvider};

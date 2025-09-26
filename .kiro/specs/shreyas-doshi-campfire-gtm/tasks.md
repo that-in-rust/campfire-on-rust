@@ -60,7 +60,7 @@
   - Implement one-command verification using professional testing frameworks
   - _Requirements: 12.5, 12.1_
 
-- [-] 3. Verify End-to-End Installation Flow
+- [x] 3. Verify End-to-End Installation Flow
   - Test `curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash` on clean machines
   - Verify application starts successfully and is accessible at http://localhost:3000
   - Test basic functionality (admin setup, create room, send message)
@@ -68,7 +68,7 @@
   - Test installation on macOS, Linux, and Windows (WSL)
   - _Requirements: 10.1, 10.5, 10.7, 9.1, 9.2_
 
-- [ ] 4. Test Railway Deployment End-to-End
+- [x] 4. Test Railway Deployment End-to-End
   - Deploy using Railway template to verify it works completely
   - Test deployment completes within 3 minutes as promised
   - Verify deployed instance is accessible and functional
@@ -86,7 +86,7 @@
   - Make both paths equally prominent, not one primary/one secondary
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
-- [ ] 6. Enhance Demo Mode for Better Local Sampling
+- [-] 6. Enhance Demo Mode for Better Local Sampling
   - Improve existing demo mode to show more realistic team chat scenarios
   - Add multiple pre-configured users with different roles and conversation styles
   - Ensure demo data demonstrates all core features (rooms, messages, search, @mentions, sounds)
