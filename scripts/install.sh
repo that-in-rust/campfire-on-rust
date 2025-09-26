@@ -1,29 +1,40 @@
 #!/bin/bash
-# Campfire v0.1 - Zero-Friction Local Installation Script
-# Usage: curl -sSL https://raw.githubusercontent.com/that-in-rust/\
-#   campfire-on-rust/main/scripts/install.sh | bash
+# campfire-on-rust v0.1 - Zero-Friction Local Installation Script
+# Usage: curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash
 
 set -e
 
-# Error handler for unexpected failures
+# Error handler with clear feedback
 error_handler() {
     local exit_code=$?
     local line_number=$1
     
-    echo -e "\n${RED}❌ Installation failed unexpectedly${NC}"
-    echo -e "${YELLOW}💡 Error details:${NC}"
-    echo -e "${YELLOW}   Exit code: ${exit_code}${NC}"
-    echo -e "${YELLOW}   Line: ${line_number}${NC}"
-    echo -e "${YELLOW}🆘 Need help? Report this issue:${NC}"
-    echo -e "${YELLOW}   GitHub: https://github.com/that-in-rust/\
-campfire-on-rust/issues${NC}"
-    echo -e "${YELLOW}   Email: campfire-support@that-in-rust.dev${NC}"
-    echo -e "${YELLOW}   Include: Your OS ($(uname -s)), \
-architecture ($(uname -m)), and this error${NC}"
-    
-    # Track the failure
-    track_install_result false \
-        "Unexpected error at line $line_number (exit code $exit_code)"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "❌ INSTALLATION FAILED"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "🔍 What happened:"
+    echo "   • Exit code: $exit_code"
+    echo "   • Failed at line: $line_number"
+    echo "   • OS: $(uname -s) $(uname -m)"
+    echo ""
+    echo "🛠️  Quick fixes to try:"
+    echo "   1. Check internet connection"
+    echo "   2. Install Rust: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
+    echo "   3. Install Git: your package manager (apt, brew, etc.)"
+    echo "   4. Try manual installation (see below)"
+    echo ""
+    echo "📖 Manual installation:"
+    echo "   git clone https://github.com/that-in-rust/campfire-on-rust.git"
+    echo "   cd campfire-on-rust"
+    echo "   cargo run"
+    echo ""
+    echo "🆘 Still stuck? Get help:"
+    echo "   • GitHub Issues: https://github.com/that-in-rust/campfire-on-rust/issues"
+    echo "   • Include this error and your OS info"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
     exit $exit_code
 }
@@ -36,171 +47,136 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Configuration
 REPO="that-in-rust/campfire-on-rust"
 VERSION="v0.1.0"
 BINARY_NAME="campfire-on-rust"
-INSTALL_DIR="$HOME/.local/bin"
+INSTALL_DIR="$HOME/.campfire-on-rust"
 
-# Detect OS and architecture
-detect_platform() {
-    local os arch
+# Check if required tools are available
+check_requirements() {
+    local missing_tools=()
     
-    case "$(uname -s)" in
-        Linux*)     os="linux" ;;
-        Darwin*)    os="darwin" ;;
-        CYGWIN*|MINGW*|MSYS*) os="windows" ;;
-        *)          
-            echo -e "${RED}❌ Unsupported OS: $(uname -s)${NC}"
-            echo -e "${YELLOW}💡 Supported platforms: Linux, macOS, Windows${NC}"
-            echo -e "${YELLOW}📖 For manual installation: https://github.com/that-in-rust/campfire-on-rust/releases${NC}"
-            exit 1 
-            ;;
-    esac
-    
-    case "$(uname -m)" in
-        x86_64|amd64)   arch="x86_64" ;;
-        arm64|aarch64)  arch="aarch64" ;;
-        *)              
-            echo -e "${RED}❌ Unsupported architecture: $(uname -m)${NC}"
-            echo -e "${YELLOW}💡 Supported architectures: x86_64, aarch64 (ARM64)${NC}"
-            echo -e "${YELLOW}🔧 Try building from source: git clone https://github.com/that-in-rust/campfire-on-rust.git${NC}"
-            exit 1 
-            ;;
-    esac
-    
-    echo "${os}-${arch}"
-}
-
-# Track install script execution (privacy-friendly)
-track_install_start() {
-    # Send anonymous tracking data to help improve the installation process
-    # This is completely optional and privacy-friendly (no personal data)
-    if command -v curl >/dev/null 2>&1; then
-        curl -s -X POST "https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/api/analytics/track/install-download" \
-            -H "Content-Type: application/json" \
-            -d '{"platform":"'$(detect_platform)'","version":"'$VERSION'"}' \
-            >/dev/null 2>&1 || true
+    if ! command -v git >/dev/null 2>&1; then
+        missing_tools+=("git")
     fi
-}
-
-# Track install result (success/failure)
-track_install_result() {
-    local success=$1
-    local error_msg=${2:-""}
-    local platform=$(detect_platform)
     
-    if command -v curl >/dev/null 2>&1; then
-        local payload='{"success":'$success',"platform":"'$platform'","version":"'$VERSION'"'
-        if [[ -n "$error_msg" ]]; then
-            payload+=', "error_message":"'$error_msg'"'
-        fi
-        payload+='}'
+    if ! command -v cargo >/dev/null 2>&1; then
+        missing_tools+=("rust/cargo")
+    fi
+    
+    if [ ${#missing_tools[@]} -ne 0 ]; then
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "⚠️  MISSING REQUIREMENTS"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        echo "🔧 Please install these tools first:"
         
-        curl -s -X POST "https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/api/analytics/track/install-result" \
-            -H "Content-Type: application/json" \
-            -d "$payload" \
-            >/dev/null 2>&1 || true
+        for tool in "${missing_tools[@]}"; do
+            case $tool in
+                "git")
+                    echo "   📦 Git:"
+                    echo "      • macOS: brew install git"
+                    echo "      • Ubuntu/Debian: sudo apt install git"
+                    echo "      • CentOS/RHEL: sudo yum install git"
+                    echo "      • Windows: https://git-scm.com/download/win"
+                    ;;
+                "rust/cargo")
+                    echo "   🦀 Rust:"
+                    echo "      • All platforms: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
+                    echo "      • Then restart your terminal or run: source ~/.cargo/env"
+                    ;;
+            esac
+            echo ""
+        done
+        
+        echo "💡 After installing, run this script again:"
+        echo "   curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash"
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        exit 1
     fi
 }
 
-# Download and install binary
+# Clone and build campfire-on-rust
 install_campfire() {
-    local platform
-    platform=$(detect_platform)
-    
-    echo -e "${BLUE}🔥 Installing Campfire v0.1...${NC}"
-    echo -e "${YELLOW}Platform: ${platform}${NC}"
-    
-    # Track installation start
-    track_install_start
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🔥 INSTALLING CAMPFIRE-ON-RUST"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
     
     # Create install directory
     mkdir -p "$INSTALL_DIR"
+    cd "$INSTALL_DIR"
     
-    # Download URL
-    local download_url="https://github.com/${REPO}/releases/download/${VERSION}/${BINARY_NAME}-${platform}"
-    if [[ "$platform" == *"windows"* ]]; then
-        download_url="${download_url}.exe"
-        BINARY_NAME="${BINARY_NAME}.exe"
-    fi
-    
-    echo -e "${YELLOW}Downloading from: ${download_url}${NC}"
-    
-    # Download binary
-    if command -v curl >/dev/null 2>&1; then
-        if curl -L -o "${INSTALL_DIR}/${BINARY_NAME}" "$download_url"; then
-            echo -e "${GREEN}✅ Download successful${NC}"
-        else
-            echo -e "${RED}❌ Download failed${NC}"
-            echo -e "${YELLOW}💡 Possible solutions:${NC}"
-            echo -e "${YELLOW}   1. Check internet connection${NC}"
-            echo -e "${YELLOW}   2. Try manual download: ${download_url}${NC}"
-            echo -e "${YELLOW}   3. Build from source: https://github.com/that-in-rust/campfire-on-rust#building${NC}"
-            echo -e "${YELLOW}   4. Report issue: https://github.com/that-in-rust/campfire-on-rust/issues${NC}"
-            track_install_result false "Download failed"
-            exit 1
-        fi
-    elif command -v wget >/dev/null 2>&1; then
-        if wget -O "${INSTALL_DIR}/${BINARY_NAME}" "$download_url"; then
-            echo -e "${GREEN}✅ Download successful${NC}"
-        else
-            echo -e "${RED}❌ Download failed${NC}"
-            echo -e "${YELLOW}💡 Possible solutions:${NC}"
-            echo -e "${YELLOW}   1. Check internet connection${NC}"
-            echo -e "${YELLOW}   2. Try manual download: ${download_url}${NC}"
-            echo -e "${YELLOW}   3. Build from source: https://github.com/that-in-rust/campfire-on-rust#building${NC}"
-            echo -e "${YELLOW}   4. Report issue: https://github.com/that-in-rust/campfire-on-rust/issues${NC}"
-            track_install_result false "Download failed"
-            exit 1
-        fi
+    echo "📥 Step 1/4: Cloning repository..."
+    if [ -d "campfire-on-rust" ]; then
+        echo "   • Repository already exists, updating..."
+        cd campfire-on-rust
+        git pull origin main
     else
-        echo -e "${RED}❌ Error: curl or wget is required${NC}"
-        echo -e "${YELLOW}💡 Install a download tool:${NC}"
-        echo -e "${YELLOW}   Ubuntu/Debian: sudo apt install curl${NC}"
-        echo -e "${YELLOW}   CentOS/RHEL: sudo yum install curl${NC}"
-        echo -e "${YELLOW}   macOS: brew install curl${NC}"
-        echo -e "${YELLOW}   Or download manually: ${download_url}${NC}"
-        track_install_result false "No download tool available"
+        echo "   • Cloning from GitHub..."
+        git clone https://github.com/${REPO}.git
+        cd campfire-on-rust
+    fi
+    echo "   ✅ Repository ready"
+    echo ""
+    
+    echo "🔨 Step 2/4: Building campfire-on-rust (this may take a few minutes)..."
+    echo "   • Compiling Rust code..."
+    echo "   • This is normal for first-time builds"
+    echo ""
+    
+    # Build in release mode for better performance
+    if cargo build --release; then
+        echo "   ✅ Build successful!"
+    else
+        echo "   ❌ Build failed"
+        echo ""
+        echo "🛠️  Try these solutions:"
+        echo "   1. Update Rust: rustup update"
+        echo "   2. Clean and retry: cargo clean && cargo build --release"
+        echo "   3. Check Rust version: rustc --version (need 1.70+)"
         exit 1
     fi
+    echo ""
     
-    # Make executable
-    if chmod +x "${INSTALL_DIR}/${BINARY_NAME}"; then
-        echo -e "${GREEN}✅ Campfire installed to ${INSTALL_DIR}/${BINARY_NAME}${NC}"
-        track_install_result true
-    else
-        echo -e "${RED}❌ Failed to make binary executable${NC}"
-        echo -e "${YELLOW}💡 Try manually:${NC}"
-        echo -e "${YELLOW}   chmod +x ${INSTALL_DIR}/${BINARY_NAME}${NC}"
-        echo -e "${YELLOW}   ${INSTALL_DIR}/${BINARY_NAME}${NC}"
-        track_install_result false "Failed to make executable"
-        exit 1
-    fi
+    echo "📦 Step 3/4: Installing binary..."
+    # Copy binary to a location in PATH
+    cp target/release/campfire-on-rust "$HOME/.local/bin/" 2>/dev/null || {
+        mkdir -p "$HOME/.local/bin"
+        cp target/release/campfire-on-rust "$HOME/.local/bin/"
+    }
+    echo "   ✅ Binary installed to $HOME/.local/bin/campfire-on-rust"
+    echo ""
 }
 
-# Setup environment
+# Setup environment and configuration
 setup_environment() {
-    echo -e "${BLUE}🔧 Setting up environment...${NC}"
+    echo "⚙️  Step 4/4: Setting up configuration..."
     
     # Create data directory
-    local data_dir="$HOME/.campfire"
+    local data_dir="$HOME/.campfire-on-rust-data"
     mkdir -p "$data_dir"
     
     # Create basic .env file if it doesn't exist
     local env_file="$data_dir/.env"
     if [[ ! -f "$env_file" ]]; then
         cat > "$env_file" << EOF
-# Campfire Configuration
+# campfire-on-rust Configuration
 CAMPFIRE_DATABASE_URL=sqlite://$data_dir/campfire.db
 CAMPFIRE_HOST=127.0.0.1
 CAMPFIRE_PORT=3000
 CAMPFIRE_LOG_LEVEL=info
 
-# Optional: Enable demo mode for testing
-# CAMPFIRE_DEMO_MODE=true
+# Enable demo mode with sample data (recommended for first try)
+CAMPFIRE_DEMO_MODE=true
 
 # Optional: Configure push notifications (generate at https://vapidkeys.com/)
 # CAMPFIRE_VAPID_PUBLIC_KEY=your_public_key_here
@@ -209,15 +185,17 @@ CAMPFIRE_LOG_LEVEL=info
 # Optional: SSL configuration for production
 # CAMPFIRE_SSL_DOMAIN=your-domain.com
 EOF
-        echo -e "${GREEN}✅ Created configuration file: ${env_file}${NC}"
+        echo "   ✅ Created configuration with demo mode enabled"
     fi
     
-    echo -e "${YELLOW}📁 Data directory: ${data_dir}${NC}"
-    echo -e "${YELLOW}⚙️  Configuration: ${env_file}${NC}"
+    echo "   📁 Data directory: $data_dir"
+    echo "   ⚙️  Configuration: $env_file"
+    echo ""
 }
 
-# Add to PATH
+# Add to PATH if needed
 update_path() {
+    local bin_dir="$HOME/.local/bin"
     local shell_rc
     
     # Detect shell and update PATH
@@ -229,107 +207,116 @@ update_path() {
     esac
     
     # Check if already in PATH
-    if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
-        echo -e "${YELLOW}Adding ${INSTALL_DIR} to PATH in ${shell_rc}${NC}"
-        echo "export PATH=\"\$PATH:$INSTALL_DIR\"" >> "$shell_rc"
-        export PATH="$PATH:$INSTALL_DIR"
-        echo -e "${GREEN}✅ Added to PATH${NC}"
-    else
-        echo -e "${GREEN}✅ Already in PATH${NC}"
+    if [[ ":$PATH:" != *":$bin_dir:"* ]]; then
+        echo "🔧 Adding $bin_dir to PATH..."
+        echo "export PATH=\"\$PATH:$bin_dir\"" >> "$shell_rc"
+        export PATH="$PATH:$bin_dir"
+        echo "   ✅ Added to PATH (restart terminal or run: source $shell_rc)"
     fi
 }
 
-# Start Campfire
+# Start campfire-on-rust
 start_campfire() {
-    echo -e "${BLUE}🚀 Starting Campfire...${NC}"
-    echo -e "${YELLOW}Note: This will start Campfire in the foreground. Press Ctrl+C to stop.${NC}"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🚀 STARTING CAMPFIRE-ON-RUST"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
     
     # Change to data directory
-    cd "$HOME/.campfire"
+    cd "$HOME/.campfire-on-rust-data"
+    
+    echo "🔥 Starting server..."
+    echo "📱 Open your browser to: http://localhost:3000"
+    echo "⏹️  Press Ctrl+C to stop the server"
+    echo ""
+    echo "💡 First time? You'll see a setup page to create your admin account"
+    echo "🎮 Demo mode is enabled - you'll see sample chat data"
+    echo ""
     
     # Start the application
-    if [[ ":$PATH:" == *":$INSTALL_DIR:"* ]] || [[ -x "${INSTALL_DIR}/${BINARY_NAME}" ]]; then
-        echo -e "${GREEN}🔥 Campfire is starting...${NC}"
-        echo -e "${GREEN}📱 Open your browser to: http://localhost:3000${NC}"
-        echo ""
-        
-        # Try to start from PATH first, then from install directory
-        if command -v "$BINARY_NAME" >/dev/null 2>&1; then
-            "$BINARY_NAME"
-        else
-            "${INSTALL_DIR}/${BINARY_NAME}"
-        fi
+    if command -v campfire-on-rust >/dev/null 2>&1; then
+        campfire-on-rust
+    elif [[ -x "$HOME/.local/bin/campfire-on-rust" ]]; then
+        "$HOME/.local/bin/campfire-on-rust"
     else
-        echo -e "${RED}❌ Error: Could not find Campfire binary${NC}"
-        echo -e "${YELLOW}💡 Try these solutions:${NC}"
-        echo -e "${YELLOW}   1. Run directly: ${INSTALL_DIR}/${BINARY_NAME}${NC}"
-        echo -e "${YELLOW}   2. Add to PATH: export PATH=\"\$PATH:${INSTALL_DIR}\"${NC}"
-        echo -e "${YELLOW}   3. Restart your terminal${NC}"
-        echo -e "${YELLOW}   4. Check installation: ls -la ${INSTALL_DIR}/${BINARY_NAME}${NC}"
+        echo "❌ Error: Could not find campfire-on-rust binary"
+        echo ""
+        echo "🛠️  Try these solutions:"
+        echo "   1. Restart your terminal"
+        echo "   2. Run: source ~/.bashrc (or ~/.zshrc)"
+        echo "   3. Run directly: $HOME/.local/bin/campfire-on-rust"
+        echo "   4. Check installation: ls -la $HOME/.local/bin/campfire-on-rust"
         exit 1
     fi
 }
 
 # Show usage instructions
 show_usage() {
-    echo -e "${GREEN}🎉 Campfire v0.1 Installation Complete!${NC}"
     echo ""
-    echo -e "${BLUE}Quick Start:${NC}"
-    echo -e "  1. ${YELLOW}campfire-on-rust${NC}                    # Start Campfire"
-    echo -e "  2. Open ${YELLOW}http://localhost:3000${NC}          # Access web interface"
-    echo -e "  3. Create your admin account           # First-run setup"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🎉 INSTALLATION COMPLETE!"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
-    echo -e "${BLUE}Configuration:${NC}"
-    echo -e "  📁 Data: ${YELLOW}$HOME/.campfire/${NC}"
-    echo -e "  ⚙️  Config: ${YELLOW}$HOME/.campfire/.env${NC}"
+    echo "🚀 Quick Start:"
+    echo "   1. Run: campfire-on-rust"
+    echo "   2. Open: http://localhost:3000"
+    echo "   3. Create your admin account (first-run setup)"
     echo ""
-    echo -e "${BLUE}Demo Mode (Optional):${NC}"
-    echo -e "  Add ${YELLOW}CAMPFIRE_DEMO_MODE=true${NC} to .env file"
-    echo -e "  Restart Campfire to try pre-loaded demo data"
+    echo "📁 Files:"
+    echo "   • Data: $HOME/.campfire-on-rust-data/"
+    echo "   • Config: $HOME/.campfire-on-rust-data/.env"
+    echo "   • Binary: $HOME/.local/bin/campfire-on-rust"
     echo ""
-    echo -e "${BLUE}Production Deployment:${NC}"
-    echo -e "  🚂 Railway: ${YELLOW}https://railway.app/template/campfire-rust${NC}"
-    echo -e "  🐳 Docker: ${YELLOW}docker run -p 3000:3000 campfire-rust:v0.1${NC}"
+    echo "🎮 Demo Mode:"
+    echo "   • Already enabled in your config"
+    echo "   • You'll see sample chat rooms and messages"
+    echo "   • Perfect for trying out features"
     echo ""
-    echo -e "${BLUE}Need Help?${NC}"
-    echo -e "  📖 Docs: ${YELLOW}https://github.com/${REPO}#readme${NC}"
-    echo -e "  🐛 Issues: ${YELLOW}https://github.com/${REPO}/issues${NC}"
+    echo "🔧 Commands:"
+    echo "   • Start: campfire-on-rust"
+    echo "   • Stop: Press Ctrl+C"
+    echo "   • Logs: Check terminal output"
+    echo ""
+    echo "🌐 Deploy for your team:"
+    echo "   • Railway: https://railway.app/template/campfire-rust"
+    echo "   • Or run on your server with the same binary"
+    echo ""
+    echo "🆘 Need help?"
+    echo "   • Docs: https://github.com/${REPO}#readme"
+    echo "   • Issues: https://github.com/${REPO}/issues"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
 
 # Main installation flow
 main() {
-    echo -e "${GREEN}"
-    echo "  ____                        __ _            "
-    echo " / ___|__ _ _ __ ___  _ __  / _(_)_ __ ___   "
-    echo "| |   / _\` | '_ \` _ \\| '_ \\| |_| | '__/ _ \\  "
-    echo "| |__| (_| | | | | | | |_) |  _| | | |  __/  "
-    echo " \\____\\__,_|_| |_| |_| .__/|_| |_|_|  \\___|  "
-    echo "                     |_|                     "
-    echo -e "${NC}"
-    echo -e "${BLUE}Zero-Friction Installation Script v0.1${NC}"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🔥 CAMPFIRE-ON-RUST INSTALLER"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "📋 What this script does:"
+    echo "   • Clones the repository from GitHub"
+    echo "   • Builds campfire-on-rust from source"
+    echo "   • Sets up configuration with demo mode"
+    echo "   • Installs to ~/.local/bin/campfire-on-rust"
+    echo ""
+    echo "⏱️  Estimated time: 2-5 minutes (depending on your internet and CPU)"
     echo ""
     
-    # Check for required tools
-    if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
-        echo -e "${RED}❌ Error: curl or wget is required for installation${NC}"
-        echo -e "${YELLOW}💡 Install a download tool:${NC}"
-        echo -e "${YELLOW}   Ubuntu/Debian: sudo apt install curl${NC}"
-        echo -e "${YELLOW}   CentOS/RHEL: sudo yum install curl${NC}"
-        echo -e "${YELLOW}   macOS: brew install curl${NC}"
-        echo -e "${YELLOW}   Windows: Install Git Bash or WSL${NC}"
-        echo -e "${YELLOW}📖 Manual installation: https://github.com/that-in-rust/campfire-on-rust/releases${NC}"
-        exit 1
-    fi
+    # Check requirements first
+    check_requirements
     
-    # Install Campfire
+    # Install campfire-on-rust
     install_campfire
     setup_environment
     update_path
     
     # Ask if user wants to start immediately
     echo ""
-    read -p "$(echo -e ${YELLOW}Start Campfire now? [Y/n]: ${NC})" -n 1 -r
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    read -p "🚀 Start campfire-on-rust now? [Y/n]: " -n 1 -r
     echo ""
     
     if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
@@ -342,19 +329,34 @@ main() {
 # Handle script arguments
 case "${1:-}" in
     --help|-h)
-        echo "Campfire v0.1 Installation Script"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "🔥 CAMPFIRE-ON-RUST INSTALLER HELP"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo ""
-        echo "Usage:"
-        echo "  curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash"
-        echo "  curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash -s -- --no-start"
+        echo "📖 Usage:"
+        echo "   curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash"
         echo ""
-        echo "Options:"
-        echo "  --help, -h     Show this help message"
-        echo "  --no-start     Install but don't start Campfire"
+        echo "🔧 Options:"
+        echo "   --help, -h     Show this help message"
+        echo "   --no-start     Install but don't start campfire-on-rust"
+        echo ""
+        echo "📋 Requirements:"
+        echo "   • Git (for cloning repository)"
+        echo "   • Rust/Cargo (for building from source)"
+        echo "   • Internet connection"
+        echo ""
+        echo "🎯 What you get:"
+        echo "   • campfire-on-rust binary in ~/.local/bin/"
+        echo "   • Configuration in ~/.campfire-on-rust-data/"
+        echo "   • Demo mode enabled for easy testing"
+        echo "   • Ready to run on http://localhost:3000"
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         exit 0
         ;;
     --no-start)
         # Install but don't start
+        check_requirements
         install_campfire
         setup_environment
         update_path

@@ -34,10 +34,20 @@ flowchart TD
 ## Quick start (pick one)
 
 ### 👀 Try it locally (2 minutes)
+
+**Requirements**: Git and Rust ([install Rust](https://rustup.rs/))
+
 ```bash
 curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash
 ```
-Then hit `http://localhost:3000` - boom, working chat with demo data.
+
+**What happens:**
+1. 📥 Clones repo and builds from source
+2. ⚙️ Sets up config with demo mode enabled  
+3. 🚀 Asks if you want to start it now
+4. 🌐 Opens at `http://localhost:3000` with sample chat data
+
+**Don't have Rust?** Install it first: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
 
 ### 🚀 Deploy for your team (3 minutes)
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/campfire-rust)
