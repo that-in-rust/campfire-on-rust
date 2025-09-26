@@ -174,7 +174,7 @@
 
 ### Phase 3 Success (Validation and Launch)
 - [-] CHECK End-to-end testing passes on macOS, Linux, and Windows
-  -  [ ] Both installation paths complete within promised timeframes (2-3 minutes) + 
+  -  [-] Both installation paths complete within promised timeframes (2-3 minutes) + 
 
 
   - [ ] All links, commands, and deployment buttons work as documented
