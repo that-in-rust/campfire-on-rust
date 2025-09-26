@@ -78,7 +78,7 @@
 
 ## Phase 2: Make It Clear (GTM Implementation)
 
-- [-] 5. Implement Two-Path README Design
+- [x] 5. Implement Two-Path README Design
   - Create clear "Try it locally" and "Deploy for your team" sections in README
   - Design simple, prominent buttons/sections for each path
   - Ensure local path shows: `curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash`

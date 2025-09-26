@@ -250,6 +250,71 @@
         .demo-links a:hover {
             text-decoration: underline;
         }
+
+        .demo-cta-section {
+            margin: 24px 0;
+            text-align: center;
+        }
+
+        .demo-cta-box {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin: 16px 0;
+        }
+
+        .demo-cta-box h3 {
+            margin: 0 0 8px 0;
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .demo-cta-box p {
+            margin: 0 0 16px 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .demo-cta-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-cta-primary {
+            background: white;
+            color: #007bff;
+        }
+
+        .btn-cta-primary:hover {
+            background: #f8f9fa;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-cta-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-cta-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
         
         /* Dark mode adjustments */
         @media (prefers-color-scheme: dark) {
@@ -389,9 +454,19 @@
                 </button>
             </form>
             
+            <div class="demo-cta-section">
+                <div class="demo-cta-box">
+                    <h3>🚀 Ready to Deploy for Your Team?</h3>
+                    <p>Get your own Campfire instance running in under 3 minutes!</p>
+                    <div class="demo-cta-buttons">
+                        <a href="https://railway.app/template/campfire-rust" target="_blank" class="btn btn-cta-primary">🚀 Deploy Now - Free</a>
+                        <a href="/demo" class="btn btn-cta-secondary">📖 Demo Guide</a>
+                    </div>
+                </div>
+            </div>
+            
             <div class="demo-links">
-                <a href="/demo">View Demo Guide</a>
-                <a href="https://github.com/that-in-rust/campfire-on-rust" target="_blank">Source Code</a>
+                <a href="https://github.com/that-in-rust/campfire-on-rust" target="_blank">View Source Code</a>
             </div>
             
             <div class="login-footer">

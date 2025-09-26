@@ -1071,6 +1071,49 @@ impl DemoDataInitializer {
             "The bot API is built with Rust's type safety - impossible to send malformed webhooks or invalid commands. Security by design! /play greatjob",
         ).await?;
 
+        // === DEPLOY FOR YOUR TEAM CALL-TO-ACTION MESSAGES ===
+        self.create_message(
+            admin,
+            general_room,
+            "🎯 DEMO COMPLETE! You've experienced Campfire's full feature set. Ready to deploy this for your actual team?",
+        ).await?;
+
+        self.create_message(
+            alice,
+            general_room,
+            "This demo shows exactly what your team will get: blazing-fast chat, powerful search, @mentions, sounds, and bot integration. Deploy in 3 minutes! 🚀",
+        ).await?;
+
+        self.create_message(
+            bob,
+            general_room,
+            "Technical specs: <2ms message latency, 12MB memory usage, SQLite/PostgreSQL support, Docker deployment ready. Production-grade performance! /play yeah",
+        ).await?;
+
+        self.create_message(
+            carol,
+            general_room,
+            "The UX you just experienced is what your team gets immediately. No setup complexity, no learning curve - just great team communication. ✨",
+        ).await?;
+
+        self.create_message(
+            admin,
+            general_room,
+            "🚀 READY TO DEPLOY? Two options:\n\n1️⃣ Railway (1-click): Deploy in 3 minutes, free tier available\n2️⃣ Self-hosted: curl install script, runs anywhere\n\nBoth give you this exact experience for your team!",
+        ).await?;
+
+        self.create_message(
+            alice,
+            general_room,
+            "💡 Why teams choose Campfire:\n• 10x faster than Slack (Rust performance)\n• Complete privacy (self-hosted)\n• Zero vendor lock-in\n• Enterprise features included\n• Open source transparency",
+        ).await?;
+
+        self.create_message(
+            bob,
+            general_room,
+            "From a developer perspective: this is the chat app I wish we had at every company. Fast, reliable, and actually enjoyable to use. /play greatjob",
+        ).await?;
+
         info!("✅ Comprehensive demo conversations created successfully!");
         info!("📊 Generated conversations covering:");
         info!("   • Technical discussions with performance metrics");

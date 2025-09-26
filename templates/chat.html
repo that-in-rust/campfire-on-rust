@@ -30,6 +30,14 @@
     <a href="#main-content" class="skip-navigation btn">Skip to main content</a>
     
     <div class="app-container">
+        <!-- Demo mode floating indicator -->
+        <div id="demo-floating-indicator" class="demo-floating-indicator" style="display: none;">
+            <div class="demo-floating-content">
+                <span class="demo-floating-badge">🔥 DEMO</span>
+                <span class="demo-floating-text">Sample Data</span>
+            </div>
+        </div>
+        
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
@@ -98,15 +106,17 @@
     <!-- Error notification area -->
     <div id="error-notifications" aria-live="assertive" aria-atomic="true" class="sr-only"></div>
     
-    <!-- Demo banner (persistent indicator) -->
+    <!-- Enhanced Demo banner (persistent indicator) -->
     <div id="demo-banner" class="demo-banner" style="display: none;">
         <div class="demo-banner-content">
             <div class="demo-banner-left">
                 <span class="demo-badge">🔥 DEMO MODE</span>
-                <span class="demo-text">This is sample data - try all features!</span>
+                <span class="demo-text">This is sample data - explore all features!</span>
+                <span class="demo-subtext">Real-time chat • @mentions • Sounds • Search</span>
             </div>
             <div class="demo-banner-right">
-                <button class="demo-banner-btn" onclick="showDeployGuide()">Deploy for Your Team</button>
+                <button class="demo-banner-btn primary" onclick="showDeployGuide()">🚀 Deploy for Your Team</button>
+                <button class="demo-banner-btn secondary" onclick="showDemoFeatures()">✨ Demo Features</button>
                 <button class="demo-banner-close" onclick="hideDemoBanner()" aria-label="Hide demo banner">×</button>
             </div>
         </div>
@@ -120,43 +130,82 @@
                 <button class="demo-close-btn" onclick="closeDemoWelcome()" aria-label="Close welcome">×</button>
             </div>
             <div class="demo-welcome-body">
-                <p>You're now in a fully functional team chat application running offline on your machine!</p>
-                
-                <div class="demo-features">
-                    <h3>🚀 Try these features:</h3>
-                    <ul>
-                        <li><strong>@mentions:</strong> Type @alice or @bob to mention team members</li>
-                        <li><strong>Sound effects:</strong> Use /play commands like /play tada, /play yeah, /play nyan</li>
-                        <li><strong>Search:</strong> Find messages across all rooms with the search feature</li>
-                        <li><strong>Multiple rooms:</strong> Explore General, Development, Design, and more</li>
-                        <li><strong>Real-time chat:</strong> Open multiple tabs to simulate team conversations</li>
-                    </ul>
+                <p><strong>You're experiencing a fully functional team chat application running offline on your machine!</strong></p>
+                <div class="demo-data-notice">
+                    <span class="demo-data-badge">📊 SAMPLE DATA</span>
+                    <span>All conversations and users are pre-loaded for demonstration</span>
                 </div>
                 
-                <div class="demo-tips">
-                    <h3>💡 Pro Tips:</h3>
-                    <ul>
-                        <li>Open multiple browser tabs/windows to log in as different users</li>
-                        <li>Try different room types: open rooms vs. closed/private rooms</li>
-                        <li>Check out the pre-loaded conversations for inspiration</li>
-                        <li>All data is stored locally - no internet connection needed!</li>
-                    </ul>
+                <div class="demo-features-grid">
+                    <div class="demo-feature-card">
+                        <div class="demo-feature-icon">💬</div>
+                        <h4>Real-time Messaging</h4>
+                        <p>Send messages and see them appear instantly across all rooms</p>
+                        <div class="demo-example">Try: "Hello team!"</div>
+                    </div>
+                    
+                    <div class="demo-feature-card">
+                        <div class="demo-feature-icon">@</div>
+                        <h4>@Mentions</h4>
+                        <p>Mention team members to get their attention</p>
+                        <div class="demo-example">Try: "@alice what do you think?"</div>
+                    </div>
+                    
+                    <div class="demo-feature-card">
+                        <div class="demo-feature-icon">🔊</div>
+                        <h4>Sound Effects</h4>
+                        <p>59 fun sounds to express reactions</p>
+                        <div class="demo-example">Try: "/play tada" or "/play yeah"</div>
+                    </div>
+                    
+                    <div class="demo-feature-card">
+                        <div class="demo-feature-icon">🔍</div>
+                        <h4>Powerful Search</h4>
+                        <p>Find messages across all rooms instantly</p>
+                        <div class="demo-example">Search: "performance" or "authentication"</div>
+                    </div>
+                    
+                    <div class="demo-feature-card">
+                        <div class="demo-feature-icon">🏠</div>
+                        <h4>Multiple Rooms</h4>
+                        <p>Organized conversations by team and topic</p>
+                        <div class="demo-example">Visit: Development, Design, Product Planning</div>
+                    </div>
+                    
+                    <div class="demo-feature-card">
+                        <div class="demo-feature-icon">🤖</div>
+                        <h4>Bot Integration</h4>
+                        <p>Automated responses and notifications</p>
+                        <div class="demo-example">Try: "@bot system status"</div>
+                    </div>
+                </div>
+                
+                <div class="demo-multi-user-section">
+                    <h3>🚀 Multi-User Testing</h3>
+                    <p>Open multiple browser tabs and log in as different users to see real-time collaboration:</p>
+                    <div class="demo-user-pills">
+                        <span class="demo-user-pill">alice@campfire.demo</span>
+                        <span class="demo-user-pill">bob@campfire.demo</span>
+                        <span class="demo-user-pill">carol@campfire.demo</span>
+                        <span class="demo-user-pill">david@campfire.demo</span>
+                    </div>
+                    <p class="demo-password-note">All passwords: <code>password</code></p>
                 </div>
                 
                 <div class="demo-cta-section">
                     <div class="demo-cta-box">
                         <h3>🚀 Ready to Deploy for Your Team?</h3>
-                        <p>Get your own Campfire instance running in under 3 minutes with Railway deployment.</p>
+                        <p>Get your own Campfire instance running in under 3 minutes. No credit card required!</p>
                         <div class="demo-cta-buttons">
-                            <button class="btn btn-cta-primary" onclick="showDeployGuide()">Deploy Now</button>
-                            <button class="btn btn-cta-secondary" onclick="window.open('https://github.com/that-in-rust/campfire-on-rust', '_blank')">View Source</button>
+                            <button class="btn btn-cta-primary" onclick="showDeployGuide()">🚀 Deploy Now - Free</button>
+                            <button class="btn btn-cta-secondary" onclick="window.open('https://github.com/that-in-rust/campfire-on-rust', '_blank')">📖 View Source Code</button>
                         </div>
                     </div>
                 </div>
                 
                 <div class="demo-actions">
-                    <button class="btn btn-primary" onclick="closeDemoWelcome()">Start Exploring</button>
-                    <button class="btn btn-secondary" onclick="openMultiUserGuide()">Multi-User Testing Guide</button>
+                    <button class="btn btn-primary" onclick="closeDemoWelcome()">Start Exploring Demo</button>
+                    <button class="btn btn-secondary" onclick="openMultiUserGuide()">Multi-User Guide</button>
                 </div>
             </div>
         </div>
@@ -625,6 +674,190 @@
             padding-top: 60px;
         }
 
+        /* Enhanced demo banner styles */
+        .demo-subtext {
+            font-size: 0.75rem;
+            opacity: 0.9;
+            margin-left: 0.5rem;
+        }
+
+        .demo-banner-btn.primary {
+            background: rgba(255, 255, 255, 0.95);
+            color: #ff6b6b;
+            font-weight: 700;
+        }
+
+        .demo-banner-btn.secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .demo-banner-btn.secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Enhanced demo welcome overlay styles */
+        .demo-data-notice {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #e8f4fd;
+            border: 1px solid #bee5eb;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin: 1rem 0;
+        }
+
+        .demo-data-badge {
+            background: #17a2b8;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .demo-features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .demo-feature-card {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .demo-feature-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .demo-feature-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .demo-feature-card h4 {
+            margin: 0.5rem 0;
+            color: #2c3e50;
+            font-size: 1rem;
+        }
+
+        .demo-feature-card p {
+            margin: 0.5rem 0;
+            color: #6c757d;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .demo-example {
+            background: #e9ecef;
+            border-radius: 4px;
+            padding: 0.5rem;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.8rem;
+            color: #495057;
+            margin-top: 0.5rem;
+        }
+
+        .demo-multi-user-section {
+            background: #f0f8ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            text-align: center;
+        }
+
+        .demo-multi-user-section h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+
+        .demo-user-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+            margin: 1rem 0;
+        }
+
+        .demo-user-pill {
+            background: #007bff;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .demo-password-note {
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin: 0.5rem 0 0 0;
+        }
+
+        .demo-password-note code {
+            background: #e9ecef;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        }
+
+        /* Demo floating indicator */
+        .demo-floating-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9998;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
+            color: white;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            animation: pulseGlow 2s ease-in-out infinite alternate;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .demo-floating-indicator:hover {
+            transform: scale(1.05);
+        }
+
+        .demo-floating-content {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .demo-floating-badge {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .demo-floating-text {
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        @keyframes pulseGlow {
+            0% {
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            }
+            100% {
+                box-shadow: 0 4px 20px rgba(255, 107, 107, 0.4);
+            }
+        }
+
         /* Demo overlay styles */
         .demo-overlay {
             position: fixed;
@@ -1036,12 +1269,20 @@
         
         function showDemoBanner() {
             const banner = document.getElementById('demo-banner');
+            const floatingIndicator = document.getElementById('demo-floating-indicator');
             const appContainer = document.querySelector('.app-container');
+            
             if (banner && !localStorage.getItem('demo_banner_hidden')) {
                 banner.style.display = 'block';
                 if (appContainer) {
                     appContainer.classList.add('demo-mode');
                 }
+            }
+            
+            // Always show floating indicator in demo mode
+            if (floatingIndicator) {
+                floatingIndicator.style.display = 'block';
+                floatingIndicator.onclick = () => showDemoFeatures();
             }
         }
         
@@ -1167,6 +1408,46 @@ Visit http://your-server:3000 after installation completes.`);
 💡 Tip: Try opening 3-4 tabs with different users for the full team chat experience.
 
 All demo users have the password: "password"`);
+            }, 300);
+        }
+
+        function showDemoFeatures() {
+            // Show an overlay or alert highlighting demo features
+            setTimeout(() => {
+                alert(`✨ Demo Features Showcase:
+
+🔥 REAL-TIME FEATURES:
+• Instant messaging across all rooms
+• Live typing indicators
+• Real-time @mentions and notifications
+• WebSocket-powered synchronization
+
+🎵 SOUND SYSTEM (59 sounds available):
+• /play tada - Celebration sound
+• /play yeah - Excitement
+• /play nyan - Fun cat sound
+• /play greatjob - Appreciation
+• /play horn - Attention getter
+• /play rimshot - Comedy timing
+
+🔍 POWERFUL SEARCH:
+• Search across all rooms instantly
+• Try: "performance", "authentication", "design"
+• Full-text search with SQLite FTS5
+
+🤖 BOT INTEGRATION:
+• @bot system status - Get system info
+• Automated responses and notifications
+• Webhook integration ready
+
+🏠 ROOM TYPES:
+• General - Open team discussion
+• Development - Technical conversations
+• Design - Creative collaboration
+• Product Planning - Strategic discussions
+• Random - Fun and casual chat
+
+💡 Try opening multiple tabs as different users to see real-time collaboration!`);
             }, 300);
         }
         
