@@ -13,7 +13,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 RAILWAY_TEMPLATE_URL="https://railway.app/template/campfire-rust-v01"
-GITHUB_REPO="your-org/campfire-rust"
+GITHUB_REPO="that-in-rust/campfire-on-rust"
 
 # Check if Railway CLI is installed
 check_railway_cli() {

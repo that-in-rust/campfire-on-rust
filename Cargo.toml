@@ -106,9 +106,7 @@ jemalloc = ["tikv-jemallocator"]
 profiling = ["pprof"]
 performance-monitoring = ["sysinfo"]
 
-[[bench]]
-name = "performance_benchmarks"
-harness = false
+
 
 [lib]
 name = "campfire_on_rust"

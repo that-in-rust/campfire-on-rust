@@ -12,7 +12,7 @@ NC='\033[0m' # No Color
 
 # Get version from command line or default to v0.1.0
 VERSION=${1:-"v0.1.0"}
-REPO=${2:-"your-org/campfire-rust"}
+REPO=${2:-"that-in-rust/campfire-on-rust"}
 
 echo -e "${BLUE}🔄 Updating Campfire to version ${VERSION}${NC}"
 

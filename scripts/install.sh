@@ -1,6 +1,6 @@
 #!/bin/bash
 # Campfire v0.1 - Zero-Friction Local Installation Script
-# Usage: curl -sSL https://raw.githubusercontent.com/your-org/campfire-rust/main/scripts/install.sh | bash
+# Usage: curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash
 
 set -e
 
@@ -12,7 +12,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-REPO="your-org/campfire-rust"
+REPO="that-in-rust/campfire-on-rust"
 VERSION="v0.1.0"
 BINARY_NAME="campfire-on-rust"
 INSTALL_DIR="$HOME/.local/bin"
@@ -227,8 +227,8 @@ case "${1:-}" in
         echo "Campfire v0.1 Installation Script"
         echo ""
         echo "Usage:"
-        echo "  curl -sSL https://raw.githubusercontent.com/${REPO}/main/scripts/install.sh | bash"
-        echo "  curl -sSL https://raw.githubusercontent.com/${REPO}/main/scripts/install.sh | bash -s -- --no-start"
+        echo "  curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash"
+        echo "  curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash -s -- --no-start"
         echo ""
         echo "Options:"
         echo "  --help, -h     Show this help message"

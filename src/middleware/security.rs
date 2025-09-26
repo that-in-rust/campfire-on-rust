@@ -100,14 +100,14 @@ pub fn create_cors_layer(allowed_origins: &[String], _force_https: bool) -> Cors
             header::ACCEPT,
             "x-requested-with".parse().unwrap(),
         ])
-        .allow_credentials(true)
         .max_age(Duration::from_secs(3600));
     
     if allowed_origins.is_empty() {
-        // Allow all origins (development mode)
+        // Allow all origins (development mode) - cannot use credentials with Any
         cors = cors.allow_origin(Any);
     } else {
-        // Allow specific origins (production mode)
+        // Allow specific origins (production mode) - can use credentials with specific origins
+        cors = cors.allow_credentials(true);
         for origin in allowed_origins {
             if let Ok(origin_header) = origin.parse::<HeaderValue>() {
                 cors = cors.allow_origin(origin_header);

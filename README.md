@@ -45,7 +45,7 @@ graph LR
 
 ### **Option 1: One-Line Local Install** *(Recommended for Testing)*
 ```bash
-curl -sSL https://raw.githubusercontent.com/your-org/campfire-rust/main/scripts/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash
 ```
 *→ Automatic platform detection, configuration setup, immediate startup*
 

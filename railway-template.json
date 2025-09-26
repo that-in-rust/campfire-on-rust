@@ -3,7 +3,7 @@
   "description": "Zero-friction deployment of Campfire chat application built in Rust. Features real-time messaging, @mentions, sound system, search, and push notifications.",
   "icon": "🔥",
   "tags": ["chat", "rust", "websocket", "real-time", "messaging"],
-  "repository": "https://github.com/your-org/campfire-rust",
+  "repository": "https://github.com/that-in-rust/campfire-on-rust",
   "services": [
     {
       "name": "campfire-app",
@@ -56,8 +56,8 @@
     "version": "0.1.0",
     "author": "Campfire Team",
     "license": "MIT",
-    "homepage": "https://github.com/your-org/campfire-rust",
-    "documentation": "https://github.com/your-org/campfire-rust#readme",
+    "homepage": "https://github.com/that-in-rust/campfire-on-rust",
+    "documentation": "https://github.com/that-in-rust/campfire-on-rust#readme",
     "categories": ["communication", "collaboration", "real-time"],
     "keywords": ["chat", "messaging", "rust", "websocket", "real-time", "team-communication"],
     "requirements": {
