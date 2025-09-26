@@ -53,6 +53,7 @@ async fn create_full_test_app() -> (Router, Arc<CampfireDatabase>) {
     ));
     
     let setup_service = Arc::new(campfire_on_rust::SetupServiceImpl::new(db.clone()));
+    let demo_service = Arc::new(campfire_on_rust::DemoServiceImpl::new(Arc::new(db.clone())));
     
     let app_state = AppState {
         db: db.clone(),
@@ -63,6 +64,7 @@ async fn create_full_test_app() -> (Router, Arc<CampfireDatabase>) {
         push_service,
         bot_service,
         setup_service,
+        demo_service,
     };
 
     let app = Router::new()

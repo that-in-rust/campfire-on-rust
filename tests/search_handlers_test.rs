@@ -41,14 +41,20 @@ async fn setup_test_app() -> (Router, Arc<CampfireDatabase>, User, String) {
         message_service.clone(),
     ));
     
+    let db_for_services = CampfireDatabase::new(":memory:").await.unwrap();
+    let setup_service = Arc::new(campfire_on_rust::SetupServiceImpl::new(db_for_services.clone()));
+    let demo_service = Arc::new(campfire_on_rust::DemoServiceImpl::new(Arc::new(db_for_services.clone())));
+    
     let app_state = AppState {
-        db: CampfireDatabase::new(":memory:").await.unwrap(),
+        db: db_for_services,
         auth_service: auth_service.clone(),
         room_service: room_service.clone(),
         message_service,
         search_service,
         push_service,
         bot_service,
+        setup_service,
+        demo_service,
     };
     
     let app = Router::new()

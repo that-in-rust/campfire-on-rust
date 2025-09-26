@@ -54,6 +54,7 @@ async fn create_full_test_app() -> (Router, Arc<CampfireDatabase>) {
     ));
     
     let setup_service = Arc::new(campfire_on_rust::SetupServiceImpl::new(db.clone()));
+    let demo_service = Arc::new(campfire_on_rust::DemoServiceImpl::new(db_arc.clone()));
     
     let app_state = AppState {
         db: db.clone(),
@@ -64,6 +65,7 @@ async fn create_full_test_app() -> (Router, Arc<CampfireDatabase>) {
         push_service,
         bot_service,
         setup_service,
+        demo_service,
     };
 
     let app = Router::new()
@@ -1115,38 +1117,4 @@ async fn test_user_journey_complete_application_health() {
 }
 
 // =============================================================================
-// COMPREHENSIVE USER JOURNEY TEST RUNNER
-// =============================================================================
-
-#[tokio::test]
-async fn test_all_user_journeys_comprehensive() {
-    println!("\n🚀 Running Comprehensive User Journey Tests (UATs)");
-    println!("==================================================");
-    
-    // Run all user journey tests
-    test_user_journey_new_user_onboarding().await;
-    test_user_journey_basic_chat_functionality().await;
-    test_user_journey_message_deduplication_and_errors().await;
-    test_user_journey_search_functionality().await;
-    test_user_journey_room_management_and_permissions().await;
-    test_user_journey_sound_system_and_rich_text().await;
-    test_user_journey_bot_integration().await;
-    test_user_journey_push_notifications().await;
-    test_user_journey_error_recovery_and_edge_cases().await;
-    test_user_journey_complete_application_health().await;
-    
-    println!("\n🎉 ALL USER JOURNEY TESTS PASSED!");
-    println!("==================================");
-    println!("✅ The Campfire Rust rewrite successfully handles:");
-    println!("   • New user onboarding and authentication");
-    println!("   • Basic chat functionality and messaging");
-    println!("   • Message deduplication and error handling");
-    println!("   • Search functionality across messages");
-    println!("   • Room management and permission systems");
-    println!("   • Sound system and rich text formatting");
-    println!("   • Bot integration and API access");
-    println!("   • Push notification subscriptions");
-    println!("   • Error recovery and edge case handling");
-    println!("   • Complete application health and endpoints");
-    println!("\n🚀 The application is ready for production deployment!");
-}
+// Individual test functions are run independently by cargo test

@@ -35,30 +35,48 @@ async fn test_performance_monitoring_integration() {
     let connection_manager = OptimizedConnectionManager::new(None);
     
     // Create services
-    let auth_service = AuthService::new(Arc::new(db.clone()));
-    let room_service = RoomService::new(Arc::new(db.clone()));
-    let message_service = MessageService::new(Arc::new(db.clone()));
-    let search_service = SearchService::new(Arc::new(db.clone()));
+    let auth_service = Arc::new(AuthService::new(Arc::new(db.clone())));
+    let room_service = Arc::new(RoomService::new(Arc::new(db.clone())));
+    let connection_manager_arc = Arc::new(connection_manager);
+    let message_service = Arc::new(MessageService::new(
+        Arc::new(db.clone()),
+        connection_manager_arc.clone(),
+        room_service.clone(),
+    ));
+    let search_service = Arc::new(SearchService::new(
+        Arc::new(db.clone()),
+        room_service.clone(),
+    ));
     
     let vapid_config = VapidConfig {
         public_key: "test_public_key".to_string(),
         private_key: "test_private_key".to_string(),
+        subject: "mailto:test@example.com".to_string(),
     };
-    let push_service = PushNotificationServiceImpl::new(vapid_config);
-    let bot_service = BotServiceImpl::new(Arc::new(db.clone()));
-    let setup_service = SetupServiceImpl::new(Arc::new(db.clone()));
+    let push_service = Arc::new(PushNotificationServiceImpl::new(
+        db.clone(),
+        db.writer(),
+        vapid_config,
+    ));
+    let bot_service = Arc::new(BotServiceImpl::new(
+        Arc::new(db.clone()),
+        db.writer(),
+        message_service.clone(),
+    ));
+    let setup_service = Arc::new(SetupServiceImpl::new(db.clone()));
+    let demo_service = Arc::new(campfire_on_rust::DemoServiceImpl::new(Arc::new(db.clone())));
     
     // Create app state
     let app_state = AppState {
-        db: Arc::new(db),
-        auth: Arc::new(auth_service),
-        rooms: Arc::new(room_service),
-        messages: Arc::new(message_service),
-        connections: Arc::new(connection_manager),
-        search: Arc::new(search_service),
-        push: Arc::new(push_service),
-        bots: Arc::new(bot_service),
-        setup: Arc::new(setup_service),
+        db: db.clone(),
+        auth_service,
+        room_service,
+        message_service,
+        search_service,
+        push_service,
+        bot_service,
+        setup_service,
+        demo_service,
     };
     
     // Test performance monitoring with actual operations
