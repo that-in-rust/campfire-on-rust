@@ -1,6 +1,8 @@
 # Campfire 🔥
 > **Team chat that works.** Real-time messaging. Zero-friction deployment. Built for teams who value simplicity over complexity.
 
+**Version**: v0.1.0 | **Release Date**: December 26, 2024 | **Status**: Ready for GTM Launch 🚀
+
 ## 🙏 A Humble Tribute
 
 **Thank you to DHH and Jason Fried** for creating the original Campfire at Basecamp and sharing it with the world. Your vision of simple, effective team communication inspired countless developers and teams.
