@@ -201,11 +201,13 @@ Generated: $(date)
 - **Claim**: Starts in under 1 second
 - **Measured**: ${STARTUP_TIME}s
 - **Status**: $(if (( $(echo "$STARTUP_TIME < 1.0" | bc -l) )); then echo "✅ PASS"; else echo "❌ FAIL"; fi)
+- **Startup time verified**: $(if (( $(echo "$STARTUP_TIME < 1.0" | bc -l) )); then echo "YES - ${STARTUP_TIME}s < 1s"; else echo "NO - ${STARTUP_TIME}s >= 1s"; fi)
 
 ### Memory Usage
 - **Claim**: Uses ~20MB RAM
 - **Measured**: ${MEMORY_MB}MB
 - **Status**: $(if (( $(echo "$MEMORY_MB <= 30" | bc -l) )); then echo "✅ PASS"; else echo "⚠️ WARNING"; fi)
+- **Memory usage verified**: $(if (( $(echo "$MEMORY_MB <= 30" | bc -l) )); then echo "YES - ${MEMORY_MB}MB <= 30MB"; else echo "NO - ${MEMORY_MB}MB > 30MB"; fi)
 
 ### Binary Size
 - **Measured**: ${BINARY_SIZE_MB}MB
