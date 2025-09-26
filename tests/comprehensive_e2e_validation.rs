@@ -258,12 +258,19 @@ impl ComprehensiveE2EValidator {
         let temp_dir = TempDir::new()
             .map_err(|e| E2EError::EnvironmentSetup(e.to_string()))?;
         
+        // Get the absolute path to the binary
+        let binary_path = std::env::current_dir()
+            .map_err(|e| E2EError::EnvironmentSetup(e.to_string()))?
+            .join("target/release/campfire-on-rust");
+        
         // Start application in background
-        let mut child = Command::new("target/release/campfire-on-rust")
+        let mut child = Command::new(&binary_path)
             .current_dir(temp_dir.path())
             .env("CAMPFIRE_PORT", "3004")
             .env("CAMPFIRE_HOST", "127.0.0.1")
-            .env("CAMPFIRE_DATABASE_URL", format!("sqlite://{}/test.db", temp_dir.path().display()))
+            .env("CAMPFIRE_DATABASE_URL", "sqlite://test.db")
+            .env("CAMPFIRE_VAPID_PUBLIC_KEY", "test_public_key")
+            .env("CAMPFIRE_VAPID_PRIVATE_KEY", "test_private_key")
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
@@ -295,13 +302,20 @@ impl ComprehensiveE2EValidator {
         let temp_dir = TempDir::new()
             .map_err(|e| E2EError::EnvironmentSetup(e.to_string()))?;
         
+        // Get the absolute path to the binary
+        let binary_path = std::env::current_dir()
+            .map_err(|e| E2EError::EnvironmentSetup(e.to_string()))?
+            .join("target/release/campfire-on-rust");
+        
         // Start application in demo mode
-        let mut child = Command::new("target/release/campfire-on-rust")
+        let mut child = Command::new(&binary_path)
             .current_dir(temp_dir.path())
             .env("CAMPFIRE_PORT", "3005")
             .env("CAMPFIRE_HOST", "127.0.0.1")
-            .env("CAMPFIRE_DATABASE_URL", format!("sqlite://{}/demo.db", temp_dir.path().display()))
+            .env("CAMPFIRE_DATABASE_URL", "sqlite://demo.db")
             .env("CAMPFIRE_DEMO_MODE", "true")
+            .env("CAMPFIRE_VAPID_PUBLIC_KEY", "test_public_key")
+            .env("CAMPFIRE_VAPID_PRIVATE_KEY", "test_private_key")
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
