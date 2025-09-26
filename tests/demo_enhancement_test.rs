@@ -31,6 +31,8 @@ async fn test_enhanced_demo_mode_detection() {
     
     let demo_service = Arc::new(services::DemoServiceImpl::new(db_arc.clone()));
     
+    let analytics_store = Arc::new(campfire_on_rust::analytics::AnalyticsStore::new());
+    
     let app_state = AppState {
         db,
         auth_service,
@@ -41,6 +43,7 @@ async fn test_enhanced_demo_mode_detection() {
         bot_service,
         setup_service,
         demo_service,
+        analytics_store,
     };
     
     // Initialize demo data
