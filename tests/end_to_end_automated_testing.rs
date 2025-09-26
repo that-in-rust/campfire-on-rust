@@ -24,9 +24,10 @@ use std::path::Path;
 use tempfile::TempDir;
 use tokio::time::timeout;
 use reqwest;
-use testcontainers::{clients::Cli, images::generic::GenericImage, Container};
-use tokio_test;
-use serde_json::json;
+// Removed testcontainers imports due to API changes
+// use testcontainers::{clients::Cli, images::generic::GenericImage, Container};
+// use tokio_test;
+// use serde_json::json;
 
 /// Main end-to-end testing suite
 #[tokio::test]

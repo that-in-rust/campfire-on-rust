@@ -15,7 +15,7 @@ use std::path::Path;
 use tempfile::TempDir;
 use tokio::time::timeout;
 use reqwest;
-use serde_json::{json, Value};
+use serde_json::Value;
 
 /// Cross-Platform Testing Framework
 /// 
@@ -213,9 +213,9 @@ impl CrossPlatformTestFramework {
             .current_dir(&test_env.path)
             .env("CAMPFIRE_PORT", "3001")
             .env("CAMPFIRE_HOST", "127.0.0.1")
-            .env("CAMPFIRE_DATABASE_URL", "sqlite://test.db")
-            .env("CAMPFIRE_VAPID_PUBLIC_KEY", "test_public_key")
-            .env("CAMPFIRE_VAPID_PRIVATE_KEY", "test_private_key")
+            .env("CAMPFIRE_DATABASE_URL", format!("sqlite://{}/test.db", test_env.path.display()))
+            .env("CAMPFIRE_VAPID_PUBLIC_KEY", "BNWxrd_-Kg5OdmhAUDw4jHO2qQwWZEJwM7qd5_UdC2PzSrTPHVmfjDjG8w6uMRzBvXLWyqhzMvDMv5jcNAmOgWs")
+            .env("CAMPFIRE_VAPID_PRIVATE_KEY", "test_private_key_placeholder_for_testing_only")
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
@@ -270,9 +270,9 @@ impl CrossPlatformTestFramework {
             .current_dir(&test_env.path)
             .env("CAMPFIRE_PORT", "3002")
             .env("CAMPFIRE_HOST", "127.0.0.1")
-            .env("CAMPFIRE_DATABASE_URL", "sqlite://func_test.db")
-            .env("CAMPFIRE_VAPID_PUBLIC_KEY", "test_public_key")
-            .env("CAMPFIRE_VAPID_PRIVATE_KEY", "test_private_key")
+            .env("CAMPFIRE_DATABASE_URL", format!("sqlite://{}/func_test.db", test_env.path.display()))
+            .env("CAMPFIRE_VAPID_PUBLIC_KEY", "BNWxrd_-Kg5OdmhAUDw4jHO2qQwWZEJwM7qd5_UdC2PzSrTPHVmfjDjG8w6uMRzBvXLWyqhzMvDMv5jcNAmOgWs")
+            .env("CAMPFIRE_VAPID_PRIVATE_KEY", "test_private_key_placeholder_for_testing_only")
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
@@ -317,10 +317,10 @@ impl CrossPlatformTestFramework {
             .current_dir(&test_env.path)
             .env("CAMPFIRE_PORT", "3003")
             .env("CAMPFIRE_HOST", "127.0.0.1")
-            .env("CAMPFIRE_DATABASE_URL", "sqlite://demo_test.db")
+            .env("CAMPFIRE_DATABASE_URL", format!("sqlite://{}/demo_test.db", test_env.path.display()))
             .env("CAMPFIRE_DEMO_MODE", "true")
-            .env("CAMPFIRE_VAPID_PUBLIC_KEY", "test_public_key")
-            .env("CAMPFIRE_VAPID_PRIVATE_KEY", "test_private_key")
+            .env("CAMPFIRE_VAPID_PUBLIC_KEY", "BNWxrd_-Kg5OdmhAUDw4jHO2qQwWZEJwM7qd5_UdC2PzSrTPHVmfjDjG8w6uMRzBvXLWyqhzMvDMv5jcNAmOgWs")
+            .env("CAMPFIRE_VAPID_PRIVATE_KEY", "test_private_key_placeholder_for_testing_only")
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
@@ -358,17 +358,15 @@ impl CrossPlatformTestFramework {
         
         // Test platform detection patterns
         let required_platforms = vec![
-            ("Linux", "linux"),
-            ("Darwin", "darwin"),
-            ("CYGWIN", "windows"),
-            ("MINGW", "windows"),
-            ("MSYS", "windows"),
+            "Linux*)",
+            "Darwin*)",
+            "CYGWIN*|MINGW*|MSYS*)",
         ];
         
-        for (platform_check, _platform_type) in required_platforms {
-            if !script_content.contains(&format!("{}*)", platform_check)) {
+        for platform_pattern in required_platforms {
+            if !script_content.contains(platform_pattern) {
                 return Err(TestError::PlatformDetectionFailed(
-                    format!("Missing platform detection for: {}", platform_check)
+                    format!("Missing platform detection for: {}", platform_pattern)
                 ));
             }
         }
