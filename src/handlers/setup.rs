@@ -53,7 +53,7 @@ pub async fn serve_setup_page(State(state): State<AppState>) -> impl IntoRespons
                 <!DOCTYPE html>
                 <html>
                 <head>
-                    <title>Setup Error - Campfire</title>
+                    <title>Setup Error - campfire-on-rust</title>
                     <meta charset="utf-8">
                     <meta name="viewport" content="width=device-width, initial-scale=1">
                     <style>

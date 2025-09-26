@@ -384,7 +384,7 @@ pub async fn serve_multi_user_guide(State(_state): State<AppState>) -> impl Into
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi-User Demo Guide - Campfire</title>
+    <title>Multi-User Demo Guide - campfire-on-rust</title>
     <link rel="stylesheet" href="/static/css/campfire.css">
     <style>
         body {

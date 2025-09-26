@@ -73,11 +73,11 @@ async fn serve_enhanced_demo_login_page(State(state): State<AppState>) -> String
     
     // Inject performance metrics into the page
     let enhanced_html = base_html.replace(
-        "Campfire Demo - Built with Rust 🦀",
+        "campfire-on-rust Demo - Built with Rust 🦀",
         &format!(
-            "Campfire Demo - Built with Rust 🦀<br>
+            "campfire-on-rust Demo - Built with Rust 🦀<br>
             <small style='opacity: 0.7; font-size: 11px;'>
-                ⚡ {}ms response • 💾 {}MB memory • 👥 {} users • 🏠 {} rooms
+                A Rust fork of Basecamp's Campfire • ⚡ {}ms response • 💾 {}MB memory • 👥 {} users • 🏠 {} rooms
             </small>",
             response_time_ms,
             system_metrics.memory_usage_mb,

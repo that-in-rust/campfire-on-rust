@@ -261,7 +261,7 @@ impl DemoDataInitializer {
         self.create_message(
             admin,
             general_room,
-            "Welcome to Campfire! 🔥 This is our team chat where we collaborate and stay connected.",
+            "Welcome to campfire-on-rust! 🔥 A Rust fork of Basecamp's Campfire - our team chat where we collaborate and stay connected.",
         ).await?;
         
         self.create_message(

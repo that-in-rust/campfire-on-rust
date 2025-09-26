@@ -295,7 +295,7 @@ impl DemoServiceImpl {
             TourStep {
                 step_id: "welcome".to_string(),
                 title: "Welcome to campfire-on-rust!".to_string(),
-                description: "This is your team's chat application built with Rust for blazing fast performance.".to_string(),
+                description: "This is campfire-on-rust, a Rust fork of Basecamp's Campfire chat application, built for blazing fast performance.".to_string(),
                 target_element: ".chat-container".to_string(),
                 highlight_type: "overlay".to_string(),
                 action_required: None,
