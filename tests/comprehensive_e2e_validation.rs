@@ -928,7 +928,7 @@ async fn test_complete_gtm_launch_readiness_validation() {
     }
     
     // Final validation result
-    println!("\n" + "=".repeat(60).as_str());
+    println!("\n{}", "=".repeat(60));
     if all_passed {
         println!("🎉 ALL GTM LAUNCH READINESS TESTS PASSED!");
         println!("✅ Product is ready for public GTM launch with confidence");
