@@ -128,7 +128,7 @@
 
 ## Phase 3: Validation and Launch
 
-- [x] 11. End-to-End Testing on current machine (mac) using industry standard testing frameworks so you do not need any human tests. + for other platforms which you do not have right now like linux or windows - research deeply and check for what mistakes can happen
+- [-] 11. End-to-End Testing on current machine (mac) using industry standard testing frameworks so you do not need any human tests. + for other platforms which you do not have right now like linux or windows - research deeply and check for what mistakes can happen
   - Test complete "Try it locally" flow: `curl | bash` → localhost:3000 on clean machines
   - Test complete "Deploy for your team" flow from GitHub README to working chat
   - Verify both paths lead to working Campfire within promised timeframes (2-3 minutes)
@@ -144,7 +144,7 @@
   - Create simple monitoring dashboard for deployment health and success rates
   - _Requirements: 5.1, 5.2, 7.3, 8.1, 8.2, 8.3_
 
-- [-] 13. Create GitHub Release with Pre-built Binaries
+- [x] 13. Create GitHub Release with Pre-built Binaries
   - Build optimized release binaries for all supported platforms (macOS x86_64/aarch64, Linux x86_64/aarch64, Windows x86_64)
   - Create GitHub release v0.1.0 with comprehensive release notes
   - Upload all platform binaries to GitHub release

@@ -60,10 +60,10 @@ async-trait = "0.1"
 futures-util = "0.3"
 
 # Push notifications
-web-push = "0.8"
+web-push = { version = "0.8", features = ["hyper-client"], default-features = false }
 
 # HTTP client for webhook delivery
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
 url = "2.0"
 
 # Rate limiting and security

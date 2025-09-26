@@ -1,1 +1,1 @@
-6d9404c6708ead41e40918a21b9ab18e4d6a0487a163691583aa8da0d5d772da  campfire-on-rust-darwin-aarch64
+f2ae3e00542d417effcd6ac8d3420b294808c667918f3c685f73b66a79870c97  campfire-on-rust-darwin-aarch64
