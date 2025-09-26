@@ -216,6 +216,41 @@
             border-radius: 16px 16px 0 0;
         }
         
+        /* Demo Indicator */
+        .demo-indicator {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 0 0 2rem 0;
+            text-align: center;
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }
+        
+        .demo-indicator-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .demo-badge-icon {
+            font-size: 1.5rem;
+        }
+        
+        .demo-badge-text {
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        
+        .demo-indicator-text {
+            font-size: 1rem;
+            opacity: 0.9;
+            font-weight: 500;
+        }
+        
         .demo-header {
             text-align: center;
             margin-bottom: 2rem;
@@ -370,6 +405,158 @@
             color: var(--color-warning-dark);
         }
         
+        /* Deploy CTA Banner */
+        .deploy-cta-banner {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 2rem auto;
+            max-width: 800px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 8px 32px rgba(40, 167, 69, 0.3);
+        }
+        
+        .deploy-cta-content h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.75rem;
+            font-weight: 700;
+        }
+        
+        .deploy-cta-content p {
+            margin: 0 0 1.5rem 0;
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .deploy-cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .deploy-btn {
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 1rem;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .deploy-primary {
+            background: #ff6b6b;
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+        }
+        
+        .deploy-primary:hover {
+            background: #ff5252;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.6);
+        }
+        
+        .deploy-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .deploy-secondary:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        /* Final CTA Section */
+        .final-cta-section {
+            margin: 3rem 0 2rem 0;
+        }
+        
+        .final-cta-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            padding: 2.5rem 2rem;
+            text-align: center;
+            color: white;
+            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+        }
+        
+        .final-cta-box h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        
+        .final-cta-box p {
+            margin: 0 0 2rem 0;
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .final-cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+        
+        .btn-deploy-primary {
+            background: #ff6b6b;
+            color: white;
+            padding: 1.25rem 2.5rem;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
+        }
+        
+        .btn-deploy-primary:hover {
+            background: #ff5252;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(255, 107, 107, 0.6);
+        }
+        
+        .btn-deploy-secondary {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            padding: 1.25rem 2.5rem;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-deploy-secondary:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateY(-3px);
+        }
+        
+        .final-cta-features {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            font-size: 0.95rem;
+            opacity: 0.9;
+        }
+        
+        .final-cta-features span {
+            font-weight: 500;
+        }
+        
         @media (max-width: 768px) {
             .demo-container {
                 margin: 1rem;
@@ -382,6 +569,30 @@
             
             .action-buttons {
                 flex-direction: column;
+            }
+            
+            .deploy-cta-buttons,
+            .final-cta-buttons {
+                flex-direction: column;
+            }
+            
+            .deploy-btn,
+            .btn-deploy-primary,
+            .btn-deploy-secondary {
+                width: 100%;
+            }
+            
+            .final-cta-features {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .final-cta-box h3 {
+                font-size: 1.5rem;
+            }
+            
+            .final-cta-box p {
+                font-size: 1rem;
             }
         }
     </style>
@@ -398,6 +609,21 @@
         <div class="hero-cta">
             <a href="#preview" class="cta-button cta-primary">See It In Action</a>
             <a href="/login" class="cta-button cta-secondary">Try Demo Now</a>
+        </div>
+        
+        <div class="deploy-cta-banner">
+            <div class="deploy-cta-content">
+                <h3>🚀 Ready to Deploy for Your Team?</h3>
+                <p>Get your own Campfire instance running in under 3 minutes</p>
+                <div class="deploy-cta-buttons">
+                    <a href="https://railway.app/template/campfire-rust" class="deploy-btn deploy-primary" target="_blank">
+                        Deploy to Railway
+                    </a>
+                    <button class="deploy-btn deploy-secondary" onclick="showSelfHosted()">
+                        Self-Host Guide
+                    </button>
+                </div>
+            </div>
         </div>
         
         <div style="margin-top: 2rem; font-size: 0.9rem; opacity: 0.7;">
@@ -444,6 +670,16 @@
     </div>
     
     <div class="demo-container">
+        
+        <div class="demo-indicator">
+            <div class="demo-indicator-badge">
+                <span class="demo-badge-icon">🔥</span>
+                <span class="demo-badge-text">DEMO MODE ACTIVE</span>
+            </div>
+            <div class="demo-indicator-text">
+                This is sample data showcasing all Campfire features
+            </div>
+        </div>
         
         <div class="demo-note">
             <strong>🚀 Fully Offline Experience:</strong> This is a production-ready chat application running locally on your machine. 
@@ -579,8 +815,29 @@
             </ul>
         </div>
         
+        <div class="final-cta-section">
+            <div class="final-cta-box">
+                <h3>🚀 Ready to Deploy for Your Team?</h3>
+                <p>Loved the demo? Get your team using Campfire in production!</p>
+                <div class="final-cta-buttons">
+                    <a href="https://railway.app/template/campfire-rust" class="btn btn-deploy-primary" target="_blank">
+                        Deploy to Railway
+                    </a>
+                    <button class="btn btn-deploy-secondary" onclick="showSelfHosted()">
+                        Self-Host Guide
+                    </button>
+                </div>
+                <div class="final-cta-features">
+                    <span>✅ 3-minute setup</span>
+                    <span>✅ Automatic HTTPS</span>
+                    <span>✅ Built-in scaling</span>
+                    <span>✅ No vendor lock-in</span>
+                </div>
+            </div>
+        </div>
+        
         <div class="action-buttons">
-            <a href="/login" class="btn btn-primary">Login to Chat</a>
+            <a href="/login" class="btn btn-primary">Continue Demo</a>
             <a href="https://github.com/that-in-rust/campfire-on-rust" class="btn btn-secondary" target="_blank">View Source Code</a>
         </div>
         
@@ -620,6 +877,52 @@
                     block: 'center'
                 });
             });
+        });
+        
+        function showSelfHosted() {
+            const installCommand = `curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash`;
+            
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(installCommand).then(() => {
+                    alert(`📋 Install script copied to clipboard!
+
+🖥️ Self-Hosted Installation:
+
+Run this command on your server:
+${installCommand}
+
+The script will:
+✅ Download the latest Campfire binary
+✅ Set up the database and configuration
+✅ Start the service on port 3000
+✅ Create systemd service (Linux) or launch daemon (macOS)
+
+Visit http://your-server:3000 after installation completes.
+
+💡 Perfect for teams that want full control over their data!`);
+                }).catch(() => {
+                    showSelfHostedFallback(installCommand);
+                });
+            } else {
+                showSelfHostedFallback(installCommand);
+            }
+        }
+        
+        function showSelfHostedFallback(command) {
+            alert(`🖥️ Self-Hosted Installation:
+
+Copy and run this command on your server:
+${command}
+
+The script will:
+✅ Download the latest Campfire binary
+✅ Set up the database and configuration  
+✅ Start the service on port 3000
+✅ Create systemd service (Linux) or launch daemon (macOS)
+
+Visit http://your-server:3000 after installation completes.
+
+💡 Perfect for teams that want full control over their data!`);
         });
         
         function startLiveDemo() {

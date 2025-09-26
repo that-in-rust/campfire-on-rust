@@ -193,7 +193,8 @@ async fn main() -> Result<()> {
         .route("/manifest.json", get(campfire_on_rust::assets::serve_manifest))
         
         // Demo API endpoints
-        .route("/api/demo/status", get(campfire_on_rust::handlers::pages::demo_status))
+        .route("/api/demo/status", get(campfire_on_rust::handlers::demo::get_demo_status))
+        .route("/api/demo/track-event", post(campfire_on_rust::handlers::demo::track_demo_event))
         .route("/api/demo/initialize", post(campfire_on_rust::handlers::pages::initialize_demo))
         .route("/api/demo/credentials", get(campfire_on_rust::handlers::demo::get_demo_credentials))
         .route("/api/demo/integrity", get(campfire_on_rust::handlers::demo::check_demo_integrity))
