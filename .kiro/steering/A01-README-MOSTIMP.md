@@ -1,3 +1,6 @@
+# Codebase Wisdom 101
+Constantly do cargo clean etc so that unnecessary files do not messs up your context or space
+
 # Design101: TDD-First Architecture Principles
 
 Test-First Development: I should be writing tests FIRST, following the STUB → RED → GREEN → REFACTOR cycle

@@ -11,12 +11,54 @@
   - Ensure `cargo check` passes with 0 errors
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8_
 
-- [-] 2. Create GitHub Release with Pre-built Binaries
+- [x] 2. Create GitHub Release with Pre-built Binaries
   - Build optimized binaries for macOS (x86_64, aarch64), Linux (x86_64, aarch64), Windows (x86_64)
   - Create GitHub release v0.1.0 with all platform binaries
   - Test binary downloads work from GitHub releases API
   - Verify install script can download and execute binaries correctly
   - _Requirements: 10.2, 10.3, 10.4, 10.6_
+
+- [ ] 3. Implement Professional CI/CD Testing Architecture
+  - Replace custom bash scripts with industry-standard testing frameworks
+  - Implement L1→L2→L3 layered testing approach following TDD-First Architecture Principles
+  - Create executable specifications with measurable performance contracts
+  - Ensure all testing follows STUB → RED → GREEN → REFACTOR cycle
+  - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 12.7_
+
+- [ ] 3.1 Implement L1 Core Testing Framework (Rust Native)
+  - Create trait-based CI/CD testing interfaces with dependency injection for testability
+  - Implement cargo-dist configuration for professional cross-platform builds
+  - Write criterion benchmarks with performance contracts for all timing claims
+  - Add proptest property-based tests for installation and deployment invariants
+  - _Requirements: 12.2, 12.7_
+
+- [ ] 3.2 Implement L2 Standard Library Testing (Async + Infrastructure)
+  - Create testcontainers-rs integration tests for clean environment simulation
+  - Implement tokio-test async testing patterns for GitHub Actions workflow validation
+  - Add mockall trait-based mocking for external service dependencies
+  - Write tempfile-based filesystem testing for installation script validation
+  - _Requirements: 12.3, 12.6_
+
+- [ ] 3.3 Implement L3 External Ecosystem Testing (Professional Tools)
+  - Configure act for local GitHub Actions workflow testing before deployment
+  - Implement goss server validation tests for binary functionality verification
+  - Create structured bats tests to replace custom bash script validation
+  - Add docker-compose integration environments for end-to-end testing
+  - _Requirements: 12.1, 12.4, 12.5_
+
+- [ ] 3.4 Create Executable Testing Specifications with Performance Contracts
+  - Write WHEN...THEN...SHALL acceptance criteria tests for all CI/CD functionality
+  - Implement automated regression detection with criterion benchmark baselines
+  - Create structured error hierarchies using thiserror for all testing failures
+  - Add comprehensive test coverage reporting with automated quality gates
+  - _Requirements: 12.7, 12.5_
+
+- [ ] 3.5 Remove Custom Bash Scripts and Implement Professional Alternatives
+  - Replace scripts/test-github-release.sh with cargo-dist + act integration tests
+  - Replace scripts/test-install-simulation.sh with testcontainers-rs infrastructure tests
+  - Replace scripts/verify-release-setup.sh with goss server validation tests
+  - Implement one-command verification using professional testing frameworks
+  - _Requirements: 12.5, 12.1_
 
 - [ ] 3. Verify End-to-End Installation Flow
   - Test `curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash` on clean machines
