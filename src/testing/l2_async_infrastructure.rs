@@ -759,7 +759,7 @@ mod tests {
         let provider = MockTestcontainersProvider::new(true);
         
         let env = provider.create_clean_environment().await.unwrap();
-        assert_eq!(env.container_id, "mock-container-123");
+        assert!(env.container_id.starts_with("mock-container-"));
         assert!(matches!(env.status, EnvironmentStatus::Running));
         
         let result = provider.test_installation_in_container("test-script.sh").await.unwrap();

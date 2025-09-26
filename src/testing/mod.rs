@@ -8,6 +8,8 @@ use thiserror::Error;
 pub mod cargo_dist;
 pub mod l2_async_infrastructure;
 pub mod l3_external_ecosystem;
+pub mod executable_specifications;
+pub mod professional_alternatives;
 
 /// L1 Core Testing Framework Error Hierarchy
 #[derive(Error, Debug)]
