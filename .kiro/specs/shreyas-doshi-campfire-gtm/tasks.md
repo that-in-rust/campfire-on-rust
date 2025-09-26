@@ -46,7 +46,7 @@
   - Add docker-compose integration environments for end-to-end testing
   - _Requirements: 12.1, 12.4, 12.5_
 
-- [x] 3.4 Create Executable Testing Specifications with Performance Contracts
+- [ ] 3.4 Create Executable Testing Specifications with Performance Contracts
   - Write WHEN...THEN...SHALL acceptance criteria tests for all CI/CD functionality
   - Implement automated regression detection with criterion benchmark baselines
   - Create structured error hierarchies using thiserror for all testing failures

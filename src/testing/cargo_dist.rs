@@ -4,6 +4,7 @@
 use async_trait::async_trait;
 use super::{TestFrameworkError, BuildReport, PlatformBuild, BinarySize};
 use std::time::Duration;
+use std::process::Stdio;
 
 /// Cargo-Dist Provider Contract
 /// 

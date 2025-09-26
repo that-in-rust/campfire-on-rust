@@ -6,10 +6,16 @@ use std::time::Duration;
 use thiserror::Error;
 
 pub mod cargo_dist;
+pub mod criterion_provider;
+pub mod proptest_provider;
 pub mod l2_async_infrastructure;
 pub mod l3_external_ecosystem;
 pub mod executable_specifications;
 pub mod professional_alternatives;
+
+// Re-export key types for easier access
+pub use criterion_provider::{CriterionProvider, MockCriterionProvider, ProductionCriterionProvider};
+pub use proptest_provider::{ProptestProvider, MockProptestProvider, ProductionProptestProvider};
 
 /// L1 Core Testing Framework Error Hierarchy
 #[derive(Error, Debug)]
@@ -178,14 +184,20 @@ pub enum TestingHealth {
 /// Production Implementation of CI/CD Testing Framework
 pub struct ProductionCICDTesting {
     cargo_dist: Box<dyn cargo_dist::CargoDistProvider + Send + Sync>,
+    criterion: Box<dyn criterion_provider::CriterionProvider + Send + Sync>,
+    proptest: Box<dyn proptest_provider::ProptestProvider + Send + Sync>,
 }
 
 impl ProductionCICDTesting {
     pub fn new(
         cargo_dist: Box<dyn cargo_dist::CargoDistProvider + Send + Sync>,
+        criterion: Box<dyn criterion_provider::CriterionProvider + Send + Sync>,
+        proptest: Box<dyn proptest_provider::ProptestProvider + Send + Sync>,
     ) -> Self {
         Self {
             cargo_dist,
+            criterion,
+            proptest,
         }
     }
 }
@@ -197,24 +209,11 @@ impl CICDTestingFramework for ProductionCICDTesting {
     }
     
     async fn validate_performance_contracts(&self) -> Result<PerformanceReport, TestFrameworkError> {
-        // TODO: Implement criterion provider
-        Ok(PerformanceReport {
-            contracts: vec![],
-            benchmarks: vec![],
-            violations: vec![],
-            overall_score: 1.0,
-        })
+        self.criterion.run_benchmarks_with_contracts().await
     }
     
     async fn test_installation_invariants(&self) -> Result<PropertyReport, TestFrameworkError> {
-        // TODO: Implement proptest provider
-        Ok(PropertyReport {
-            properties: vec![],
-            total_cases: 0,
-            passed_cases: 0,
-            failed_cases: 0,
-            shrunk_cases: vec![],
-        })
+        self.proptest.test_installation_invariants().await
     }
     
     async fn generate_testing_report(&self) -> Result<ComprehensiveReport, TestFrameworkError> {
