@@ -11,36 +11,32 @@
   - Ensure `cargo check` passes with 0 errors
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8_
 
-- [ ] 2. Verify Basic Application Startup
-  - Ensure `cargo run` starts the application successfully
-  - Verify application is accessible at http://localhost:3000
-  - Test basic functionality (login, create room, send message)
+- [-] 2. Create GitHub Release with Pre-built Binaries
+  - Build optimized binaries for macOS (x86_64, aarch64), Linux (x86_64, aarch64), Windows (x86_64)
+  - Create GitHub release v0.1.0 with all platform binaries
+  - Test binary downloads work from GitHub releases API
+  - Verify install script can download and execute binaries correctly
+  - _Requirements: 10.2, 10.3, 10.4, 10.6_
+
+- [ ] 3. Verify End-to-End Installation Flow
+  - Test `curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash` on clean machines
+  - Verify application starts successfully and is accessible at http://localhost:3000
+  - Test basic functionality (admin setup, create room, send message)
   - Confirm demo mode works with `CAMPFIRE_DEMO_MODE=true`
-  -  
-  - Create Working Installation Script
-  - Fix the broken install script in `scripts/install.sh`
-  - Update placeholder URLs to actual repository: `https://github.com/that-in-rust/campfire-on-rust`
-  - Create pre-built binaries for macOS, Linux, Windows and host them on GitHub Releases
-  - Ensure script downloads correct binary for user's platform and architecture
-  - Test `curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash` works
-  - Script should install binary, set up data directory, and start Campfire automatically
-  - Update README to Match Reality
-  - Replace all placeholder URLs with actual repository URLs
-  - Remove or update performance claims that can't be verified
-  - Update installation commands to use working methods
-  - Remove features that don't actually work
-  - Ensure every command in README has been tested and works
-  - Clean Repository Structure
-  - Move development artifacts (.Slate/, monitoring/, benches/) to appropriate locations
-  - Remove or archive multiple TASK_*.md files from root
-  - Consolidate duplicate documentation files
-  - Ensure root directory shows only essential files for end users
-  - Create clean, focused impression worthy of DHH/Jason Fried standards
-  - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7_ _Requirements: 10.1, 10.2, 10.3, 10.7_   - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7 9.1, 9.2_
+  - Test installation on macOS, Linux, and Windows (WSL)
+  - _Requirements: 10.1, 10.5, 10.7, 9.1, 9.2_
+
+- [ ] 4. Test Railway Deployment End-to-End
+  - Deploy using Railway template to verify it works completely
+  - Test deployment completes within 3 minutes as promised
+  - Verify deployed instance is accessible and functional
+  - Test admin account creation and basic team chat functionality
+  - Ensure deployment handles failures gracefully with clear error messages
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
 ## Phase 2: Make It Clear (GTM Implementation)
 
-- [ ] 6. Implement Two-Path README Design
+- [x] 5. Implement Two-Path README Design
   - Create clear "Try it locally" and "Deploy for your team" sections in README
   - Design simple, prominent buttons/sections for each path
   - Ensure local path shows: `curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash`
@@ -48,111 +44,86 @@
   - Make both paths equally prominent, not one primary/one secondary
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
-- [ ] 7. Enhance Local Sampling Experience
-  - Improve existing demo mode to show realistic team chat data
-  - Ensure demo data demonstrates core features (rooms, messages, search)
-  - Add clear indication that this is demo data when running locally
-  - Include "Deploy for Your Team" call-to-action in local interface
-  - Verify install script → localhost:3000 workflow works smoothly
+- [ ] 6. Enhance Demo Mode for Better Local Sampling
+  - Improve existing demo mode to show more realistic team chat scenarios
+  - Add multiple pre-configured users with different roles and conversation styles
+  - Ensure demo data demonstrates all core features (rooms, messages, search, @mentions, sounds)
+  - Add clear "This is Demo Data" indicators in the interface
+  - Include prominent "Deploy for Your Team" call-to-action in demo interface
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [ ] 8. Create Working Railway Deployment
-  - Create or fix Railway deployment template
-  - Test Railway deployment end-to-end to ensure it works
-  - Verify deployed instance is accessible and functional
-  - Ensure deployment completes within 3 minutes
-  - Test that team members can create accounts and chat
-  - Add clear error handling and support contact for deployment failures
-  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
-
-- [ ] 9. Implement Clear Value Communication
-  - Write clear, honest value proposition for README header
-  - Focus on "team chat that works" rather than technical features
-  - Be honest about MVP status and what Campfire does vs doesn't do
-  - Ensure value is understandable within 30 seconds of reading
-  - Keep technical details available but not prominent
-  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
-
-- [ ] 10. Add Simple Success Tracking
-  - Add basic analytics to track "Deploy Now" button clicks
-  - Track successful vs failed deployments
-  - Identify most common deployment failure points
-  - Use simple tools (Google Analytics) rather than custom implementation
-  - Focus on deployment success metrics, not complex user journeys
+- [ ] 7. Add Simple Success Tracking
+  - Add basic Google Analytics to track "Deploy Now" button clicks from README
+  - Track successful Railway deployments vs failures
+  - Add simple event tracking for install script downloads
+  - Focus on deployment success metrics, not complex user behavior
+  - Use privacy-friendly analytics approach
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [ ] 11. Establish Honest Credibility
-  - Replace marketing claims with honest, measured information
-  - Show real metrics where available, remove unverified claims
-  - Be clear about MVP status and core feature focus
-  - Provide real contact information and support channels
-  - Focus on product transparency rather than social proof
-  - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
+- [ ] 8. Validate Performance Claims in README
+  - Measure actual startup time, memory usage, and performance metrics on standard hardware
+  - Update README with verified performance numbers only
+  - Remove any unsubstantiated claims about speed or efficiency
+  - Add benchmarking tests to validate ongoing performance claims
+  - Be honest about MVP limitations and what's not yet implemented
+  - _Requirements: 4.1, 4.2, 4.3, 6.1, 6.2, 6.3_
 
-- [ ] 12. Create Simple Help System
-  - Document common deployment issues and solutions in README
-  - Provide clear error messages for deployment failures
-  - Add troubleshooting section for local installation issues
-  - Include real contact information for when self-help doesn't work
+- [ ] 9. Create Simple Help and Troubleshooting
+  - Add troubleshooting section to README for common installation issues
+  - Document Railway deployment failure scenarios and solutions
+  - Provide clear error messages in install script with helpful guidance
+  - Add real contact information for support (GitHub Issues, Discussions)
   - Focus help on getting deployment working, not complex diagnostics
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-- [ ] 13. Ensure Mobile-Friendly Experience
-  - Test README readability on mobile devices
-  - Ensure "Deploy Now" and "Try Locally" buttons work on mobile
-  - Verify Railway deployment process works on mobile browsers
-  - Test deployed Campfire interface on mobile devices
-  - Add option to email deployment link if mobile deployment is difficult
+- [ ] 10. Ensure Mobile-Friendly Experience
+  - Test README readability and button functionality on mobile devices
+  - Verify Railway deployment process works smoothly on mobile browsers
+  - Test deployed Campfire interface responsiveness on various mobile devices
+  - Ensure install script instructions are mobile-friendly
+  - Add mobile-specific guidance if needed
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
 ## Phase 3: Validation and Launch
 
-- [ ] 14. End-to-End Testing
-  - Test complete "Try it locally" flow: `curl | bash` → localhost:3000 on clean machine
-  - Test complete "Deploy for your team" flow from start to finish
-  - Verify both paths lead to working Campfire within promised timeframes
-  - Test install script on multiple platforms (macOS, Linux, Windows)
-  - Document any issues and ensure they're resolved before launch
-  - _Requirements: 1.5, 2.1, 3.2_
+- [ ] 11. End-to-End Testing on Multiple Platforms
+  - Test complete "Try it locally" flow: `curl | bash` → localhost:3000 on clean machines
+  - Test complete "Deploy for your team" flow from GitHub README to working chat
+  - Verify both paths lead to working Campfire within promised timeframes (2-3 minutes)
+  - Test install script on macOS (Intel/Apple Silicon), Linux (Ubuntu/CentOS), Windows (WSL)
+  - Document any platform-specific issues and provide solutions
+  - _Requirements: 1.5, 2.1, 3.2, 10.1, 10.5, 10.7_
 
-- [ ] 15. Performance and Reliability Validation
-  - Measure actual startup time, memory usage, and performance metrics
-  - Update README with verified performance claims only
-  - Test Railway deployment reliability across multiple attempts
-  - Ensure local installation success rate is high
-  - Remove any claims that can't be consistently verified
-  - _Requirements: 4.2, 6.2_
-
-- [ ] 16. Launch Preparation
-  - Final review of README for clarity and accuracy
-  - Ensure all links and commands work as documented
-  - Set up basic analytics tracking for deployment success
-  - Prepare support channels for user questions
-  - Create simple monitoring for deployment health
-  - _Requirements: 5.1, 5.2, 7.3_
+- [ ] 12. Launch Preparation and Final Validation
+  - Final review of README for clarity, accuracy, and mobile-friendliness
+  - Ensure all links, commands, and deployment buttons work as documented
+  - Verify Railway template deploys successfully in multiple regions
+  - Test that support channels (GitHub Issues, Discussions) are properly configured
+  - Create simple monitoring dashboard for deployment health and success rates
+  - _Requirements: 5.1, 5.2, 7.3, 8.1, 8.2, 8.3_
 
 ## Success Criteria
 
 ### Phase 1 Success (Make It Work)
-- [ ] `cargo check` passes with 0 errors
-- [ ] `cargo run` starts application successfully
-- [ ] Application accessible at localhost:3000
-- [ ] At least one installation method works reliably
-- [ ] README contains no false claims or broken commands
+- [x] `cargo check` passes with 0 errors
+- [ ] GitHub releases exist with pre-built binaries for all major platforms
+- [ ] `curl | bash` install script downloads and runs successfully
+- [ ] `cargo run` starts application successfully and is accessible at localhost:3000
+- [ ] Railway deployment template works end-to-end
 
 ### Phase 2 Success (Make It Clear)
-- [ ] README clearly shows two paths: local sampling and team deployment
-- [ ] Local path: `curl | bash` installs and starts Campfire smoothly
-- [ ] Deploy path: Railway button leads to working team chat
-- [ ] Both paths complete within promised timeframes
-- [ ] Mobile experience is functional
+- [x] README clearly shows two paths: local sampling and team deployment
+- [ ] Demo mode provides compelling local sampling experience
+- [ ] Performance claims in README are verified and accurate
+- [ ] Simple analytics track deployment success rates
+- [ ] Mobile experience is functional and user-friendly
 
 ### Phase 3 Success (Validation and Launch)
-- [ ] End-to-end testing passes on multiple platforms
-- [ ] Performance claims are verified and accurate
-- [ ] Basic analytics tracking is operational
-- [ ] Support channels are ready for user questions
-- [ ] Product is ready for public GTM launch
+- [ ] End-to-end testing passes on macOS, Linux, and Windows
+- [ ] Both installation paths complete within promised timeframes (2-3 minutes)
+- [ ] Support channels are configured and ready for user questions
+- [ ] All links, commands, and deployment buttons work as documented
+- [ ] Product is ready for public GTM launch with confidence
 
 ## Implementation Notes
 
