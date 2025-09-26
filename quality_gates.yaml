@@ -1,0 +1,70 @@
+# Quality Gates Configuration for Campfire CI/CD Testing
+
+# Coverage Requirements
+coverage:
+  line_coverage: 80.0      # Minimum 80% line coverage
+  branch_coverage: 75.0    # Minimum 75% branch coverage  
+  function_coverage: 85.0  # Minimum 85% function coverage
+
+# Complexity Limits
+complexity:
+  max_cyclomatic_complexity: 10  # Maximum complexity per function
+  max_cognitive_complexity: 15   # Maximum cognitive complexity
+
+# Code Quality
+quality:
+  max_duplication: 5.0     # Maximum 5% code duplication
+  min_test_count: 50       # Minimum number of tests
+
+# Performance Contracts
+performance:
+  installation_time: 180   # Maximum 3 minutes (180 seconds)
+  startup_time: 5          # Maximum 5 seconds
+  query_time: 0.0005       # Maximum 500 microseconds (0.0005 seconds)
+  memory_usage: 52428800   # Maximum 50MB (52,428,800 bytes)
+  throughput: 1000         # Minimum 1000 messages/second
+
+# Quality Gate Severities
+# - blocker: Prevents deployment
+# - error: Fails the build
+# - warning: Allows build but warns
+# - info: Informational only
+
+gates:
+  - name: "Minimum Line Coverage"
+    type: "line_coverage"
+    threshold: 80.0
+    severity: "error"
+    
+  - name: "Minimum Branch Coverage"
+    type: "branch_coverage"
+    threshold: 75.0
+    severity: "warning"
+    
+  - name: "Minimum Function Coverage"
+    type: "function_coverage"
+    threshold: 85.0
+    severity: "error"
+    
+  - name: "Maximum Complexity"
+    type: "complexity"
+    threshold: 10.0
+    severity: "warning"
+    
+  - name: "Installation Performance"
+    type: "performance"
+    metric: "installation_time"
+    threshold: 180.0
+    severity: "error"
+    
+  - name: "Startup Performance"
+    type: "performance"
+    metric: "startup_time"
+    threshold: 5.0
+    severity: "error"
+    
+  - name: "Query Performance"
+    type: "performance"
+    metric: "query_time"
+    threshold: 0.0005
+    severity: "blocker"

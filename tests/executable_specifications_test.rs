@@ -60,10 +60,22 @@ async fn test_executable_specifications_integration() {
     // ACT & ASSERT: Test benchmark execution (will fail in RED phase)
     let benchmark_result = benchmark_provider.run_benchmarks().await;
     assert!(benchmark_result.is_err()); // Expected to fail in STUB phase
+    match benchmark_result.unwrap_err() {
+        SpecificationError::ExecutionFailed { reason } => {
+            assert!(reason.contains("not implemented yet"));
+        }
+        _ => panic!("Expected ExecutionFailed error"),
+    }
     
     // ACT & ASSERT: Test coverage generation (will fail in RED phase)
     let coverage_result = coverage_provider.generate_coverage_report().await;
     assert!(coverage_result.is_err()); // Expected to fail in STUB phase
+    match coverage_result.unwrap_err() {
+        SpecificationError::ExecutionFailed { reason } => {
+            assert!(reason.contains("not implemented yet"));
+        }
+        _ => panic!("Expected ExecutionFailed error"),
+    }
 }
 
 /// Test WHEN...THEN...SHALL acceptance criteria execution

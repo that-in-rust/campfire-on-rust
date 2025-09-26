@@ -18,7 +18,7 @@
   - Verify install script can download and execute binaries correctly
   - _Requirements: 10.2, 10.3, 10.4, 10.6_
 
-- [-] 3. Implement Professional CI/CD Testing Architecture
+- [x] 3. Implement Professional CI/CD Testing Architecture
   - Replace custom bash scripts with industry-standard testing frameworks
   - Implement L1→L2→L3 layered testing approach following TDD-First Architecture Principles
   - Create executable specifications with measurable performance contracts
@@ -46,7 +46,7 @@
   - Add docker-compose integration environments for end-to-end testing
   - _Requirements: 12.1, 12.4, 12.5_
 
-- [ ] 3.4 Create Executable Testing Specifications with Performance Contracts
+- [x] 3.4 Create Executable Testing Specifications with Performance Contracts
   - Write WHEN...THEN...SHALL acceptance criteria tests for all CI/CD functionality
   - Implement automated regression detection with criterion benchmark baselines
   - Create structured error hierarchies using thiserror for all testing failures
@@ -60,7 +60,7 @@
   - Implement one-command verification using professional testing frameworks
   - _Requirements: 12.5, 12.1_
 
-- [ ] 3. Verify End-to-End Installation Flow
+- [-] 3. Verify End-to-End Installation Flow
   - Test `curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash` on clean machines
   - Verify application starts successfully and is accessible at http://localhost:3000
   - Test basic functionality (admin setup, create room, send message)

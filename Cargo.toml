@@ -102,6 +102,7 @@ mockall = "0.12"
 testcontainers = "0.15"
 hyper = { version = "0.14", features = ["full"] }
 tempfile = "3.0"
+criterion = { version = "0.5", features = ["html_reports"] }
 # cargo-dist = "0.30"  # Removed due to compatibility issues
 
 [features]
@@ -120,6 +121,10 @@ path = "src/lib.rs"
 [[bin]]
 name = "campfire-on-rust"
 path = "src/main.rs"
+
+[[bench]]
+name = "performance"
+harness = false
 
 [profile.release]
 # Link-time optimization for smaller binary

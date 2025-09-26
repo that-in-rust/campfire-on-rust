@@ -16,6 +16,17 @@ pub mod professional_alternatives;
 // Re-export key types for easier access
 pub use criterion_provider::{CriterionProvider, MockCriterionProvider, ProductionCriterionProvider};
 pub use proptest_provider::{ProptestProvider, MockProptestProvider, ProductionProptestProvider};
+pub use executable_specifications::{
+    ExecutableSpecificationProvider, CriterionBenchmarkProvider, TestCoverageProvider,
+    MockExecutableSpecificationProvider, MockCriterionBenchmarkProvider, MockTestCoverageProvider,
+    ProductionExecutableSpecificationProvider, ProductionCriterionBenchmarkProvider, ProductionTestCoverageProvider,
+    SpecificationError, AcceptanceCriteriaReport, PerformanceContractReport, RegressionReport, CoverageReport,
+    QualityGateStatus,
+};
+pub use professional_alternatives::{
+    ProfessionalCICDFramework, ProductionProfessionalCICDFramework,
+    GitHubReleaseTestReport, InstallationTestReport, ReleaseSetupReport, ComprehensiveVerificationReport,
+};
 
 /// L1 Core Testing Framework Error Hierarchy
 #[derive(Error, Debug)]
