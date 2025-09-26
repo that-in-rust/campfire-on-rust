@@ -177,9 +177,9 @@
   -  [x] Both installation paths complete within promised timeframes (2-3 minutes) + 
 
 
-  - [-] All links, commands, and deployment buttons work as documented
+  - [x] All links, commands, and deployment buttons work as documented
 
-  - [ ] Product is ready for public GTM launch with confidence
+  - [x] Product is ready for public GTM launch with confidence
 
 ## Implementation Notes
 
