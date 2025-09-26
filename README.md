@@ -1,6 +1,16 @@
 # Campfire 🔥
 > **Team chat that works.** Real-time messaging. Zero-friction deployment. Built for teams who value simplicity over complexity.
 
+## 🙏 A Humble Tribute
+
+**Thank you to DHH and Jason Fried** for creating the original Campfire at Basecamp and sharing it with the world. Your vision of simple, effective team communication inspired countless developers and teams.
+
+This project is a **humble fork of Campfire reimagined in Rust** - not an attempt to improve on perfection, but rather a loving tribute that brings the same elegant simplicity to the Rust ecosystem. We've tried to capture the essence of what made Campfire special: **real-time chat that just works**, without the complexity that plagues modern communication tools.
+
+**The Story**: When Basecamp sunset the original Campfire, many teams lost a tool they genuinely loved. This Rust implementation aims to preserve that experience - the same clean interface, the same focus on core functionality, the same "it just works" philosophy that made Campfire beloved by developers worldwide.
+
+**Our Goal**: Keep the Campfire spirit alive with Rust's reliability and performance, while staying true to the original's commitment to simplicity over feature bloat.
+
 ---
 
 ## 🔥 Get Campfire Working Right Now
@@ -56,7 +66,7 @@ curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/s
 
 <div align="center">
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/campfire-rust-v01)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/campfire-rust)
 
 <!-- Privacy-friendly analytics tracking -->
 <img src="https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/api/analytics/track/deploy-click?source=readme&deployment_type=railway" width="1" height="1" alt="" style="display:none;" />
@@ -300,6 +310,8 @@ Having issues? Here are solutions to the most common problems:
 3. **Clear mobile browser cache**: Mobile browsers cache aggressively
 4. **Try mobile Chrome/Safari**: Campfire is optimized for modern mobile browsers
 
+**📱 Mobile-Friendly Design**: Campfire's interface is fully responsive and optimized for mobile devices. The "Deploy on Railway" button is easily tappable on phones, and the entire chat interface works seamlessly on tablets and smartphones.
+
 #### "Can't tap buttons or type messages"
 **Problem**: Touch interactions don't work on mobile.
 
@@ -418,7 +430,7 @@ curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/s
 ### 🚀 Deploy for your team  
 **Working team chat in 3 minutes**
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/campfire-rust-v01)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/campfire-rust)
 
 </td>
 </tr>

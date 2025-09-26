@@ -147,25 +147,13 @@
 ## Success Criteria
 
 ### Phase 1 Success (Make It Work)
-- [x] `cargo check` passes with 0 errors
-- [ ] GitHub releases exist with pre-built binaries for all major platforms
-- [ ] `curl | bash` install script downloads and runs successfully
-- [ ] `cargo run` starts application successfully and is accessible at localhost:3000
-- [ ] Railway deployment template works end-to-end
+- [ ] CHECK `cargo check` passes with 0 errors +[ ] Check GitHub releases exist with pre-built binaries for all major platforms + [ ] Check `curl | bash` install script downloads and runs successfully +[ ] `cargo run` starts application successfully and is accessible at localhost:3000 + [ ] Railway deployment template works end-to-end
 
 ### Phase 2 Success (Make It Clear)
-- [x] README clearly shows two paths: local sampling and team deployment
-- [ ] Demo mode provides compelling local sampling experience
-- [ ] Performance claims in README are verified and accurate
-- [ ] Simple analytics track deployment success rates
-- [ ] Mobile experience is functional and user-friendly
+- [ ] CHECK README clearly shows two paths: local sampling and team deployment+ [ ] Demo mode provides compelling local sampling experience + [ ] Performance claims in README are verified and accurate + [ ] Simple analytics track deployment success rates +[ ] Mobile experience is functional and user-friendly
 
 ### Phase 3 Success (Validation and Launch)
-- [ ] End-to-end testing passes on macOS, Linux, and Windows
-- [ ] Both installation paths complete within promised timeframes (2-3 minutes)
-- [ ] Support channels are configured and ready for user questions
-- [ ] All links, commands, and deployment buttons work as documented
-- [ ] Product is ready for public GTM launch with confidence
+- [ ] CHECK End-to-end testing passes on macOS, Linux, and Windows + [ ] Both installation paths complete within promised timeframes (2-3 minutes) + [ ] Support channels are configured and ready for user questions + All links, commands, and deployment buttons work as documented +  [ ] Product is ready for public GTM launch with confidence
 
 ## Implementation Notes
 
