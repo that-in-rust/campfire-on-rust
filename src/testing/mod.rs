@@ -6,6 +6,8 @@ use std::time::Duration;
 use thiserror::Error;
 
 pub mod cargo_dist;
+pub mod l2_async_infrastructure;
+pub mod l3_external_ecosystem;
 
 /// L1 Core Testing Framework Error Hierarchy
 #[derive(Error, Debug)]
