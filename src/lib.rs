@@ -14,6 +14,7 @@ pub mod shutdown;
 pub mod config;
 pub mod logging;
 pub mod demo;
+pub mod analytics;
 
 // L1 Core Testing Framework - Professional CI/CD Testing
 #[cfg(any(test, feature = "testing"))]
@@ -43,4 +44,5 @@ pub struct AppState {
     pub bot_service: Arc<dyn BotService>,
     pub setup_service: Arc<dyn SetupService>,
     pub demo_service: Arc<dyn DemoServiceTrait>,
+    pub analytics_store: Arc<analytics::AnalyticsStore>,
 }

@@ -136,6 +136,10 @@ async fn main() -> Result<()> {
     // Initialize demo service
     let demo_service = Arc::new(campfire_on_rust::DemoServiceImpl::new(db_arc.clone()));
     
+    // Initialize analytics store for GTM success tracking
+    let analytics_store = Arc::new(campfire_on_rust::analytics::AnalyticsStore::new(1000));
+    let analytics_store_for_tracking = analytics_store.clone();
+    
     let app_state = AppState { 
         db,
         auth_service,
@@ -146,6 +150,7 @@ async fn main() -> Result<()> {
         bot_service,
         setup_service,
         demo_service,
+        analytics_store,
     };
 
     // Setup resource manager for cleanup
@@ -206,6 +211,16 @@ async fn main() -> Result<()> {
         .route("/api/demo/complete-tour-step", post(campfire_on_rust::handlers::demo::complete_tour_step))
         .route("/api/demo/statistics", get(campfire_on_rust::handlers::demo::get_demo_statistics))
         .route("/demo/guide", get(campfire_on_rust::handlers::demo::serve_multi_user_guide))
+        
+        // Analytics endpoints for GTM success tracking
+        .route("/api/analytics/track/deploy-click", get(campfire_on_rust::handlers::analytics::track_deploy_click))
+        .route("/api/analytics/track/install-download", post(campfire_on_rust::handlers::analytics::track_install_download))
+        .route("/api/analytics/track/install-result", post(campfire_on_rust::handlers::analytics::track_install_result))
+        .route("/api/analytics/track/startup", post(campfire_on_rust::handlers::analytics::track_startup))
+        .route("/api/analytics/track/demo-access", post(campfire_on_rust::handlers::analytics::track_demo_access))
+        .route("/api/analytics/track/railway-deployment", post(campfire_on_rust::handlers::analytics::track_railway_deployment))
+        .route("/api/analytics/metrics", get(campfire_on_rust::handlers::analytics::get_deployment_metrics))
+        .route("/api/analytics/health", get(campfire_on_rust::handlers::analytics::analytics_health))
         
         // First-run setup endpoints
         .route("/setup", get(campfire_on_rust::handlers::setup::serve_setup_page))
@@ -354,6 +369,10 @@ async fn main() -> Result<()> {
         "Server starting with configuration"
     );
     
+    // Track successful startup for analytics
+    let startup_time = std::time::Instant::now();
+    let demo_mode = config.features.demo_mode;
+    
     let server = axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .with_graceful_shutdown(async {
@@ -362,6 +381,19 @@ async fn main() -> Result<()> {
                 info!("Received shutdown signal: {:?}", signal);
             }
         });
+    
+    // Track successful startup
+    let startup_duration = startup_time.elapsed();
+    let mut properties = std::collections::HashMap::new();
+    properties.insert("startup_time_ms".to_string(), startup_duration.as_millis().to_string());
+    properties.insert("demo_mode".to_string(), demo_mode.to_string());
+    
+    analytics_store_for_tracking.track_event(
+        campfire_on_rust::analytics::EventType::LocalStartupSuccess,
+        properties,
+        None,
+        None,
+    ).await;
 
     // Run server and wait for shutdown
     tokio::select! {

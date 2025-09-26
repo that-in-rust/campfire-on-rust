@@ -472,6 +472,7 @@ mod tests {
             bot_service,
             setup_service,
             demo_service,
+            analytics_store: Arc::new(crate::analytics::AnalyticsStore::new(100)),
         }
     }
 

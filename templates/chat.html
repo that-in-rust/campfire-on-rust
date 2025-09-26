@@ -1256,6 +1256,9 @@
                 if (response.ok) {
                     const status = await response.json();
                     if (status.demo_mode) {
+                        // Track demo mode access
+                        trackDemoAccess();
+                        
                         showDemoBanner();
                         if (!localStorage.getItem('demo_welcome_shown')) {
                             showDemoWelcome();
@@ -1327,6 +1330,9 @@
                 overlay.style.display = 'flex';
                 document.body.style.overflow = 'hidden';
             }
+            
+            // Track deploy guide view
+            trackDemoDeployClick();
         }
         
         function closeDeployGuide() {
@@ -1341,8 +1347,9 @@
             // Open Railway deployment in new tab
             window.open('https://railway.app/template/campfire-rust', '_blank');
             
-            // Track deployment click
+            // Track deployment click for both demo and analytics
             trackDemoEvent('deploy_railway_clicked');
+            trackDemoDeployClick();
         }
         
         function showInstallScript() {
@@ -1473,6 +1480,37 @@ All demo users have the password: "password"`);
             } catch (error) {
                 console.log('Event tracking error:', error);
             }
+        }
+        
+        // Track analytics events for GTM success metrics
+        function trackAnalyticsEvent(eventType, properties = {}) {
+            try {
+                const endpoint = `/api/analytics/track/${eventType}`;
+                fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(properties)
+                }).catch(error => {
+                    console.log('Analytics tracking failed:', error);
+                });
+            } catch (error) {
+                console.log('Analytics tracking error:', error);
+            }
+        }
+        
+        // Track demo mode access
+        function trackDemoAccess() {
+            trackAnalyticsEvent('demo-access');
+        }
+        
+        // Track deploy button clicks from demo
+        function trackDemoDeployClick() {
+            trackAnalyticsEvent('deploy-click', {
+                source: 'demo',
+                deployment_type: 'railway'
+            });
         }
     </script>
 </body>

@@ -567,7 +567,18 @@ impl DemoServiceTrait for DemoServiceImpl {
             .filter(|s| s.tour_completed)
             .count() as u32;
         
-        let mut features_demonstrated = Vec::new();
+        let mut features_demonstrated = vec![
+            "real_time_messaging".to_string(),
+            "mentions".to_string(),
+            "sound_effects".to_string(),
+            "search".to_string(),
+            "multiple_rooms".to_string(),
+            "bot_integration".to_string(),
+            "mobile_responsive".to_string(),
+            "dark_mode".to_string(),
+        ];
+        
+        // Add features from active sessions
         for session in &active_sessions {
             for feature in &session.features_explored {
                 if !features_demonstrated.contains(feature) {

@@ -58,6 +58,9 @@ curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/s
 
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/campfire-rust-v01)
 
+<!-- Privacy-friendly analytics tracking -->
+<img src="https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/api/analytics/track/deploy-click?source=readme&deployment_type=railway" width="1" height="1" alt="" style="display:none;" />
+
 </div>
 
 **What happens:**
