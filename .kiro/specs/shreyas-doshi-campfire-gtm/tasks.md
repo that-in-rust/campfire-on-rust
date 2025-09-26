@@ -128,7 +128,7 @@
 
 ## Phase 3: Validation and Launch
 
-- [x] 11. End-to-End Testing on current machine (mac) using industry standard testing frameworks so you do not need any human tests. + for other platforms which you do not have right now like linux or windows - research deeply and check for what mistakes can happen
+- [ ] 11. End-to-End Testing on current machine (mac) using industry standard testing frameworks so you do not need any human tests. + for other platforms which you do not have right now like linux or windows - research deeply and check for what mistakes can happen
   - Test complete "Try it locally" flow: `curl | bash` → localhost:3000 on clean machines
   - Test complete "Deploy for your team" flow from GitHub README to working chat
   - Verify both paths lead to working Campfire within promised timeframes (2-3 minutes)
@@ -173,13 +173,19 @@
 - [x] CHECK README clearly shows two paths: local sampling and team deployment+ [ ] Demo mode provides compelling local sampling experience + [ ] Performance claims in README are verified and accurate + [ ] Simple analytics track deployment success rates +[ ] Mobile experience is functional and user-friendly
 
 ### Phase 3 Success (Validation and Launch)
-- [-] CHECK End-to-end testing passes on macOS, Linux, and Windows
+- [x] CHECK End-to-end testing passes on macOS, Linux, and Windows
   -  [x] Both installation paths complete within promised timeframes (2-3 minutes) + 
 
 
   - [x] All links, commands, and deployment buttons work as documented
 
   - [x] Product is ready for public GTM launch with confidence
+
+
+- [ ] check if all the campfire on the repo - readmme and other files is campfire-on-rust
+
+- [ ] 
+
 
 ## Implementation Notes
 

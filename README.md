@@ -1,4 +1,4 @@
-# Campfire 🔥
+# Campfire *on rust* 🔥
 
 > Team chat that just works. No drama, no complexity, no monthly fees.
 
@@ -9,21 +9,21 @@
 Remember when Basecamp had Campfire and it was actually good? This is that, but in Rust. Same clean vibes, same "it just works" energy, zero vendor lock-in.
 
 ```mermaid
-%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#ff6b35','primaryTextColor':'#ffffff','primaryBorderColor':'#ff6b35','lineColor':'#333333','secondaryColor':'#f4f4f4','tertiaryColor':'#ffffff','background':'#ffffff','mainBkg':'#ff6b35','secondBkg':'#f8f9fa','tertiaryBkg':'#ffffff'}}}%%
-flowchart LR
-    A[Want team chat?] --> B{Try it first?}
-    B -->|Yes| C[2min local install]
-    B -->|Nah, deploy now| D[3min Railway deploy]
-    C --> E[localhost:3000 ✨]
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#ff6b35','primaryTextColor':'#000000','primaryBorderColor':'#ff6b35','lineColor':'#333333','secondaryColor':'#f4f4f4','tertiaryColor':'#ffffff','background':'#ffffff','mainBkg':'#ff6b35','secondBkg':'#f8f9fa','tertiaryBkg':'#ffffff'}, 'flowchart': {'nodeSpacing': 75, 'rankSpacing': 75, 'wrappingWidth': 150}}}%%
+flowchart TD
+    A[Want team<br/>chat?] --> B{Try it<br/>first?}
+    B -->|Yes| C[2min local<br/>install]
+    B -->|Deploy now| D[3min Railway<br/>deploy]
+    C --> E[localhost:3000<br/>✨]
     E --> F{Like it?}
     F -->|Yes| D
-    F -->|No| G[No worries 👋]
-    D --> H[Team chat live 🎉]
+    F -->|No| G[No worries<br/>👋]
+    D --> H[Team chat<br/>live 🎉]
     
-    classDef startNode fill:#e3f2fd,stroke:#2196f3,stroke-width:2px
-    classDef actionNode fill:#fff3e0,stroke:#ff9800,stroke-width:2px  
-    classDef successNode fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
-    classDef endNode fill:#fce4ec,stroke:#e91e63,stroke-width:2px
+    classDef startNode fill:#e3f2fd,stroke:#2196f3,stroke-width:2px,color:#000000
+    classDef actionNode fill:#fff3e0,stroke:#ff9800,stroke-width:2px,color:#000000
+    classDef successNode fill:#e8f5e8,stroke:#4caf50,stroke-width:2px,color:#000000
+    classDef endNode fill:#fce4ec,stroke:#e91e63,stroke-width:2px,color:#000000
     
     class A startNode
     class C,D actionNode
@@ -47,11 +47,11 @@ Click → wait 3 minutes → get your team URL → start chatting.
 ## Architecture (the good stuff)
 
 ```mermaid
-%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#2196f3','primaryTextColor':'#ffffff','primaryBorderColor':'#2196f3','lineColor':'#333333','secondaryColor':'#f4f4f4','tertiaryColor':'#ffffff'}}}%%
-graph TD
-    A[Single Rust Binary] --> B[Embedded Assets]
-    A --> C[SQLite Database]
-    A --> D[WebSocket Server]
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#2196f3','primaryTextColor':'#000000','primaryBorderColor':'#2196f3','lineColor':'#333333','secondaryColor':'#f4f4f4','tertiaryColor':'#ffffff'}, 'flowchart': {'nodeSpacing': 75, 'rankSpacing': 75, 'wrappingWidth': 150}}}%%
+flowchart TD
+    A[Single Rust<br/>Binary] --> B[Embedded<br/>Assets]
+    A --> C[SQLite<br/>Database]
+    A --> D[WebSocket<br/>Server]
     
     B --> E[HTML/CSS/JS<br/>All included]
     C --> F[Zero config<br/>Just works]
@@ -60,9 +60,9 @@ graph TD
     H[Your Team] --> I[Web Browser]
     I --> A
     
-    classDef binary fill:#1976d2,color:#fff
-    classDef feature fill:#4caf50,color:#fff
-    classDef user fill:#ff9800,color:#fff
+    classDef binary fill:#1976d2,color:#000000,stroke:#1976d2,stroke-width:2px
+    classDef feature fill:#4caf50,color:#000000,stroke:#4caf50,stroke-width:2px
+    classDef user fill:#ff9800,color:#000000,stroke:#ff9800,stroke-width:2px
     
     class A binary
     class E,F,G feature
@@ -78,7 +78,7 @@ graph TD
 ## Features (the essentials)
 
 ```mermaid
-%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#4caf50','primaryTextColor':'#ffffff','primaryBorderColor':'#4caf50','lineColor':'#333333'}}}%%
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#4caf50','primaryTextColor':'#000000','primaryBorderColor':'#4caf50','lineColor':'#333333'}}}%%
 mindmap
   root((Campfire))
     Chat
@@ -104,7 +104,7 @@ mindmap
 ## Performance numbers
 
 ```mermaid
-%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#ff6b35','primaryTextColor':'#ffffff','primaryBorderColor':'#ff6b35','lineColor':'#333333'}}}%%
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#ff6b35','primaryTextColor':'#000000','primaryBorderColor':'#ff6b35','lineColor':'#333333'}}}%%
 xychart-beta
     title "Campfire vs Alternatives"
     x-axis [Startup, Memory, Cost/month, Setup time]
@@ -138,7 +138,7 @@ xychart-beta
 ## Deployment flow
 
 ```mermaid
-%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#9c27b0','primaryTextColor':'#ffffff','primaryBorderColor':'#9c27b0','lineColor':'#333333'}}}%%
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#9c27b0','primaryTextColor':'#000000','primaryBorderColor':'#9c27b0','lineColor':'#333333'}}}%%
 sequenceDiagram
     participant You
     participant Railway
@@ -169,7 +169,7 @@ sequenceDiagram
 ## Roadmap
 
 ```mermaid
-%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#607d8b','primaryTextColor':'#ffffff','primaryBorderColor':'#607d8b','lineColor':'#333333'}}}%%
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#607d8b','primaryTextColor':'#000000','primaryBorderColor':'#607d8b','lineColor':'#333333'}}}%%
 timeline
     title Campfire Roadmap
     
