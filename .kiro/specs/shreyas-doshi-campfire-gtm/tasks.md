@@ -11,7 +11,7 @@
   - Ensure `cargo check` passes with 0 errors
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8_
 
-- [-] 2. Verify Basic Application Startup
+- [ ] 2. Verify Basic Application Startup
   - Ensure `cargo run` starts the application successfully
   - Verify application is accessible at http://localhost:3000
   - Test basic functionality (login, create room, send message)
