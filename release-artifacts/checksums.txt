@@ -1,0 +1,1 @@
+6d9404c6708ead41e40918a21b9ab18e4d6a0487a163691583aa8da0d5d772da  campfire-on-rust-darwin-aarch64
