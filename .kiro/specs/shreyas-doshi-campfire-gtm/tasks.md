@@ -118,7 +118,7 @@
   - Focus help on getting deployment working, not complex diagnostics
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-- [ ] 10. Ensure Mobile-Friendly Experience
+- [-] 10. Ensure Mobile-Friendly Experience - using industry standard testing frameworks which do not need any human interactions to validate the experience
   - Test README readability and button functionality on mobile devices
   - Verify Railway deployment process works smoothly on mobile browsers
   - Test deployed Campfire interface responsiveness on various mobile devices
@@ -128,7 +128,7 @@
 
 ## Phase 3: Validation and Launch
 
-- [ ] 11. End-to-End Testing on Multiple Platforms
+- [ ] 11. End-to-End Testing on current machine (mac) using industry standard testing frameworks so you do not need any human tests. + for other platforms which you do not have right now like linux or windows - research deeply and check for what mistakes can happen
   - Test complete "Try it locally" flow: `curl | bash` → localhost:3000 on clean machines
   - Test complete "Deploy for your team" flow from GitHub README to working chat
   - Verify both paths lead to working Campfire within promised timeframes (2-3 minutes)
@@ -137,7 +137,7 @@
   - _Requirements: 1.5, 2.1, 3.2, 10.1, 10.5, 10.7_
 
 - [ ] 12. Launch Preparation and Final Validation
-  - Final review of README for clarity, accuracy, and mobile-friendliness
+  - Final review of README for clarity, accuracy, and mobile-friendliness - start by thanking DHH and Jason Fried for sharing campfire - and tell the story of how this is just a fork of campfire on rust - a humble attempt at same experience with Rust flavour
   - Ensure all links, commands, and deployment buttons work as documented
   - Verify Railway template deploys successfully in multiple regions
   - Test that support channels (GitHub Issues, Discussions) are properly configured
