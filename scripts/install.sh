@@ -1,6 +1,7 @@
 #!/bin/bash
 # Campfire v0.1 - Zero-Friction Local Installation Script
-# Usage: curl -sSL https://raw.githubusercontent.com/that-in-rust/campfire-on-rust/main/scripts/install.sh | bash
+# Usage: curl -sSL https://raw.githubusercontent.com/that-in-rust/\
+#   campfire-on-rust/main/scripts/install.sh | bash
 
 set -e
 
@@ -14,12 +15,15 @@ error_handler() {
     echo -e "${YELLOW}   Exit code: ${exit_code}${NC}"
     echo -e "${YELLOW}   Line: ${line_number}${NC}"
     echo -e "${YELLOW}🆘 Need help? Report this issue:${NC}"
-    echo -e "${YELLOW}   GitHub: https://github.com/that-in-rust/campfire-on-rust/issues${NC}"
+    echo -e "${YELLOW}   GitHub: https://github.com/that-in-rust/\
+campfire-on-rust/issues${NC}"
     echo -e "${YELLOW}   Email: campfire-support@that-in-rust.dev${NC}"
-    echo -e "${YELLOW}   Include: Your OS ($(uname -s)), architecture ($(uname -m)), and this error${NC}"
+    echo -e "${YELLOW}   Include: Your OS ($(uname -s)), \
+architecture ($(uname -m)), and this error${NC}"
     
     # Track the failure
-    track_install_result false "Unexpected error at line $line_number (exit code $exit_code)"
+    track_install_result false \
+        "Unexpected error at line $line_number (exit code $exit_code)"
     
     exit $exit_code
 }

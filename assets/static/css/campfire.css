@@ -102,6 +102,7 @@ body {
     display: flex;
     align-items: center;
     padding: 8px 16px;
+    min-height: 44px; /* Touch-friendly target size */
     cursor: pointer;
     text-decoration: none;
     color: var(--color-text);
@@ -255,6 +256,7 @@ body {
 
 .send-button {
     padding: 10px 20px;
+    min-height: 44px; /* Touch-friendly target size */
     background-color: var(--color-primary);
     color: white;
     border: none;
@@ -279,6 +281,8 @@ body {
     align-items: center;
     justify-content: center;
     padding: 8px 16px;
+    min-height: 44px; /* Touch-friendly target size */
+    min-width: 44px;  /* Touch-friendly target size */
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
     background-color: var(--color-background);
@@ -463,4 +467,41 @@ body {
 @keyframes typing {
     0%, 60%, 100% { opacity: 0; }
     30% { opacity: 1; }
+}
+/* Red
+uced motion support for accessibility */
+@media (prefers-reduced-motion: reduce) {
+    .spinner {
+        animation: none;
+    }
+    
+    .typing-dots {
+        animation: none;
+    }
+    
+    * {
+        transition: none !important;
+        animation: none !important;
+    }
+}
+
+/* Additional mobile touch optimizations */
+@media (max-width: 768px) {
+    /* Ensure all interactive elements are touch-friendly */
+    button, 
+    .btn, 
+    .room-item, 
+    .send-button,
+    input[type="submit"],
+    input[type="button"] {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    
+    /* Improve touch targets for small elements */
+    .header-actions button {
+        padding: 12px;
+        min-height: 48px;
+        min-width: 48px;
+    }
 }

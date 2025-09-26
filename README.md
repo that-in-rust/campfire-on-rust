@@ -289,6 +289,44 @@ Having issues? Here are solutions to the most common problems:
 3. **Check browser compatibility**: Campfire requires modern browsers (Chrome 80+, Firefox 75+)
 4. **Try incognito mode**: Rules out extension conflicts
 
+### 📱 Mobile & Tablet Issues
+
+#### "Interface looks broken on mobile"
+**Problem**: Layout doesn't work properly on phones or tablets.
+
+**Solutions**:
+1. **Check viewport**: Ensure you're accessing `http://localhost:3000` (not `127.0.0.1`)
+2. **Rotate device**: Try both portrait and landscape orientations
+3. **Clear mobile browser cache**: Mobile browsers cache aggressively
+4. **Try mobile Chrome/Safari**: Campfire is optimized for modern mobile browsers
+
+#### "Can't tap buttons or type messages"
+**Problem**: Touch interactions don't work on mobile.
+
+**Solutions**:
+1. **Zoom out**: Ensure page isn't zoomed in (pinch to zoom out)
+2. **Disable reader mode**: Turn off Safari Reader or similar features
+3. **Check for overlays**: Close any browser notifications or overlays
+4. **Restart browser**: Force-close and reopen your mobile browser
+
+#### "Virtual keyboard covers message input"
+**Problem**: On-screen keyboard hides the message composer.
+
+**Solutions**:
+1. **Scroll down**: The interface should auto-adjust, but try scrolling
+2. **Rotate to landscape**: Landscape mode provides more screen space
+3. **Use external keyboard**: Bluetooth keyboards work great with tablets
+4. **Update browser**: Newer mobile browsers handle this better
+
+#### "Slow performance on mobile"
+**Problem**: Campfire feels sluggish on phones or tablets.
+
+**Solutions**:
+1. **Close other apps**: Free up memory by closing background apps
+2. **Check network**: Switch between WiFi and cellular to test connection
+3. **Disable animations**: Some browsers have "reduce motion" settings
+4. **Try incognito mode**: Rules out extensions and cached data issues
+
 ### 🔧 Configuration Issues
 
 #### "Demo mode not working"
