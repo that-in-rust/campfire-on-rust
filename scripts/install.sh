@@ -4,6 +4,29 @@
 
 set -e
 
+# Error handler for unexpected failures
+error_handler() {
+    local exit_code=$?
+    local line_number=$1
+    
+    echo -e "\n${RED}❌ Installation failed unexpectedly${NC}"
+    echo -e "${YELLOW}💡 Error details:${NC}"
+    echo -e "${YELLOW}   Exit code: ${exit_code}${NC}"
+    echo -e "${YELLOW}   Line: ${line_number}${NC}"
+    echo -e "${YELLOW}🆘 Need help? Report this issue:${NC}"
+    echo -e "${YELLOW}   GitHub: https://github.com/that-in-rust/campfire-on-rust/issues${NC}"
+    echo -e "${YELLOW}   Email: campfire-support@that-in-rust.dev${NC}"
+    echo -e "${YELLOW}   Include: Your OS ($(uname -s)), architecture ($(uname -m)), and this error${NC}"
+    
+    # Track the failure
+    track_install_result false "Unexpected error at line $line_number (exit code $exit_code)"
+    
+    exit $exit_code
+}
+
+# Set up error handling
+trap 'error_handler $LINENO' ERR
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -25,13 +48,23 @@ detect_platform() {
         Linux*)     os="linux" ;;
         Darwin*)    os="darwin" ;;
         CYGWIN*|MINGW*|MSYS*) os="windows" ;;
-        *)          echo -e "${RED}Unsupported OS: $(uname -s)${NC}" && exit 1 ;;
+        *)          
+            echo -e "${RED}❌ Unsupported OS: $(uname -s)${NC}"
+            echo -e "${YELLOW}💡 Supported platforms: Linux, macOS, Windows${NC}"
+            echo -e "${YELLOW}📖 For manual installation: https://github.com/that-in-rust/campfire-on-rust/releases${NC}"
+            exit 1 
+            ;;
     esac
     
     case "$(uname -m)" in
         x86_64|amd64)   arch="x86_64" ;;
         arm64|aarch64)  arch="aarch64" ;;
-        *)              echo -e "${RED}Unsupported architecture: $(uname -m)${NC}" && exit 1 ;;
+        *)              
+            echo -e "${RED}❌ Unsupported architecture: $(uname -m)${NC}"
+            echo -e "${YELLOW}💡 Supported architectures: x86_64, aarch64 (ARM64)${NC}"
+            echo -e "${YELLOW}🔧 Try building from source: git clone https://github.com/that-in-rust/campfire-on-rust.git${NC}"
+            exit 1 
+            ;;
     esac
     
     echo "${os}-${arch}"
@@ -98,6 +131,11 @@ install_campfire() {
             echo -e "${GREEN}✅ Download successful${NC}"
         else
             echo -e "${RED}❌ Download failed${NC}"
+            echo -e "${YELLOW}💡 Possible solutions:${NC}"
+            echo -e "${YELLOW}   1. Check internet connection${NC}"
+            echo -e "${YELLOW}   2. Try manual download: ${download_url}${NC}"
+            echo -e "${YELLOW}   3. Build from source: https://github.com/that-in-rust/campfire-on-rust#building${NC}"
+            echo -e "${YELLOW}   4. Report issue: https://github.com/that-in-rust/campfire-on-rust/issues${NC}"
             track_install_result false "Download failed"
             exit 1
         fi
@@ -106,11 +144,21 @@ install_campfire() {
             echo -e "${GREEN}✅ Download successful${NC}"
         else
             echo -e "${RED}❌ Download failed${NC}"
+            echo -e "${YELLOW}💡 Possible solutions:${NC}"
+            echo -e "${YELLOW}   1. Check internet connection${NC}"
+            echo -e "${YELLOW}   2. Try manual download: ${download_url}${NC}"
+            echo -e "${YELLOW}   3. Build from source: https://github.com/that-in-rust/campfire-on-rust#building${NC}"
+            echo -e "${YELLOW}   4. Report issue: https://github.com/that-in-rust/campfire-on-rust/issues${NC}"
             track_install_result false "Download failed"
             exit 1
         fi
     else
-        echo -e "${RED}Error: curl or wget is required${NC}"
+        echo -e "${RED}❌ Error: curl or wget is required${NC}"
+        echo -e "${YELLOW}💡 Install a download tool:${NC}"
+        echo -e "${YELLOW}   Ubuntu/Debian: sudo apt install curl${NC}"
+        echo -e "${YELLOW}   CentOS/RHEL: sudo yum install curl${NC}"
+        echo -e "${YELLOW}   macOS: brew install curl${NC}"
+        echo -e "${YELLOW}   Or download manually: ${download_url}${NC}"
         track_install_result false "No download tool available"
         exit 1
     fi
@@ -121,6 +169,9 @@ install_campfire() {
         track_install_result true
     else
         echo -e "${RED}❌ Failed to make binary executable${NC}"
+        echo -e "${YELLOW}💡 Try manually:${NC}"
+        echo -e "${YELLOW}   chmod +x ${INSTALL_DIR}/${BINARY_NAME}${NC}"
+        echo -e "${YELLOW}   ${INSTALL_DIR}/${BINARY_NAME}${NC}"
         track_install_result false "Failed to make executable"
         exit 1
     fi
@@ -206,8 +257,12 @@ start_campfire() {
             "${INSTALL_DIR}/${BINARY_NAME}"
         fi
     else
-        echo -e "${RED}Error: Could not find Campfire binary${NC}"
-        echo -e "${YELLOW}Try running: ${INSTALL_DIR}/${BINARY_NAME}${NC}"
+        echo -e "${RED}❌ Error: Could not find Campfire binary${NC}"
+        echo -e "${YELLOW}💡 Try these solutions:${NC}"
+        echo -e "${YELLOW}   1. Run directly: ${INSTALL_DIR}/${BINARY_NAME}${NC}"
+        echo -e "${YELLOW}   2. Add to PATH: export PATH=\"\$PATH:${INSTALL_DIR}\"${NC}"
+        echo -e "${YELLOW}   3. Restart your terminal${NC}"
+        echo -e "${YELLOW}   4. Check installation: ls -la ${INSTALL_DIR}/${BINARY_NAME}${NC}"
         exit 1
     fi
 }
@@ -253,7 +308,13 @@ main() {
     
     # Check for required tools
     if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
-        echo -e "${RED}Error: curl or wget is required for installation${NC}"
+        echo -e "${RED}❌ Error: curl or wget is required for installation${NC}"
+        echo -e "${YELLOW}💡 Install a download tool:${NC}"
+        echo -e "${YELLOW}   Ubuntu/Debian: sudo apt install curl${NC}"
+        echo -e "${YELLOW}   CentOS/RHEL: sudo yum install curl${NC}"
+        echo -e "${YELLOW}   macOS: brew install curl${NC}"
+        echo -e "${YELLOW}   Windows: Install Git Bash or WSL${NC}"
+        echo -e "${YELLOW}📖 Manual installation: https://github.com/that-in-rust/campfire-on-rust/releases${NC}"
         exit 1
     fi
     

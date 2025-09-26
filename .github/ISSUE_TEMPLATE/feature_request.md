@@ -1,49 +1,82 @@
 ---
 name: Feature Request
-about: Suggest an idea for this project
+about: Suggest an idea for Campfire
 title: '[FEATURE] '
-labels: ['enhancement', 'needs-triage']
+labels: ['enhancement', 'needs-discussion']
 assignees: ''
 ---
 
-## Feature Summary
-A brief, clear description of the feature you'd like to see added.
+## 💡 Feature Summary
+**A clear and concise description of the feature you'd like to see.**
 
-## Problem Statement
-What problem does this feature solve? What use case does it address?
+## 🎯 Problem Statement
+**What problem does this feature solve? What user need does it address?**
 
-## Proposed Solution
-Describe your preferred solution in detail. How should this feature work?
+Example: "As a team lead, I want to see message read receipts so that I know when important announcements have been seen by team members."
 
-## Alternative Solutions
-Describe any alternative solutions or features you've considered.
+## 🛠️ Proposed Solution
+**Describe the solution you'd like to see implemented.**
 
-## User Stories
-- As a [type of user], I want [goal] so that [benefit]
-- As a [type of user], I want [goal] so that [benefit]
+### User Experience
+**How would users interact with this feature?**
 
-## Acceptance Criteria
-- [ ] Criterion 1
-- [ ] Criterion 2
-- [ ] Criterion 3
+### Technical Approach
+**If you have technical suggestions, share them here (optional).**
 
-## Technical Considerations
-Any technical details, constraints, or implementation ideas.
+## 🔄 Alternative Solutions
+**Describe any alternative solutions or features you've considered.**
 
-## Priority
-- [ ] Low - Nice to have
-- [ ] Medium - Would improve user experience
-- [ ] High - Important for core functionality
-- [ ] Critical - Blocking other work
+## 📊 Use Cases
+**Describe specific scenarios where this feature would be valuable:**
 
-## Mockups/Examples
-If applicable, add mockups, wireframes, or examples to illustrate the feature.
+1. **Use Case 1**: [Describe scenario]
+2. **Use Case 2**: [Describe scenario]
+3. **Use Case 3**: [Describe scenario]
 
-## Additional Context
-Add any other context, references, or examples about the feature request.
+## 🎨 Mockups or Examples
+**If applicable, add mockups, screenshots from other tools, or examples.**
 
-## Checklist
-- [ ] I have searched existing issues to ensure this is not a duplicate
-- [ ] I have clearly described the problem this feature would solve
-- [ ] I have provided user stories and acceptance criteria
-- [ ] I have considered alternative solutions
+## 🏗️ Implementation Considerations
+
+### Complexity
+- [ ] Simple - Could be implemented quickly
+- [ ] Medium - Requires some design and development
+- [ ] Complex - Major feature requiring significant work
+
+### Compatibility
+**How does this fit with Campfire's philosophy of simplicity?**
+
+### Dependencies
+**Does this require any external services or major architectural changes?**
+
+## 📈 Impact Assessment
+
+### User Benefit
+- [ ] High - Would benefit most users significantly
+- [ ] Medium - Would benefit some users moderately  
+- [ ] Low - Nice to have for specific use cases
+
+### Development Priority
+**Where do you think this should fit in the roadmap?**
+- [ ] v0.2 - Next minor release
+- [ ] v0.3 - Future minor release
+- [ ] v1.0 - Major release
+- [ ] v2.0+ - Long-term future
+
+## 🔗 Related Issues
+**Link any related issues or discussions:**
+- Related to #[issue number]
+- Discussed in [discussion link]
+
+## 🤝 Contribution Interest
+**Are you interested in contributing to this feature?**
+- [ ] Yes, I'd like to implement this
+- [ ] Yes, I'd like to help with design/testing
+- [ ] No, but I'd be happy to provide feedback
+- [ ] Just suggesting the idea
+
+---
+
+**Thank you for helping make Campfire better! 🔥**
+
+*Feature requests are discussed in our community before implementation. Join the conversation in GitHub Discussions!*

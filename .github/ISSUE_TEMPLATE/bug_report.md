@@ -1,47 +1,82 @@
 ---
 name: Bug Report
-about: Create a report to help us improve
+about: Report a bug to help us improve Campfire
 title: '[BUG] '
 labels: ['bug', 'needs-triage']
 assignees: ''
 ---
 
-## Bug Description
-A clear and concise description of what the bug is.
+## 🐛 Bug Description
+**A clear and concise description of what the bug is.**
 
-## Steps to Reproduce
+## 🔄 Steps to Reproduce
+**Steps to reproduce the behavior:**
 1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
+2. Click on '...'
+3. Scroll down to '...'
 4. See error
 
-## Expected Behavior
-A clear and concise description of what you expected to happen.
+## ✅ Expected Behavior
+**A clear and concise description of what you expected to happen.**
 
-## Actual Behavior
-A clear and concise description of what actually happened.
+## ❌ Actual Behavior
+**A clear and concise description of what actually happened.**
 
-## Environment
-- **OS**: [e.g. Ubuntu 22.04, macOS 13.0, Windows 11]
-- **Rust Version**: [e.g. 1.70.0] (run `rustc --version`)
-- **Campfire Version**: [e.g. v1.0.0 or commit hash]
-- **Browser**: [e.g. Chrome 115, Firefox 116] (if applicable)
+## 📱 Environment Information
+**Please complete the following information:**
 
-## Error Logs
+### Platform
+- **OS**: [e.g. macOS 13.1, Ubuntu 22.04, Windows 11]
+- **Browser**: [e.g. Chrome 108, Firefox 107, Safari 16]
+- **Campfire Version**: [e.g. v0.1.0]
+- **Installation Method**: [e.g. curl script, Railway, Docker, built from source]
+
+### Deployment
+- **Local Installation**: Yes/No
+- **Railway Deployment**: Yes/No
+- **Custom Deployment**: Yes/No (please specify)
+
+## 📋 Error Messages
+**If applicable, paste any error messages you see:**
+
+### Browser Console Errors
 ```
-Paste any relevant error messages or logs here
+Paste browser console errors here (F12 → Console tab)
 ```
 
-## Screenshots
-If applicable, add screenshots to help explain your problem.
+### Server Logs
+```
+Paste server logs here (if running locally)
+```
 
-## Additional Context
-Add any other context about the problem here.
+### Installation Errors
+```
+Paste installation script errors here (if applicable)
+```
 
-## Possible Solution
-If you have ideas on how to fix this, please share them.
+## 📸 Screenshots
+**If applicable, add screenshots to help explain your problem.**
 
-## Checklist
-- [ ] I have searched existing issues to ensure this is not a duplicate
-- [ ] I have provided all the requested information
-- [ ] I have included error logs or screenshots where applicable
+## 🔧 Additional Context
+**Add any other context about the problem here.**
+
+### Configuration
+- **Demo Mode Enabled**: Yes/No
+- **Custom Environment Variables**: [list any custom settings]
+- **Network Setup**: [e.g. behind corporate firewall, VPN, etc.]
+
+### Workarounds
+**Have you found any temporary workarounds?**
+
+## 🆘 Urgency Level
+**How critical is this issue for you?**
+- [ ] Critical - Blocks core functionality
+- [ ] High - Significantly impacts usage
+- [ ] Medium - Inconvenient but manageable
+- [ ] Low - Minor issue or enhancement
+
+---
+
+**Thank you for helping improve Campfire! 🔥**
+
+*We typically respond to bug reports within 24 hours. For urgent issues, email campfire-support@that-in-rust.dev*

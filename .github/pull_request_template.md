@@ -1,116 +1,149 @@
-## Description
-Brief description of the changes and their purpose.
+# Pull Request: [Brief Description]
 
-## Type of Change
-- [ ] Bug fix (non-breaking change which fixes an issue)
-- [ ] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] Documentation update
-- [ ] Performance improvement
-- [ ] Code refactoring
-- [ ] Security improvement
+## 📋 Summary
+**What does this PR do?**
+<!-- Provide a clear, concise description of the changes -->
 
-## Related Issues
-- Closes #
-- Related to #
-- Addresses #
+## 🎯 Motivation
+**Why is this change needed?**
+<!-- Link to issue, describe problem being solved, or explain enhancement -->
 
-## Changes Made
-### Added
-- 
+Fixes #[issue number]
+Related to #[issue number]
 
-### Changed
-- 
+## 🔄 Changes Made
+**What specific changes were implemented?**
 
-### Removed
-- 
+### Code Changes
+- [ ] Added new feature: [description]
+- [ ] Fixed bug: [description]
+- [ ] Refactored: [description]
+- [ ] Updated dependencies: [description]
 
-### Fixed
-- 
+### Documentation Changes
+- [ ] Updated README
+- [ ] Added/updated code comments
+- [ ] Updated API documentation
+- [ ] Added troubleshooting info
 
-## Testing
-### Automated Tests
-- [ ] Unit tests added/updated
-- [ ] Integration tests added/updated
-- [ ] Property tests added/updated (if applicable)
-- [ ] Performance tests added (if applicable)
+### Test Changes
+- [ ] Added unit tests
+- [ ] Added integration tests
+- [ ] Updated existing tests
+- [ ] Added performance tests
+
+## 🧪 Testing
+**How was this tested?**
 
 ### Manual Testing
-- [ ] Manual testing completed
-- [ ] Tested on multiple browsers (if frontend changes)
-- [ ] Tested with different data sets
-- [ ] Tested error conditions
+- [ ] Tested locally with `cargo run`
+- [ ] Tested installation script
+- [ ] Tested Railway deployment
+- [ ] Tested in multiple browsers
+- [ ] Tested on different platforms
 
-### Test Coverage
-- Current coverage: _%
-- Coverage change: +/- _%
+### Automated Testing
+- [ ] All existing tests pass (`cargo test`)
+- [ ] New tests added for new functionality
+- [ ] Performance tests pass
+- [ ] Linting passes (`cargo clippy`)
+- [ ] Formatting is correct (`cargo fmt`)
 
-## Performance Impact
-- [ ] No performance impact
-- [ ] Performance improvement (describe below)
-- [ ] Performance regression (justify below)
-- [ ] Benchmarks run and results attached
+### Test Results
+```
+# Paste relevant test output here
+```
 
-**Performance Details:**
+## 📱 Platform Testing
+**Which platforms were tested?**
+- [ ] macOS (Intel)
+- [ ] macOS (Apple Silicon)
+- [ ] Linux (Ubuntu/Debian)
+- [ ] Linux (CentOS/RHEL)
+- [ ] Windows (WSL)
+- [ ] Railway deployment
+- [ ] Docker deployment
 
+## 🔍 Code Review Checklist
+**For reviewers and contributors:**
 
-## Security Considerations
-- [ ] No security implications
-- [ ] Security review completed
-- [ ] Input validation added/updated
-- [ ] Authentication/authorization checked
-- [ ] Sensitive data handling reviewed
+### Functionality
+- [ ] Code works as intended
+- [ ] Edge cases are handled
+- [ ] Error conditions are properly managed
+- [ ] Performance is acceptable
 
-## Breaking Changes
-- [ ] No breaking changes
-- [ ] Breaking changes documented below
-
-### Breaking Change Details
-If this PR introduces breaking changes, describe:
-1. What breaks
-2. Why the change is necessary
-3. Migration path for users
-
-## Documentation
-- [ ] Code is self-documenting
-- [ ] Inline comments added for complex logic
-- [ ] API documentation updated
-- [ ] User documentation updated
-- [ ] Migration guide updated (if breaking changes)
-
-## Checklist
 ### Code Quality
-- [ ] Code follows project coding standards
-- [ ] Self-review completed
-- [ ] No debug code or console.log statements
-- [ ] Error handling is appropriate
-- [ ] Resource cleanup is handled
+- [ ] Follows Rust idioms and conventions
+- [ ] Code is readable and well-documented
+- [ ] No unnecessary complexity
+- [ ] Proper error handling with `Result<T, E>`
 
-### Testing
-- [ ] All tests pass locally
-- [ ] New tests cover edge cases
-- [ ] Tests are deterministic (no flaky tests)
-- [ ] Test names are descriptive
+### Security
+- [ ] Input validation is present
+- [ ] No security vulnerabilities introduced
+- [ ] Sensitive data is handled properly
+- [ ] Rate limiting considerations addressed
 
-### Documentation
-- [ ] Public APIs are documented
-- [ ] Complex algorithms are explained
-- [ ] Configuration changes are documented
+### Architecture
+- [ ] Follows project architecture patterns
+- [ ] Dependencies are justified
+- [ ] Interfaces are clean and testable
+- [ ] No breaking changes (or properly documented)
 
-### CI/CD
-- [ ] CI pipeline passes
-- [ ] No new linting warnings
-- [ ] Security scan passes
-- [ ] Build succeeds in release mode
+## 📸 Screenshots
+**If applicable, add screenshots showing the changes:**
 
-## Screenshots/Videos
-If applicable, add screenshots or videos to demonstrate the changes.
+### Before
+<!-- Screenshot of old behavior -->
 
-## Additional Notes
-Any additional information, context, or considerations for reviewers.
+### After
+<!-- Screenshot of new behavior -->
 
-## Reviewer Notes
-Specific areas where you'd like focused review:
-- [ ] Algorithm correctness in file X
-- [ ] Error handling in service Y
-- [ ] Performance of operation Z
+## 🚨 Breaking Changes
+**Does this introduce any breaking changes?**
+- [ ] No breaking changes
+- [ ] Breaking changes (describe below)
+
+### Migration Guide
+<!-- If breaking changes, provide migration instructions -->
+
+## 📚 Documentation Updates
+**What documentation needs to be updated?**
+- [ ] README.md
+- [ ] CONTRIBUTING.md
+- [ ] API documentation
+- [ ] Deployment guides
+- [ ] Troubleshooting section
+
+## 🔗 Related PRs/Issues
+**Link related work:**
+- Depends on #[PR number]
+- Blocks #[issue number]
+- Related to #[issue number]
+
+## 📋 Deployment Notes
+**Any special deployment considerations?**
+- [ ] Database migrations required
+- [ ] Environment variable changes
+- [ ] Configuration updates needed
+- [ ] Restart required
+
+## ✅ Pre-Merge Checklist
+**Before merging, ensure:**
+- [ ] All tests pass
+- [ ] Code review approved
+- [ ] Documentation updated
+- [ ] Breaking changes documented
+- [ ] Performance impact assessed
+- [ ] Security review completed (if applicable)
+
+## 🎉 Additional Notes
+**Anything else reviewers should know?**
+<!-- Add any additional context, concerns, or celebration-worthy achievements -->
+
+---
+
+**Thank you for contributing to Campfire! 🔥**
+
+*This PR will be reviewed by maintainers. Feel free to ask questions or request help in the comments.*

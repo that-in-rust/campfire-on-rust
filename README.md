@@ -171,6 +171,186 @@ cargo run
 
 ---
 
+## 🛠️ Troubleshooting
+
+Having issues? Here are solutions to the most common problems:
+
+### 🚨 Installation Issues
+
+#### "Download failed" or "404 Not Found"
+**Problem**: The install script can't download the binary for your platform.
+
+**Solutions**:
+1. **Check your platform**: Run `uname -s` and `uname -m` to verify your OS and architecture
+2. **Manual download**: Visit [GitHub Releases](https://github.com/that-in-rust/campfire-on-rust/releases) and download directly
+3. **Build from source**: 
+   ```bash
+   git clone https://github.com/that-in-rust/campfire-on-rust.git
+   cd campfire-on-rust
+   cargo build --release
+   ./target/release/campfire-on-rust
+   ```
+
+#### "Permission denied" or "Command not found"
+**Problem**: Binary isn't executable or not in PATH.
+
+**Solutions**:
+1. **Make executable**: `chmod +x ~/.local/bin/campfire-on-rust`
+2. **Add to PATH**: Add `export PATH="$PATH:$HOME/.local/bin"` to your shell config
+3. **Run directly**: `~/.local/bin/campfire-on-rust`
+
+#### "curl: command not found"
+**Problem**: Missing download tools on minimal systems.
+
+**Solutions**:
+1. **Install curl**: 
+   - Ubuntu/Debian: `sudo apt install curl`
+   - CentOS/RHEL: `sudo yum install curl`
+   - macOS: `brew install curl`
+2. **Use wget instead**: Replace `curl -sSL` with `wget -qO-` in the install command
+3. **Manual install**: Download binary directly from GitHub releases
+
+### 🚀 Startup Issues
+
+#### "Address already in use" (Port 3000 busy)
+**Problem**: Another service is using port 3000.
+
+**Solutions**:
+1. **Change port**: Edit `~/.campfire/.env` and set `CAMPFIRE_PORT=3001`
+2. **Find conflicting service**: `lsof -i :3000` or `netstat -tulpn | grep 3000`
+3. **Kill conflicting process**: `sudo kill -9 <PID>`
+
+#### "Database locked" or SQLite errors
+**Problem**: Database file corruption or permission issues.
+
+**Solutions**:
+1. **Reset database**: 
+   ```bash
+   rm ~/.campfire/campfire.db
+   # Restart Campfire - it will recreate the database
+   ```
+2. **Fix permissions**: `chmod 644 ~/.campfire/campfire.db`
+3. **Check disk space**: `df -h ~` (SQLite needs write access)
+
+#### "Failed to bind to address"
+**Problem**: Can't bind to the configured host/port.
+
+**Solutions**:
+1. **Use localhost**: Set `CAMPFIRE_HOST=127.0.0.1` in `~/.campfire/.env`
+2. **Check firewall**: Ensure port 3000 isn't blocked
+3. **Run as different user**: Some systems restrict port binding
+
+### 🌐 Railway Deployment Issues
+
+#### "Build failed" or "Deployment timeout"
+**Problem**: Railway deployment isn't completing successfully.
+
+**Solutions**:
+1. **Check build logs**: Click on your deployment in Railway dashboard → View logs
+2. **Retry deployment**: Click "Redeploy" in Railway dashboard
+3. **Use different region**: Try deploying to a different Railway region
+4. **Contact Railway support**: If persistent, reach out to Railway's support team
+
+#### "Application failed to respond"
+**Problem**: Deployment succeeded but app won't start.
+
+**Solutions**:
+1. **Check environment variables**: Ensure `PORT` is set correctly (Railway auto-sets this)
+2. **View runtime logs**: Check Railway logs for startup errors
+3. **Database issues**: Railway auto-provisions PostgreSQL - check connection string
+4. **Memory limits**: Ensure your Railway plan has sufficient memory (512MB minimum)
+
+#### "Domain not working" or SSL issues
+**Problem**: Can't access your deployed Campfire via the provided URL.
+
+**Solutions**:
+1. **Wait for DNS**: New deployments can take 2-5 minutes for DNS propagation
+2. **Check deployment status**: Ensure deployment shows "Active" in Railway dashboard
+3. **Try direct Railway URL**: Use the `*.railway.app` URL instead of custom domain
+4. **Clear browser cache**: Hard refresh (Ctrl+F5) or try incognito mode
+
+### 💻 Browser Issues
+
+#### "WebSocket connection failed"
+**Problem**: Real-time messaging isn't working.
+
+**Solutions**:
+1. **Check browser console**: Press F12 → Console tab for WebSocket errors
+2. **Disable browser extensions**: Ad blockers can interfere with WebSockets
+3. **Try different browser**: Test in Chrome, Firefox, or Safari
+4. **Check network**: Corporate firewalls often block WebSocket connections
+
+#### "Page won't load" or infinite loading
+**Problem**: Campfire interface doesn't appear.
+
+**Solutions**:
+1. **Clear browser cache**: Hard refresh (Ctrl+F5) or clear all site data
+2. **Disable JavaScript blockers**: Ensure JavaScript is enabled
+3. **Check browser compatibility**: Campfire requires modern browsers (Chrome 80+, Firefox 75+)
+4. **Try incognito mode**: Rules out extension conflicts
+
+### 🔧 Configuration Issues
+
+#### "Demo mode not working"
+**Problem**: `CAMPFIRE_DEMO_MODE=true` doesn't show demo data.
+
+**Solutions**:
+1. **Restart after config change**: Stop Campfire (Ctrl+C) and restart
+2. **Check .env file location**: Should be `~/.campfire/.env`
+3. **Verify syntax**: No spaces around `=` in environment variables
+4. **Reset database**: Demo data is only created on first run with empty database
+
+#### "Can't create admin account"
+**Problem**: Setup page doesn't work or admin creation fails.
+
+**Solutions**:
+1. **Check database permissions**: Ensure `~/.campfire/` directory is writable
+2. **Verify password requirements**: Must be at least 8 characters
+3. **Clear existing data**: If upgrading, remove old database file
+4. **Check logs**: Run Campfire in terminal to see error messages
+
+### 📞 Getting More Help
+
+**Still stuck?** Here's how to get personalized help:
+
+#### 🐛 Report Issues
+**For bugs or technical problems:**
+- **GitHub Issues**: [Create new issue](https://github.com/that-in-rust/campfire-on-rust/issues/new)
+- **Include**: Your OS, browser, error messages, and steps to reproduce
+- **Response time**: Usually within 24 hours
+
+#### 💬 Ask Questions  
+**For usage questions or deployment help:**
+- **GitHub Discussions**: [Start a discussion](https://github.com/that-in-rust/campfire-on-rust/discussions)
+- **Community help**: Other users often provide quick answers
+- **Feature requests**: Share ideas for improvements
+
+#### 🚨 Urgent Issues
+**For critical deployment problems:**
+- **Email**: [campfire-support@that-in-rust.dev](mailto:campfire-support@that-in-rust.dev)
+- **Include**: Deployment platform (Railway/Docker), error logs, timeline
+- **Response time**: Within 4 hours during business hours (UTC-8)
+
+#### 📋 When Reporting Issues
+**Help us help you faster by including:**
+1. **Platform**: OS, browser, deployment method (local/Railway/Docker)
+2. **Version**: Run `campfire-on-rust --version` or check GitHub release
+3. **Error messages**: Copy exact error text from logs or browser console
+4. **Steps to reproduce**: What you did before the problem occurred
+5. **Expected vs actual**: What should happen vs what actually happens
+
+**Example good issue report:**
+```
+Platform: macOS 13.1, Chrome 108, local installation
+Version: v0.1.0
+Error: "WebSocket connection failed" in browser console
+Steps: 1) Ran install script 2) Started Campfire 3) Opened localhost:3000
+Expected: Real-time chat should work
+Actual: Messages don't appear in real-time, page shows "Connecting..."
+```
+
+---
+
 ## 🙏 Acknowledgments
 
 Inspired by the original **Campfire** from **Basecamp**. Thanks to **DHH** and **Jason Fried** for pioneering simple, effective team communication.
