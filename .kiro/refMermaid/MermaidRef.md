@@ -1,13 +1,27 @@
 # Bullet-Proof Mermaid Prompts: Square-Perfect Diagrams from Any LLM
 
 ## Executive Summary
-Generating high-quality, squarish Mermaid diagrams from Large Language Models (LLMs)—particularly weaker ones—is achievable through a multi-layered strategy of disciplined prompt engineering, programmatic validation, and environment-aware configuration. The most significant gains come not from finding a single "magic prompt," but from implementing a system that treats the LLM as a constrained code generator rather than a creative partner. This involves enforcing a strict output contract, leveraging internal Mermaid layout features, and creating an automated self-repair loop to guarantee syntactic validity.
+Generating high-quality, **squarish** Mermaid diagrams from Large Language Models (LLMs)—particularly weaker ones—is achievable through a multi-layered strategy of disciplined prompt engineering, programmatic validation, and environment-aware configuration. 
+
+**LAYOUT PREFERENCE HIERARCHY (CRITICAL):**
+1. **FIRST PREFERENCE: Squarish** - Aspect ratio between 0.9-1.1 (nearly square)
+2. **SECOND PREFERENCE: Vertical** - Taller than wide (aspect ratio < 0.9) 
+3. **LAST RESORT: Horizontal** - Wider than tall (aspect ratio > 1.1)
+
+The most significant gains come not from finding a single "magic prompt," but from implementing a system that treats the LLM as a constrained code generator rather than a creative partner. This involves enforcing a strict output contract, leveraging internal Mermaid layout features to achieve the preferred squarish shape, and creating an automated self-repair loop to guarantee syntactic validity.
 
 ### Explicit Role-Playing and Output Contracts Slash Error Rates
 Tests show that forcing an LLM into a specific, non-conversational role can reduce syntax failures by as much as **85%** with weaker models. By starting a prompt with a directive like, "You are a silent Mermaid diagram generator," and explicitly forbidding any explanatory text outside of a single ` ```mermaid ` code block, the LLM's tendency to produce conversational filler is eliminated. This transforms it from an unreliable text generator into a more deterministic code emitter, which is the foundational step for any successful generation pipeline.
 
 ### Internal Layout Directives Outperform External CSS for Squarish Shapes
-While external CSS can force a diagram into a square container, the most effective method for achieving a naturally "squarish" aspect ratio is to use Mermaid's internal configuration. Setting similar values for `nodeSpacing` and `rankSpacing` (e.g., **75**) and using text wrapping (`wrappingWidth`) within an `%%{init}%%` block produces diagrams with an aspect ratio between **0.9-1.1** in **78%** of test cases. This is **3x** more effective than relying on an external CSS `aspect-ratio` property alone, which often results in a square frame with a rectangular diagram awkwardly centered inside. For complex diagrams, prompting the use of the `elk` layout engine can further reduce wasted space by up to **42%** compared to the default `dagre` engine, though its support is limited in sandboxed environments like GitHub.
+While external CSS can force a diagram into a square container, the most effective method for achieving a naturally **squarish** aspect ratio (FIRST PREFERENCE) is to use Mermaid's internal configuration. Setting similar values for `nodeSpacing` and `rankSpacing` (e.g., **75**) and using text wrapping (`wrappingWidth`) within an `%%{init}%%` block produces diagrams with an aspect ratio between **0.9-1.1** in **78%** of test cases. 
+
+**LAYOUT DIRECTION STRATEGY:**
+- For naturally wide content: Use `direction TD` (Top-Down) to make it **taller and more squarish**
+- For naturally tall content: Use `direction LR` (Left-Right) to make it **wider and more squarish**
+- When squarish isn't achievable: **Prefer vertical (TD) over horizontal (LR)** layouts
+
+This is **3x** more effective than relying on an external CSS `aspect-ratio` property alone, which often results in a square frame with a rectangular diagram awkwardly centered inside. For complex diagrams, prompting the use of the `elk` layout engine can further reduce wasted space by up to **42%** compared to the default `dagre` engine, though its support is limited in sandboxed environments like GitHub.
 
 ### Automated Self-Repair is the Key to 96%+ Success Rates
 Even advanced models produce syntax errors. The most robust strategy is to assume the first attempt may fail and build an automated feedback loop. By programmatically validating the LLM's output with `mermaid.parse()`, capturing the detailed error message, and feeding it back to the model with instructions to apply a minimal fix, success rates can be lifted from as low as **53%** to over **96%** within three iterations [error_handling_and_self_repair_loop.iterative_repair_process[0]][1]. This iterative process is the single most powerful technique for ensuring a valid diagram is always produced.
@@ -28,13 +42,17 @@ The prompt must begin by assigning a non-creative, expert persona. This focuses 
  3. **No** explanations, titles, or any other text should appear outside the code block. This is critical for programmatic parsing and for weaker LLMs prone to adding extraneous prose [master_prompt_blueprint.output_contract[3]][4].
 
 ### Layout Heuristics for Instant Square Balance (`TD` vs `LR`, spacing 75/75)
-To guide the LLM toward a squarish output, the prompt should provide specific heuristics using Mermaid's internal features.
+To guide the LLM toward a **squarish output (FIRST PREFERENCE)**, the prompt should provide specific heuristics using Mermaid's internal features.
 
 * **Use Frontmatter**: Instruct the LLM to use the modern `---` YAML block for configuration [master_prompt_blueprint.layout_heuristics[1]][5].
-* **Choose Layout Direction**: Guide the choice between `direction TD` (Top-Down) and `direction LR` (Left-to-Right) to balance the diagram's natural shape.
-* **Control Spacing**: Specify `nodeSpacing` and `rankSpacing` to control density (e.g., **75** for both).
-* **Wrap Text**: Mandate the use of `<br/>` tags for long labels to prevent wide nodes [master_prompt_blueprint.layout_heuristics[0]][4].
-* **Recommend 'ELK'**: For complex diagrams, suggest the `layout: elk` algorithm for its superior, compact arrangements [master_prompt_blueprint.layout_heuristics[0]][4].
+* **Choose Layout Direction (CRITICAL FOR SHAPE PREFERENCE)**:
+  - **SQUARISH GOAL**: Analyze content and choose direction that creates aspect ratio 0.9-1.1
+  - **If wide content**: Use `direction TD` (Top-Down) to make taller and more square
+  - **If tall content**: Use `direction LR` (Left-Right) to make wider and more square  
+  - **If squarish impossible**: **PREFER `direction TD` (vertical) over `direction LR` (horizontal)**
+* **Control Spacing**: Specify `nodeSpacing` and `rankSpacing` to control density (e.g., **75** for both to encourage square proportions).
+* **Wrap Text**: Mandate the use of `<br/>` tags for long labels to prevent wide nodes that force horizontal layouts [master_prompt_blueprint.layout_heuristics[0]][4].
+* **Recommend 'ELK'**: For complex diagrams, suggest the `layout: elk` algorithm for its superior, compact arrangements that tend toward squarish shapes [master_prompt_blueprint.layout_heuristics[0]][4].
 
 ### Built-in Validation Checklist Prevents Silent Breakage
 Instruct the LLM to perform a self-check before finalizing its output. This preventative measure catches common errors before they are ever returned.
@@ -60,7 +78,10 @@ Achieving a squarish diagram involves a two-pronged approach: first, using Merma
 ### Internal Mermaid Controls: direction, nodeSpacing, rankSpacing, wrappingWidth
 These settings, placed in a `frontmatter` or `%%{init}%%` block, are the first line of defense for shaping the diagram [squarish_layout_strategies.internal_mermaid_config[0]][6].
 
-* **Layout Direction (`direction` or `rankdir`)**: This is the most powerful tool. For a naturally tall diagram (e.g., a long sequence), use `LR` (Left-to-Right) to make it wider. For a naturally wide diagram (many parallel steps), use `TD` (Top-Down) to make it taller.
+* **Layout Direction (`direction` or `rankdir`)**: This is the most powerful tool for achieving the preferred shape hierarchy.
+  - **SQUARISH TARGET (FIRST PREFERENCE)**: For a naturally tall diagram (e.g., a long sequence), use `LR` (Left-to-Right) to make it wider and more square. For a naturally wide diagram (many parallel steps), use `TD` (Top-Down) to make it taller and more square.
+  - **VERTICAL PREFERENCE (SECOND CHOICE)**: When squarish isn't achievable, prefer `TD` (Top-Down) for vertical layouts over horizontal ones.
+  - **HORIZONTAL LAST RESORT**: Only use `LR` when content absolutely requires it or when it achieves the squarish goal.
 * **Spacing (`nodeSpacing`, `rankSpacing`)**: Adjusting the space between nodes (`nodeSpacing`) and ranks (`rankSpacing`) can compress or expand the diagram on its axes. Setting them to similar values (e.g., **70**) encourages a more balanced shape.
 * **Text Wrapping (`wrappingWidth`)**: Long text labels create wide nodes. Setting a `wrappingWidth` (e.g., **150**) forces text to wrap, creating taller, narrower nodes that contribute to a more compact layout.
 * **`useMaxWidth: false`**: This setting prevents the diagram from stretching to fill its container's width, forcing it to use its absolute calculated size. This can result in a more naturally proportioned shape.
@@ -240,12 +261,17 @@ Create a suite of **5-10** standardized, natural language tasks for each major d
 Example Flowchart Task: "Create a flowchart for a user login process. Start with 'User visits site', leading to a decision 'Is user logged in?'. 'Yes' goes to 'Display dashboard', 'No' goes to 'Show login form', which then proceeds to 'Submit credentials' and back to the dashboard."
 
 ### Automated Square-ness Heuristic Script
-An objective, programmatic check for the "square-ness" of a diagram can be scripted.
+An objective, programmatic check for the shape preference hierarchy can be scripted.
 
 1. **Render**: Generate an SVG from the Mermaid code using `mermaid.render()` or `mmdc`.
 2. **Parse**: Extract the `width` and `height` from the SVG's `viewBox` attribute.
 3. **Calculate**: Compute the aspect ratio (`width / height`).
-4. **Check**: The test passes if the ratio is within a defined "squarish" range, such as **0.8 to 1.25**.
+4. **Evaluate Shape Preference**:
+   - **EXCELLENT (Score: 5)**: Ratio between **0.9-1.1** (squarish - FIRST PREFERENCE)
+   - **GOOD (Score: 4)**: Ratio between **0.7-0.9** (vertical - SECOND PREFERENCE)  
+   - **ACCEPTABLE (Score: 3)**: Ratio between **0.5-0.7** (tall vertical)
+   - **POOR (Score: 2)**: Ratio between **1.1-1.4** (horizontal - LAST RESORT)
+   - **FAIL (Score: 1)**: Ratio > **1.4** (very horizontal - avoid)
 
 Syntax validity should be checked using `mermaid.parse()` in a `try...catch` block. A non-zero exit code from the `mmdc` CLI can also indicate failure, but the tool is known to hang on errors, so it must be run with a timeout [testing_and_evaluation_kit_design.objective_pass_fail_criteria[1]][10].
 
@@ -302,7 +328,7 @@ To accelerate adoption and ensure uniform quality, this section provides copy-pa
 
 | Diagram Type | Prompt Template |
 | :--- | :--- |
-| **Flowchart** | `Generate a Mermaid flowchart with a [TD/LR] direction. The chart should represent [process description]. Output ONLY the raw Mermaid code.` |
+| **Flowchart** | `Generate a Mermaid flowchart. SHAPE PRIORITY: 1st choice=squarish (0.9-1.1 ratio), 2nd choice=vertical (TD), 3rd choice=horizontal (LR). Choose direction [TD/LR] to achieve the most squarish layout possible. The chart should represent [process description]. Output ONLY the raw Mermaid code.` |
 | **Sequence** | `Generate a Mermaid sequence diagram between [participants]. The sequence is: [message flow]. Output ONLY the raw Mermaid code.` |
 | **Class** | `Generate a Mermaid class diagram with classes: [classes and properties]. Show relationships: [inheritance, etc.]. Output ONLY the raw Mermaid code.` |
 | **State** | `Generate a Mermaid state diagram for [state machine]. States are [states] and transitions are [transitions]. Output ONLY the raw Mermaid code.` |
