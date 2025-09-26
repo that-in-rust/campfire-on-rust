@@ -1,41 +1,28 @@
 ---
-name: Question
-about: Ask a question about the project
-title: '[QUESTION] '
-labels: ['question', 'needs-triage']
+name: ❓ Question
+about: Ask a question about using Campfire
+title: '[Question] '
+labels: question
 assignees: ''
 ---
 
-## Question
+## ❓ Question
 What would you like to know?
 
-## Context
-Provide any relevant context for your question:
+## 🎯 What I'm Trying to Do
+Describe what you're trying to accomplish.
 
-- What are you trying to accomplish?
-- What have you already tried?
-- What documentation have you consulted?
+## 🔍 What I've Tried
+What have you already tried?
 
-## Environment (if applicable)
-- **OS**: [e.g. Ubuntu 22.04]
-- **Rust Version**: [e.g. 1.70.0]
-- **Campfire Version**: [e.g. v1.0.0 or commit hash]
+## 🖥️ My Setup
+- **OS**: [e.g. macOS, Linux, Windows]
+- **Installation Method**: [Local / Railway / Docker]
+- **Campfire Version**: [e.g. v0.1.0]
 
-## Code Example (if applicable)
-```rust
-// Paste relevant code here
-```
+## 📋 Additional Context
+Any other details that might help us answer your question.
 
-## Expected Behavior (if applicable)
-What did you expect to happen?
+---
 
-## Actual Behavior (if applicable)
-What actually happened?
-
-## Additional Context
-Add any other context, screenshots, or examples that might help answer your question.
-
-## Checklist
-- [ ] I have searched existing issues and discussions
-- [ ] I have consulted the relevant documentation
-- [ ] I have provided sufficient context for my question
+**💡 Tip**: For general discussions, consider using [GitHub Discussions](https://github.com/that-in-rust/campfire-on-rust/discussions) instead!

@@ -37,3 +37,14 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Development artifacts
+.kiro/dev-artifacts/
+performance_results.json
+performance_report.md
+benchmark_results/
+
+# Database files (for development)
+campfire.db
+*.sqlite
+*.sqlite3

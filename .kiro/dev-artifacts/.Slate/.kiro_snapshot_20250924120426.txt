@@ -1,6 +1,0 @@
-# .kiro/specs/campfire-rust-rewrite (snapshot)
-design.md
-image.png
-Rails_Legacy.md
-requirements.md
-tasks.md
