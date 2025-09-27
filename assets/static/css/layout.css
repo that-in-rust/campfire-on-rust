@@ -1,0 +1,165 @@
+/* Layout System - CSS Grid Implementation */
+/* Based on original Basecamp Campfire layout.css */
+
+/* Spacing variables - matching original utilities.css */
+:root {
+  --inline-space: 1ch;
+  --inline-space-half: calc(var(--inline-space) / 2);
+  --inline-space-double: calc(var(--inline-space) * 2);
+
+  --block-space: 1rem;
+  --block-space-half: calc(var(--block-space) / 2);
+  --block-space-double: calc(var(--block-space) * 2);
+}
+
+html {
+  overscroll-behavior: none;
+}
+
+body {
+  --footer-height: calc((var(--block-space)) + 3.6em + var(--block-space));
+  --navbar-height: 4.125em;
+  --sidebar-width: 0vw;
+
+  display: grid;
+  grid-template-areas:
+    "nav sidebar"
+    "main sidebar";
+  grid-template-columns: 1fr var(--sidebar-width);
+  grid-template-rows: min-content 1fr;
+  max-block-size: 100dvh;
+}
+
+body.sidebar {
+  @media (min-width: 100ch) {
+    --sidebar-width: 26vw;
+  }
+}
+
+#app-logo {
+  display: none;
+
+  @media (min-width: 100ch) {
+    block-size: var(--footer-height);
+    display: grid;
+    filter: saturate(0);
+    inline-size: 5vw;
+    inset: auto auto 0 0;
+    opacity: 0.5;
+    padding-inline: 1vw;
+    place-items: center;
+    position: absolute;
+    transition: opacity 500ms ease-in-out, filter 500ms ease-in-out;
+
+    & img {
+      block-size: auto;
+      inline-size: 100%;
+      max-inline-size: 2.75em;
+    }
+
+    &:hover {
+      filter: none;
+      opacity: 1;
+    }
+  }
+}
+
+#nav {
+  grid-area: nav;
+}
+
+#main-content {
+  align-content: start;
+  background-color: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  grid-area: main;
+  overflow: auto;
+  position: relative;
+}
+
+body.sidebar #main-content {
+  justify-content: end;
+
+  @media (min-width: 100ch) {
+    border-inline: 1px solid var(--color-border-darker);
+    margin-inline: 5vw 0;
+  }
+}
+
+#sidebar {
+  grid-area: sidebar;
+  position: relative;
+  transition: transform 300ms ease;
+}
+
+body.sidebar #sidebar {
+  -webkit-backdrop-filter: blur(66px);
+  backdrop-filter: blur(66px);
+  background-color: oklch(var(--lch-white) / 0.66);
+  block-size: 100dvh;
+  max-block-size: 100dvh;
+  z-index: 3;
+
+  @media (max-width: 100ch) {
+    inset: 0;
+    position: fixed;
+    transform: translate(100%);
+  }
+}
+
+#sidebar.open {
+  @media (max-width: 100ch) {
+    transform: translate(0);
+  }
+}
+
+#footer {
+  grid-area: footer;
+}
+
+/* Legacy compatibility - map old classes to new grid system */
+.app-container {
+  /* Remove flexbox properties - now handled by body grid */
+  display: contents;
+}
+
+.main-content {
+  /* Inherit from #main-content styles */
+  align-content: start;
+  background-color: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  position: relative;
+}
+
+.sidebar {
+  /* Inherit from #sidebar styles */
+  position: relative;
+  transition: transform 300ms ease;
+  width: 280px;
+  background-color: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Responsive behavior for legacy classes */
+@media (max-width: 768px) {
+  body {
+    grid-template-areas:
+      "nav"
+      "main"
+      "sidebar";
+    grid-template-columns: 1fr;
+    grid-template-rows: min-content 1fr min-content;
+  }
+  
+  .sidebar {
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+}

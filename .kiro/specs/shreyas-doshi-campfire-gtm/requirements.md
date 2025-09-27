@@ -166,3 +166,117 @@ Shreyas Doshi's approach emphasizes:
 5. WHEN testing CI/CD pipelines THEN custom bash scripts SHALL be replaced with industry-standard testing frameworks that provide structured reporting and debugging
 6. WHEN integration testing is required THEN the system SHALL use proper Rust testing frameworks (`tokio-test`, `testcontainers-rs`) rather than shell script simulations
 7. WHEN performance contracts need validation THEN the system SHALL use `criterion` benchmarks with automated regression detection rather than manual timing checks
+
+### Requirement 13: Visual Design System Parity
+
+**User Story:** As a user comparing campfire-on-rust to the original Basecamp Campfire, I want the visual design to be indistinguishable from the original, so that I get the authentic Basecamp experience I expect.
+
+#### Acceptance Criteria
+
+1. WHEN viewing the color scheme THEN campfire-on-rust SHALL use the original LCH color space system with semantic abstractions, not basic RGB colors
+2. WHEN the interface renders THEN it SHALL use CSS Grid layout matching the original's sophisticated grid system, not simplified Flexbox
+3. WHEN typography displays THEN it SHALL include the complete font stack including Aptos and emoji fonts, matching the original exactly
+4. WHEN dark mode is enabled THEN colors SHALL transform using the original's LCH-based automatic color transformations
+5. WHEN message backgrounds render THEN they SHALL use the original's `--color-message-bg` system with proper semantic color mapping
+6. WHEN comparing side-by-side with original Campfire THEN a user SHALL not be able to distinguish visual differences in the core interface
+7. WHEN CSS custom properties are used THEN they SHALL match the original's naming conventions and value calculations exactly
+
+### Requirement 14: Message System Architecture Parity
+
+**User Story:** As a user interacting with messages in campfire-on-rust, I want the message system to behave exactly like the original Basecamp Campfire, so that I get the familiar and polished experience.
+
+#### Acceptance Criteria
+
+1. WHEN messages display THEN they SHALL use CSS Grid layout with proper grid-template-areas matching the original's "sep sep sep" / "avatar body body" structure
+2. WHEN multiple messages from the same user appear THEN subsequent messages SHALL display as threaded messages without repeating avatars
+3. WHEN a new day begins THEN messages SHALL display day separators with the original's styling and positioning
+4. WHEN messages fail to send THEN they SHALL display with the original's failed message styling including wiggle animation and dashed outline
+5. WHEN messages are mentioned THEN they SHALL display with the original's mention highlighting using LCH-based background colors
+6. WHEN emoji-only messages are sent THEN they SHALL display with the original's large emoji styling and transparent background
+7. WHEN message actions are available THEN they SHALL appear with the original's hover behavior and positioning system
+8. WHEN messages have different states THEN they SHALL support pending, failed, threaded, and mentioned states with original styling
+
+### Requirement 15: Sidebar and Navigation Parity
+
+**User Story:** As a user navigating campfire-on-rust, I want the sidebar and navigation to work exactly like the original Basecamp Campfire, so that I can navigate efficiently with the familiar interface.
+
+#### Acceptance Criteria
+
+1. WHEN the sidebar displays THEN it SHALL use backdrop-filter blur effects matching the original's 12px blur with proper fallbacks
+2. WHEN rooms are listed THEN they SHALL display unread indicators with the original's styling and positioning
+3. WHEN direct messages appear THEN they SHALL display in the horizontal scrolling section with proper masking and overflow handling
+4. WHEN the sidebar toggles THEN it SHALL use the original's transform animations and positioning system
+5. WHEN sidebar tools display THEN they SHALL use fixed positioning with backdrop blur matching the original exactly
+6. WHEN room switching occurs THEN active room highlighting SHALL match the original's border and background system
+7. WHEN mobile view is active THEN sidebar SHALL transform and position exactly like the original's mobile behavior
+8. WHEN unread rooms exist THEN the sidebar toggle SHALL display the original's red notification dot with proper positioning
+
+### Requirement 16: Composer and Input System Parity
+
+**User Story:** As a user composing messages in campfire-on-rust, I want the message composer to work exactly like the original Basecamp Campfire, so that I can write messages with the same familiar interface and capabilities.
+
+#### Acceptance Criteria
+
+1. WHEN typing indicators display THEN they SHALL use the original's sophisticated positioning system with CSS custom properties for position and opacity
+2. WHEN the composer input focuses THEN context buttons SHALL hide on mobile exactly like the original's responsive behavior
+3. WHEN rich text mode is available THEN it SHALL display Trix toolbar with the original's styling and behavior (desktop only)
+4. WHEN the composer renders THEN it SHALL use the original's padding and spacing system with proper responsive adjustments
+5. WHEN typing detection occurs THEN it SHALL implement the original's typing start/stop logic with proper timing
+6. WHEN composer state changes THEN buttons SHALL show/hide with the original's transition timing and easing
+7. WHEN mobile keyboards appear THEN the composer SHALL adjust with the original's viewport handling and positioning
+
+### Requirement 17: CSS Architecture Modernization
+
+**User Story:** As a developer maintaining campfire-on-rust's styles, I want a modular CSS architecture matching the original Basecamp Campfire, so that styles are maintainable and match the original's sophisticated organization.
+
+#### Acceptance Criteria
+
+1. WHEN CSS files are organized THEN they SHALL be split into 25+ modular files matching the original's architecture (colors.css, layout.css, messages.css, etc.)
+2. WHEN CSS custom properties are defined THEN they SHALL use the original's naming conventions and semantic abstractions
+3. WHEN responsive design is implemented THEN it SHALL use the original's sophisticated media query system and viewport units
+4. WHEN animations are defined THEN they SHALL match the original's timing, easing, and keyframe definitions exactly
+5. WHEN CSS Grid is used THEN it SHALL implement the original's grid-template-areas and responsive grid systems
+6. WHEN hover states are defined THEN they SHALL use the original's sophisticated hover system with CSS custom properties
+7. WHEN the CSS compiles THEN it SHALL produce the same visual output as the original when rendered side-by-side
+
+### Requirement 18: Asset Organization and Completeness
+
+**User Story:** As a user and developer of campfire-on-rust, I want all assets to be organized and complete like the original Basecamp Campfire, so that the application has the same professional polish and functionality.
+
+#### Acceptance Criteria
+
+1. WHEN images are organized THEN they SHALL be structured in subdirectories matching the original (browsers/, external/, logos/, screenshots/, sounds/)
+2. WHEN browser icons are needed THEN the browsers/ directory SHALL contain all original SVG icons (android.svg, chrome.svg, edge.svg, firefox.svg, opera.svg, safari.svg)
+3. WHEN external integration icons are needed THEN the external/ directory SHALL contain all original icons (gear.svg, install.svg, share.svg, sliders.svg, switch.svg, web.svg)
+4. WHEN app logos are needed THEN the logos/ directory SHALL contain the original app icons (app-icon-192.png, app-icon.png)
+5. WHEN documentation images are needed THEN the screenshots/ directory SHALL contain mobile app screenshots for documentation
+6. WHEN sound effects play THEN they SHALL optionally display the original's animated GIFs and WebP files for visual feedback
+7. WHEN assets are referenced THEN they SHALL use the same path structure and naming conventions as the original
+
+### Requirement 19: Interactive Behavior Parity
+
+**User Story:** As a user interacting with campfire-on-rust, I want all interactive behaviors to match the original Basecamp Campfire exactly, so that muscle memory and expectations from the original work seamlessly.
+
+#### Acceptance Criteria
+
+1. WHEN hovering over interactive elements THEN they SHALL use the original's sophisticated hover system with CSS custom properties for color, size, and filter effects
+2. WHEN keyboard navigation is used THEN focus states SHALL match the original's outline system with proper offset and color calculations
+3. WHEN elements are pressed THEN they SHALL use the original's active state styling and transition timing
+4. WHEN disabled states are shown THEN they SHALL match the original's brightness filtering and cursor behavior
+5. WHEN animations play THEN they SHALL use the original's keyframe definitions, timing functions, and iteration counts
+6. WHEN scroll behavior occurs THEN it SHALL match the original's overscroll-behavior and scroll masking systems
+7. WHEN touch interactions happen THEN they SHALL use the original's touch-action and responsive behavior patterns
+
+### Requirement 20: Performance and Accessibility Parity
+
+**User Story:** As a user with accessibility needs or performance constraints, I want campfire-on-rust to meet the same standards as the original Basecamp Campfire, so that I can use it effectively regardless of my capabilities or device.
+
+#### Acceptance Criteria
+
+1. WHEN reduced motion is preferred THEN animations SHALL be disabled matching the original's prefers-reduced-motion media query handling
+2. WHEN color scheme preferences exist THEN dark mode SHALL activate using the original's prefers-color-scheme system with LCH color transformations
+3. WHEN touch targets are needed THEN they SHALL meet the original's 44px minimum size requirements for accessibility
+4. WHEN screen readers are used THEN semantic markup SHALL match the original's ARIA labels, roles, and live regions
+5. WHEN performance is measured THEN CSS rendering SHALL match the original's efficiency with proper layer management and reflow optimization
+6. WHEN viewport changes occur THEN responsive behavior SHALL match the original's sophisticated viewport unit usage and responsive design
+7. WHEN scrollbars are styled THEN they SHALL use the original's cross-browser scrollbar styling for consistent appearance

@@ -195,41 +195,187 @@
 - [-] Actual checks part 2
   - [x] All HTML PAGES that we render and all buttons clicks and interactions are exactly the same as basecamp campfire - they should be we literally forked from them - check on - https://github.com/basecamp/once-campfire - infact you can find the offline version to compare the assets the font everything directly via going to the folder here - /Users/neetipatni/desktop/Game20250927/once-campfire  - WE SHOULD LOOK AND FEEL Like them - List down each page you will ever open + each interaction you will ever have and tell me we same as them - the user should not know if we are not using campfire -- AND constantly document it in a UI parity TIMESTAMP md doc - DO THIS BY BREAKING DOWN THIS TASK INTO COMPREHENSIVE SUBTASKS
     - [x] 1.1 Create comprehensive UI parity analysis document (ui-parity-analysis-20250127.md)
-    - [ ] 1.2 Extract and analyze original Basecamp Campfire assets from reference directory
-    - [ ] 1.3 Page-by-page HTML template comparison and documentation
-      - [ ] 1.3.1 Compare chat interface template (templates/chat.html) with original Campfire
-      - [ ] 1.3.2 Compare login page templates with original Campfire login
-      - [ ] 1.3.3 Compare setup page template with original Campfire setup (if exists)
-      - [ ] 1.3.4 Compare demo pages with original Campfire (if applicable)
-      - [ ] 1.3.5 Document missing pages that exist in original Campfire
-    - [ ] 1.4 CSS and styling comparison analysis
-      - [ ] 1.4.1 Extract original Campfire CSS files for comparison
-      - [ ] 1.4.2 Compare color schemes and create parity mapping
-      - [ ] 1.4.3 Compare typography (fonts, sizes, weights) and document differences
-      - [ ] 1.4.4 Compare layout systems (grid, flexbox vs original approach)
-      - [ ] 1.4.5 Compare component styling (buttons, forms, navigation)
-    - [ ] 1.5 JavaScript interaction analysis
-      - [ ] 1.5.1 Compare message sending and receiving behavior
-      - [ ] 1.5.2 Compare room navigation and switching interactions
-      - [ ] 1.5.3 Compare real-time update mechanisms (WebSocket vs original)
-      - [ ] 1.5.4 Compare keyboard shortcuts and hotkeys
-      - [ ] 1.5.5 Compare form validation and error handling
-    - [ ] 1.6 Asset and branding audit
-      - [ ] 1.6.1 Compare logos, icons, and favicon with original Campfire
-      - [ ] 1.6.2 Compare sound files and audio assets
-      - [ ] 1.6.3 Compare image assets and graphics
-      - [ ] 1.6.4 Document all "campfire-on-rust" branding that needs to be "Campfire"
-    - [ ] 1.7 URL structure and routing comparison
-      - [ ] 1.7.1 Map all current routes against original Campfire URL structure
-      - [ ] 1.7.2 Document URL pattern differences
-      - [ ] 1.7.3 Identify missing routes that exist in original Campfire
-    - [ ] 1.8 Feature completeness audit
-      - [ ] 1.8.1 Document all features present in original Campfire
-      - [ ] 1.8.2 Identify missing features in our implementation
-      - [ ] 1.8.3 Document graceful degradation for unsupported features
-      - [ ] 1.8.4 Verify all interactive elements work identically
-  - [x] Document differences in User Journeys comprehensively - from each feature difference, to UI experience difference - EVERYTHING via static analysis - where possible estimate - document it in a user journey TIMESTAMP md doc - DO THIS BY BREAKING DOWN THIS TASK INTO COMPREHENSIVE SUBTASKS
-    - [x] 2.1 Create comprehensive user journey analysis document (user-journey-analysis-20250127.md)
+    - [x] 1.2 Extract and analyze original Basecamp Campfire assets from reference directory
+    - [x] 1.2.1 Implement LCH color system with semantic abstractions
+      - [x] Create colors.css with exact LCH color values from original
+      - [x] Implement semantic color abstractions (--color-bg, --color-message-bg, etc.)
+      - [x] Add automatic dark mode color transformations
+      - [x] Test color accuracy against original side-by-side
+      - _Requirements: 13.1, 13.4, 13.5_
+    - [x] 1.2.2 Replace Flexbox layout with CSS Grid system
+      - [ ] Implement body grid with nav/main/sidebar areas
+      - [ ] Add responsive sidebar width system with CSS custom properties
+      - [ ] Convert app-container from flex to grid layout
+      - [ ] Test layout behavior matches original responsive patterns
+      - _Requirements: 13.2, 13.3_
+    - [ ] 1.2.3 Implement modular CSS architecture
+      - [ ] Split monolithic campfire.css into 25+ modular files
+      - [ ] Create base.css with typography and font stack including Aptos
+      - [ ] Create layout.css with CSS Grid system
+      - [ ] Create messages.css with message grid structure
+      - [ ] Create sidebar.css with backdrop blur and positioning
+      - [ ] Create composer.css with typing indicators and responsive behavior
+      - [ ] Create buttons.css with sophisticated hover system
+      - [ ] Create animation.css with original keyframes and timing
+      - _Requirements: 17.1, 17.2, 17.3_
+    - [ ] 1.3 Message system architecture implementation
+      - [ ] 1.3.1 Implement CSS Grid message layout structure
+        - [ ] Replace flex-based message layout with CSS Grid
+        - [ ] Add grid-template-areas: "sep sep sep" / "avatar body body"
+        - [ ] Implement grid-auto-columns with proper spacing variables
+        - [ ] Add message column and row gap system
+        - _Requirements: 14.1_
+      - [ ] 1.3.2 Add day separator system
+        - [ ] Implement message__day-separator with grid positioning
+        - [ ] Add first-of-day detection logic
+        - [ ] Style day separators with original background and border system
+        - [ ] Test day separator insertion across multiple days
+        - _Requirements: 14.3_
+      - [ ] 1.3.3 Implement threaded message support
+        - [ ] Add message--threaded class with avatar hiding
+        - [ ] Implement subsequent message detection from same user
+        - [ ] Add proper margin adjustments for threaded messages
+        - [ ] Test threaded message visual behavior
+        - _Requirements: 14.2_
+      - [ ] 1.3.4 Add message state system
+        - [ ] Implement message--failed state with wiggle animation and dashed outline
+        - [ ] Add message--mentioned state with LCH-based background highlighting
+        - [ ] Implement message--emoji state with large display and transparent background
+        - [ ] Add message--formatted visibility system
+        - [ ] Test all message states render correctly
+        - _Requirements: 14.4, 14.5, 14.6_
+      - [ ] 1.3.5 Implement message actions and interactions
+        - [ ] Add message options button with original hover behavior
+        - [ ] Implement message actions menu with backdrop and arrow styling
+        - [ ] Add boost/reaction system placeholder (UI only, no backend)
+        - [ ] Implement message editing mode toggle
+        - [ ] Test message interaction behavior matches original
+        - _Requirements: 14.7_
+    - [ ] 1.4 Sidebar and navigation system implementation
+      - [ ] 1.4.1 Implement backdrop blur effects
+        - [ ] Add -webkit-backdrop-filter and backdrop-filter with 12px blur
+        - [ ] Implement proper fallbacks for unsupported browsers
+        - [ ] Apply blur to sidebar tools and direct messages sections
+        - [ ] Test blur effects across different browsers
+        - _Requirements: 15.1_
+      - [ ] 1.4.2 Add unread indicators and room states
+        - [ ] Implement unread room highlighting with original border system
+        - [ ] Add red notification dot to sidebar toggle when unread rooms exist
+        - [ ] Implement room state management (current, unread, normal)
+        - [ ] Test unread indicator positioning and visibility
+        - _Requirements: 15.2, 15.8_
+      - [ ] 1.4.3 Implement direct messages horizontal scroll section
+        - [ ] Add horizontal scrolling direct messages area
+        - [ ] Implement CSS mask for overflow fade effect
+        - [ ] Add proper touch scrolling behavior for mobile
+        - [ ] Test direct message navigation and overflow handling
+        - _Requirements: 15.3_
+      - [ ] 1.4.4 Add sidebar responsive behavior
+        - [ ] Implement sidebar transform animations for mobile
+        - [ ] Add fixed positioning for sidebar tools with backdrop blur
+        - [ ] Implement proper z-index layering system
+        - [ ] Test sidebar toggle behavior across screen sizes
+        - _Requirements: 15.4, 15.5, 15.7_
+      - [ ] 1.4.5 Implement room switching and active states
+        - [ ] Add active room highlighting with original styling
+        - [ ] Implement room switching animations and transitions
+        - [ ] Add proper focus management for keyboard navigation
+        - [ ] Test room navigation behavior matches original
+        - _Requirements: 15.6_
+    - [ ] 1.5 Composer and input system implementation
+      - [ ] 1.5.1 Implement sophisticated typing indicators
+        - [ ] Add typing indicator with CSS custom properties for position and opacity
+        - [ ] Implement typing start/stop detection with proper timing
+        - [ ] Add spinner animation for active typing state
+        - [ ] Test typing indicator positioning and behavior
+        - _Requirements: 16.1, 16.5_
+      - [ ] 1.5.2 Add responsive composer behavior
+        - [ ] Implement context button hiding on mobile when input focused
+        - [ ] Add proper viewport handling for mobile keyboards
+        - [ ] Implement responsive padding and spacing adjustments
+        - [ ] Test composer behavior across different screen sizes
+        - _Requirements: 16.2, 16.4, 16.7_
+      - [ ] 1.5.3 Add rich text editing foundation (desktop only)
+        - [ ] Implement Trix toolbar display logic for desktop
+        - [ ] Add rich text mode toggle with original styling
+        - [ ] Implement toolbar positioning and styling
+        - [ ] Test rich text mode activation and behavior
+        - _Requirements: 16.3_
+      - [ ] 1.5.4 Implement composer state management
+        - [ ] Add composer state transitions with original timing
+        - [ ] Implement button show/hide logic with proper easing
+        - [ ] Add composer input focus management
+        - [ ] Test composer state changes match original behavior
+        - _Requirements: 16.6_
+    - [ ] 1.6 Asset organization and completeness implementation
+      - [ ] 1.6.1 Reorganize image assets into subdirectories
+        - [ ] Create browsers/ directory with all browser icons (android.svg, chrome.svg, edge.svg, firefox.svg, opera.svg, safari.svg)
+        - [ ] Create external/ directory with integration icons (gear.svg, install.svg, share.svg, sliders.svg, switch.svg, web.svg)
+        - [ ] Create logos/ directory with app icons (app-icon-192.png, app-icon.png)
+        - [ ] Create screenshots/ directory for mobile documentation images
+        - [ ] Test all asset paths and references after reorganization
+        - _Requirements: 18.1, 18.2, 18.3, 18.4, 18.5_
+      - [ ] 1.6.2 Add sound visualization assets
+        - [ ] Create sounds/ image directory for animated GIFs and WebP files
+        - [ ] Add visual feedback assets for sound effects (56k.gif, nyan.gif, etc.)
+        - [ ] Implement sound visualization display logic
+        - [ ] Test sound effect visual feedback system
+        - _Requirements: 18.6_
+      - [ ] 1.6.3 Update asset references throughout codebase
+        - [ ] Update all image src paths to match new directory structure
+        - [ ] Update CSS background-image references
+        - [ ] Update JavaScript asset loading paths
+        - [ ] Test all asset loading works correctly after path updates
+        - _Requirements: 18.7_
+    - [ ] 1.7 Interactive behavior and accessibility implementation
+      - [ ] 1.7.1 Implement sophisticated hover system
+        - [ ] Add CSS custom properties for hover color, size, and filter effects
+        - [ ] Implement hover state transitions with original timing (150ms ease)
+        - [ ] Add brightness filtering and box-shadow effects on hover
+        - [ ] Test hover behavior across all interactive elements
+        - _Requirements: 19.1_
+      - [ ] 1.7.2 Add keyboard navigation and focus management
+        - [ ] Implement focus-visible outline system with proper offset calculations
+        - [ ] Add keyboard navigation support for all interactive elements
+        - [ ] Implement proper focus trap behavior for modals and menus
+        - [ ] Test keyboard navigation matches original behavior
+        - _Requirements: 19.2_
+      - [ ] 1.7.3 Implement animation and transition system
+        - [ ] Add original keyframe definitions (wiggle, pulsing-outline, border-fade-out)
+        - [ ] Implement transition timing and easing functions
+        - [ ] Add animation iteration counts and fill modes
+        - [ ] Test all animations match original timing and behavior
+        - _Requirements: 19.5_
+      - [ ] 1.7.4 Add accessibility and performance features
+        - [ ] Implement prefers-reduced-motion media query handling
+        - [ ] Add prefers-color-scheme dark mode system with LCH transformations
+        - [ ] Ensure 44px minimum touch targets for mobile accessibility
+        - [ ] Add proper ARIA labels, roles, and live regions
+        - [ ] Test accessibility features with screen readers and keyboard navigation
+        - _Requirements: 20.1, 20.2, 20.3, 20.4_
+    - [ ] 1.8 Performance optimization and cross-browser compatibility
+      - [ ] 1.8.1 Implement performance optimizations
+        - [ ] Add CSS layer management for proper reflow optimization
+        - [ ] Implement efficient scrollbar styling for cross-browser consistency
+        - [ ] Optimize CSS rendering with proper will-change properties
+        - [ ] Test performance matches original efficiency benchmarks
+        - _Requirements: 20.5_
+      - [ ] 1.8.2 Add responsive design system
+        - [ ] Implement sophisticated viewport unit usage (dvh, dvw)
+        - [ ] Add proper responsive breakpoint system matching original
+        - [ ] Implement mobile-first responsive design patterns
+        - [ ] Test responsive behavior across all device sizes
+        - _Requirements: 20.6_
+      - [ ] 1.8.3 Implement cross-browser scrollbar styling
+        - [ ] Add WebKit scrollbar styling for Chrome/Safari
+        - [ ] Implement Firefox scrollbar-color and scrollbar-width
+        - [ ] Add fallbacks for unsupported browsers
+        - [ ] Test scrollbar appearance consistency across browsers
+        - _Requirements: 20.7_
+    - [ ] Update the pre-post analysis in the comprehensive UI parity analysis document (ui-parity-analysis-20250127.md) so we know what changed
+    - [ ] Document the changes against the original basecamp implementation refCampfireCodebase
+  - [ ] Document differences in User Journeys comprehensively - from each feature difference, to UI experience difference - EVERYTHING via static analysis - where possible estimate - document it in a user journey TIMESTAMP md doc - DO THIS BY BREAKING DOWN THIS TASK INTO COMPREHENSIVE SUBTASKS
+    - [ ] 2.1 Create comprehensive user journey analysis document (user-journey-analysis-20250127.md)
     - [ ] 2.2 Core user journey mapping and comparison
       - [ ] 2.2.1 Map first-time user setup journey vs original Campfire
       - [ ] 2.2.2 Map user authentication flow vs original Campfire

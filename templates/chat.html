@@ -25,44 +25,48 @@
     <link rel="preload" href="/static/js/campfire.js" as="script">
     <link rel="preload" href="/static/images/messages.svg" as="image">
 </head>
-<body>
+<body class="sidebar">
     <!-- Skip navigation for accessibility -->
     <a href="#main-content" class="skip-navigation btn">Skip to main content</a>
     
-    <div class="app-container">
-        <!-- Demo mode floating indicator -->
-        <div id="demo-floating-indicator" class="demo-floating-indicator" style="display: none;">
-            <div class="demo-floating-content">
-                <span class="demo-floating-badge">🔥 DEMO</span>
-                <span class="demo-floating-text">Sample Data</span>
-            </div>
+    <!-- Demo mode floating indicator -->
+    <div id="demo-floating-indicator" class="demo-floating-indicator" style="display: none;">
+        <div class="demo-floating-content">
+            <span class="demo-floating-badge">🔥 DEMO</span>
+            <span class="demo-floating-text">Sample Data</span>
+        </div>
+    </div>
+    
+    <!-- Navigation area -->
+    <nav id="nav">
+        <!-- Navigation content can be added here if needed -->
+    </nav>
+    
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <div class="account-name">campfire-on-rust</div>
+            <div class="user-info">Loading...</div>
+            <div class="connection-status disconnected">Connecting...</div>
         </div>
         
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <div class="account-name">campfire-on-rust</div>
-                <div class="user-info">Loading...</div>
-                <div class="connection-status disconnected">Connecting...</div>
+        <nav class="rooms-list" role="navigation" aria-label="Chat rooms">
+            <!-- Rooms will be loaded dynamically -->
+            <div class="loading">
+                <div class="spinner"></div>
+                Loading rooms...
             </div>
-            
-            <nav class="rooms-list" role="navigation" aria-label="Chat rooms">
-                <!-- Rooms will be loaded dynamically -->
-                <div class="loading">
-                    <div class="spinner"></div>
-                    Loading rooms...
-                </div>
-            </nav>
-            
-            <div class="sidebar-footer p-4">
-                <a href="/api/auth/logout" class="btn btn-danger" style="width: 100%;">
-                    Logout
-                </a>
-            </div>
-        </aside>
+        </nav>
         
-        <!-- Main content -->
-        <main class="main-content" id="main-content">
+        <div class="sidebar-footer p-4">
+            <a href="/api/auth/logout" class="btn btn-danger" style="width: 100%;">
+                Logout
+            </a>
+        </div>
+    </aside>
+    
+    <!-- Main content -->
+    <main id="main-content" class="main-content">
             <!-- Header -->
             <header class="header">
                 <div class="room-info">
@@ -101,7 +105,6 @@
                 </form>
             </div>
         </main>
-    </div>
     
     <!-- Error notification area -->
     <div id="error-notifications" aria-live="assertive" aria-atomic="true" class="sr-only"></div>

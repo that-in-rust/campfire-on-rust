@@ -442,3 +442,398 @@ pub trait CICDTestingFramework {
 *"Every claim must be validated by automated tests using professional frameworks."*
 
 This design removes custom bash scripts and implements proper testing architecture following the L1→L2→L3 layered approach.
+
+## Visual Design System Architecture
+
+### LCH Color Space Implementation
+
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#ff6b35','primaryTextColor':'#ffffff','primaryBorderColor':'#ff6b35','lineColor':'#333333','secondaryColor':'#f4f4f4','tertiaryColor':'#ffffff','background':'#ffffff','mainBkg':'#ff6b35','secondBkg':'#e8f5e8','tertiaryBkg':'#ffffff'}}}%%
+graph TD
+    subgraph "LCH Color Foundation"
+        A1["--lch-black: 0% 0 0"]
+        A2["--lch-white: 100% 0 0"]
+        A3["--lch-gray: 96% 0.005 96"]
+        A4["--lch-blue: 54% 0.23 255"]
+        A5["--lch-red: 51% 0.2 31"]
+    end
+    
+    subgraph "Semantic Abstractions"
+        B1["--color-bg: oklch(var(--lch-white))"]
+        B2["--color-message-bg: oklch(var(--lch-gray))"]
+        B3["--color-text: oklch(var(--lch-black))"]
+        B4["--color-link: oklch(var(--lch-blue))"]
+        B5["--color-negative: oklch(var(--lch-red))"]
+    end
+    
+    subgraph "Dark Mode Transforms"
+        C1["Auto-invert LCH values"]
+        C2["Maintain perceptual uniformity"]
+        C3["Preserve semantic meaning"]
+    end
+    
+    A1 --> B1 --> C1
+    A2 --> B2 --> C2
+    A3 --> B3 --> C3
+    A4 --> B4
+    A5 --> B5
+    
+    classDef lch fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef semantic fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef transform fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    
+    class A1,A2,A3,A4,A5 lch
+    class B1,B2,B3,B4,B5 semantic
+    class C1,C2,C3 transform
+```
+
+### CSS Grid Message Layout
+
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#ff6b35','primaryTextColor':'#ffffff','primaryBorderColor':'#ff6b35','lineColor':'#333333','secondaryColor':'#f4f4f4','tertiaryColor':'#ffffff','background':'#ffffff','mainBkg':'#ff6b35','secondBkg':'#fbe9e7','tertiaryBkg':'#ffffff'}}}%%
+graph TD
+    subgraph "Message Grid Structure"
+        A1["grid-template-areas:<br/>'sep sep sep'<br/>'avatar body body'"]
+        A2["grid-auto-columns:<br/>var(--inline-space-double) 1fr min-content"]
+        A3["Day Separator System"]
+        A4["Threaded Message Logic"]
+    end
+    
+    subgraph "Message States"
+        B1["message--formatted (visible)"]
+        B2["message--failed (error state)"]
+        B3["message--mentioned (highlighted)"]
+        B4["message--threaded (no avatar)"]
+        B5["message--emoji (large display)"]
+    end
+    
+    subgraph "Interactive Elements"
+        C1["Hover Actions Menu"]
+        C2["Message Options Button"]
+        C3["Boost/Reaction System"]
+        C4["Edit Mode Toggle"]
+    end
+    
+    A1 --> B1
+    A2 --> B2
+    A3 --> B3
+    A4 --> B4
+    B1 --> C1
+    B2 --> C2
+    B3 --> C3
+    B4 --> C4
+    
+    classDef grid fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef state fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef interactive fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    
+    class A1,A2,A3,A4 grid
+    class B1,B2,B3,B4,B5 state
+    class C1,C2,C3,C4 interactive
+```
+
+## Modular CSS Architecture
+
+### File Organization Strategy
+```rust
+/// CSS Module Organization Contract
+/// 
+/// # Preconditions
+/// - Each CSS file has single responsibility
+/// - Custom properties follow semantic naming
+/// - Grid systems use original template areas
+/// 
+/// # Postconditions
+/// - Visual output matches original exactly
+/// - Maintainable modular architecture
+/// - Responsive behavior preserved
+/// 
+/// # Error Conditions
+/// - StyleError::MonolithicCSS if single large file detected
+/// - StyleError::MissingCustomProperties if semantic abstractions missing
+/// - StyleError::VisualMismatch if side-by-side comparison fails
+pub struct CSSArchitecture {
+    pub colors: ColorsModule,           // colors.css - LCH color system
+    pub base: BaseModule,               // base.css - typography & fundamentals
+    pub layout: LayoutModule,           // layout.css - CSS Grid system
+    pub messages: MessagesModule,       // messages.css - message grid & states
+    pub sidebar: SidebarModule,         // sidebar.css - navigation & rooms
+    pub composer: ComposerModule,       // composer.css - input & typing
+    pub buttons: ButtonsModule,         // buttons.css - interactive elements
+    pub animations: AnimationsModule,   // animation.css - transitions & keyframes
+}
+```
+
+### Implementation Phases
+
+#### Phase 1: Color System Foundation
+```css
+/* colors.css - Exact original implementation */
+:root {
+  /* Named LCH color values */
+  --lch-black: 0% 0 0;
+  --lch-white: 100% 0 0;
+  --lch-gray: 96% 0.005 96;
+  --lch-blue: 54% 0.23 255;
+  --lch-red: 51% 0.2 31;
+  --lch-green: 65.59% 0.234 142.49;
+
+  /* Semantic abstractions */
+  --color-bg: oklch(var(--lch-white));
+  --color-message-bg: oklch(var(--lch-gray));
+  --color-text: oklch(var(--lch-black));
+  --color-link: oklch(var(--lch-blue));
+  --color-negative: oklch(var(--lch-red));
+
+  /* Dark mode transforms */
+  @media (prefers-color-scheme: dark) {
+    --lch-black: 100% 0 0;
+    --lch-white: 0% 0 0;
+    --lch-gray: 25.2% 0 0;
+    --lch-blue: 72.25% 0.16 248;
+  }
+}
+```
+
+#### Phase 2: Layout Grid System
+```css
+/* layout.css - CSS Grid foundation */
+body {
+  --sidebar-width: 0vw;
+  display: grid;
+  grid-template-areas:
+    "nav sidebar"
+    "main sidebar";
+  grid-template-columns: 1fr var(--sidebar-width);
+  grid-template-rows: min-content 1fr;
+  max-block-size: 100dvh;
+}
+
+.sidebar & {
+  @media (min-width: 100ch) {
+    --sidebar-width: 26vw;
+  }
+}
+```
+
+#### Phase 3: Message System Grid
+```css
+/* messages.css - Message grid structure */
+.message {
+  --content-padding-block: 0.66rem;
+  --content-padding-inline: calc(var(--inline-space) * 1.5);
+  
+  display: grid;
+  grid-template-areas:
+    "sep sep sep"
+    "avatar body body";
+  grid-auto-columns: var(--inline-space-double) 1fr min-content;
+  column-gap: var(--message-column-gap);
+  row-gap: var(--message-row-gap);
+}
+
+.message--threaded {
+  .message__author,
+  .message__avatar {
+    display: none;
+  }
+}
+```
+
+## Asset Organization Architecture
+
+### Directory Structure Implementation
+```rust
+/// Asset Organization Contract
+/// 
+/// # Preconditions
+/// - Assets organized in original subdirectories
+/// - All original icons and images present
+/// - Sound visualization assets available
+/// 
+/// # Postconditions
+/// - Professional asset organization
+/// - Complete visual asset coverage
+/// - Proper path references throughout codebase
+pub struct AssetOrganization {
+    pub images: ImageAssets {
+        pub browsers: Vec<BrowserIcon>,     // android.svg, chrome.svg, etc.
+        pub external: Vec<ExternalIcon>,    // gear.svg, install.svg, etc.
+        pub logos: Vec<LogoAsset>,          // app-icon-192.png, app-icon.png
+        pub screenshots: Vec<Screenshot>,   // android-*.png for docs
+        pub sounds: Vec<SoundVisualization>, // animated GIFs/WebP
+    },
+    pub sounds: SoundAssets,                // 53 MP3 files (already complete)
+    pub stylesheets: CSSModules,            // 25+ modular CSS files
+}
+```
+
+## Interactive Behavior Architecture
+
+### Hover System Implementation
+```css
+/* base.css - Sophisticated hover system */
+:where(button, input, textarea, summary, .input, .btn) {
+  --hover-color: var(--color-border-darker);
+  --hover-size: 0.15em;
+  --hover-filter: brightness(1);
+  
+  transition: box-shadow 150ms ease, 
+              outline-offset 150ms ease, 
+              background-color 150ms ease, 
+              opacity 150ms ease, 
+              filter 150ms ease;
+
+  @media (any-hover: hover) {
+    &:where(:not(:active):hover) {
+      --hover-filter: brightness(1.3);
+      filter: var(--hover-filter);
+      box-shadow: 0 0 0 var(--hover-size) var(--hover-color);
+    }
+  }
+}
+```
+
+### Animation System
+```css
+/* animation.css - Original keyframes and timing */
+@keyframes wiggle {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+
+@keyframes pulsing-outline {
+  0%, 100% { outline-width: 0; }
+  50% { outline-width: 4px; }
+}
+
+@keyframes border-fade-out {
+  to { border-color: transparent; }
+}
+```
+
+## Accessibility and Performance Architecture
+
+### Responsive Design System
+```css
+/* Sophisticated viewport handling */
+body {
+  max-block-size: 100dvh; /* Modern viewport units */
+}
+
+@media (max-width: 100ch) {
+  .sidebar {
+    transform: translate(100%);
+    position: fixed;
+    inset: 0;
+  }
+}
+
+/* Touch-friendly targets */
+@media (max-width: 768px) {
+  button, .btn, .room-item {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+```
+
+### Accessibility Features
+```css
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Focus management */
+&:where(:not(:active)):focus-visible {
+  outline-width: var(--outline-size);
+  outline-color: var(--color-link);
+  outline-offset: calc(var(--outline-size) * 2);
+}
+```
+
+## Implementation Testing Strategy
+
+### Visual Parity Testing
+```rust
+#[cfg(test)]
+mod visual_parity_tests {
+    use super::*;
+    
+    #[tokio::test]
+    async fn test_color_system_accuracy() {
+        let color_system = ColorSystem::new();
+        let original_colors = load_original_color_values();
+        
+        for (name, original_value) in original_colors {
+            let our_value = color_system.get_color(&name).unwrap();
+            assert_eq!(our_value, original_value, 
+                "Color {} must match original exactly", name);
+        }
+    }
+    
+    #[tokio::test]
+    async fn test_layout_grid_structure() {
+        let layout = LayoutSystem::new();
+        let grid_areas = layout.get_grid_template_areas();
+        
+        assert_eq!(grid_areas.nav_sidebar, "nav sidebar");
+        assert_eq!(grid_areas.main_sidebar, "main sidebar");
+        assert!(layout.supports_responsive_sidebar_width());
+    }
+    
+    #[tokio::test]
+    async fn test_message_grid_behavior() {
+        let message_system = MessageSystem::new();
+        
+        // Test day separator insertion
+        let messages = create_test_messages_across_days();
+        let rendered = message_system.render_messages(messages).await.unwrap();
+        assert!(rendered.contains_day_separators());
+        
+        // Test threaded message behavior
+        let threaded = create_threaded_messages();
+        let rendered = message_system.render_messages(threaded).await.unwrap();
+        assert!(rendered.hides_subsequent_avatars());
+    }
+}
+```
+
+### Asset Completeness Testing
+```rust
+#[cfg(test)]
+mod asset_tests {
+    use super::*;
+    
+    #[tokio::test]
+    async fn test_asset_organization_completeness() {
+        let assets = AssetOrganization::new();
+        
+        // Verify all browser icons present
+        let browser_icons = ["android.svg", "chrome.svg", "edge.svg", 
+                           "firefox.svg", "opera.svg", "safari.svg"];
+        for icon in browser_icons {
+            assert!(assets.images.browsers.contains(icon), 
+                "Missing browser icon: {}", icon);
+        }
+        
+        // Verify logo assets
+        assert!(assets.images.logos.contains("app-icon-192.png"));
+        assert!(assets.images.logos.contains("app-icon.png"));
+        
+        // Verify sound visualization assets
+        for sound in &assets.sounds {
+            if let Some(visualization) = sound.get_visualization() {
+                assert!(visualization.gif_exists() || visualization.webp_exists());
+            }
+        }
+    }
+}
+```
+
+This comprehensive design ensures pixel-perfect parity with the original Basecamp Campfire while maintaining the professional architecture principles established in the TDD-first approach.

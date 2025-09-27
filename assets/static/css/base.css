@@ -1,0 +1,128 @@
+:root {
+  /* Typography - exact match to original Basecamp Campfire */
+  --font-family: -apple-system, BlinkMacSystemFont, Aptos, Roboto, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  
+  /* Hover system - sophisticated hover effects with CSS custom properties */
+  --hover-color: var(--color-border-darker);
+  --hover-size: 0.15em;
+  --hover-filter: brightness(1);
+  
+  /* Focus system */
+  --outline-size: min(0.2em, 2px);
+}
+
+html, body {
+  -webkit-text-size-adjust: none;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-family);
+  line-height: 1.4;
+  overflow: initial;
+  text-size-adjust: none;
+}
+
+/* Links - sophisticated hover system */
+:where(a:not([class]):not(:has(img))) {
+  color: var(--link-color, var(--color-link));
+
+  @media (any-hover: hover) {
+    &:where(:not(:active):hover) {
+      --hover-filter: brightness(1.3);
+      filter: var(--hover-filter);
+    }
+  }
+}
+
+/* Interactive elements - comprehensive hover, focus, and disabled states */
+:where(button, input, textarea, summary, .input, .btn) {
+  appearance: none;
+  border: none;
+  background-color: transparent;
+  font: inherit;
+  line-height: inherit;
+  text-decoration: none;
+  touch-action: manipulation;
+  transition: box-shadow 150ms ease, outline-offset 150ms ease, background-color 150ms ease, opacity 150ms ease, filter 150ms ease;
+
+  /* Sophisticated hover system with CSS custom properties */
+  @media (any-hover: hover) {
+    &:where(:not(:active):hover) {
+      filter: var(--hover-filter);
+      box-shadow: 0 0 0 var(--hover-size) var(--hover-color);
+    }
+  }
+
+  /* Keyboard navigation with proper focus management */
+  &:where(:not(:active)):focus-visible {
+    outline-width: var(--outline-size);
+    outline-color: var(--outline-color, var(--color-link));
+    outline-offset: var(--outline-offset, calc(var(--outline-size) * 2));
+  }
+
+  /* Pressing state */
+  &:focus:not(:focus-visible) {
+    --outline-offset: 0;
+  }
+
+  /* Disabled state with brightness filtering */
+  &:where([disabled]):not(:hover):not(:active) {
+    cursor: not-allowed;
+    filter: brightness(0.75);
+  }
+}
+
+/* Turbo framework support */
+turbo-frame,
+turbo-cable-stream-source {
+  display: contents;
+}
+
+/* Form elements */
+fieldset {
+  border: 2px solid var(--fieldset-border-color, var(--color-border));
+  border-block-end: 0;
+  border-inline: 0;
+  display: flex;
+  flex-direction: column;
+  max-inline-size: 50ch;
+  padding: var(--block-space) 0;
+
+  &.border {
+    border-color: var(--color-border-darker);
+    border-style: solid;
+    border-width: 1px;
+  }
+}
+
+legend {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  margin-inline: auto;
+  text-align: center;
+}
+
+/* Code elements */
+code {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-dark);
+  padding: 0.2em 0.4em;
+  border-radius: 0.3em;
+  font-weight: 500;
+}
+
+pre {
+  background-color: var(--color-bg);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monaco, monospace;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Cross-browser scrollbar styling for consistent appearance */
+@media screen and (-webkit-min-device-pixel-ratio:0) and (min-resolution:.001dpcm) {
+  * {
+    scrollbar-color: #C1C1C1 transparent;
+    scrollbar-width: thin;
+  }
+}
